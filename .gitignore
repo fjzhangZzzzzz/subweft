@@ -1,0 +1,31 @@
+# Runtime data and secrets
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.key
+*.pem
+/data/
+/state/
+/cache/
+/snapshots/
+/output/
+
+# Build and local tooling
+/dist/
+/bin/
+/web/node_modules/
+/web/dist/
+/coverage/
+*.exe
+*.test
+__pycache__/
+*.pyc
+.DS_Store
+.idea/
+.vscode/
