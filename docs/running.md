@@ -75,3 +75,5 @@ go run ./tools/bench -validator /absolute/path/to/mihomo -requests 200
 ## Linux 校验前置条件
 
 Linux 需安装发行版 bubblewrap、util-linux（prlimit），并允许该程序建立非特权用户/文件/网络命名空间。服务启动时验证隔离可用；不满足时拒绝校验器，不降级运行。Windows 仅用于可信合成数据的本地开发，不能据此验收 Linux 隔离。
+
+Ubuntu 24.04 的 AppArmor 可能允许建立 user namespace，但拒绝其中的 loopback 配置，表现为 validator_sandbox_namespace_denied。应先核对现有 bwrap profile，必要时采用发行版 apparmor-profiles 提供的 bwrap-userns-restrict；它允许 bwrap 建立隔离，并为其子程序移除 capabilities。不要关闭宿主全局 userns 限制或使用共享网络作为降级。CI 在临时 runner 上加载发行版 profile；生产主机须由部署方核对现有策略后单独配置。参考：[AppArmor 上游 profile](https://gitlab.com/apparmor/apparmor/-/blob/master/profiles/apparmor/profiles/extras/bwrap-userns-restrict)。

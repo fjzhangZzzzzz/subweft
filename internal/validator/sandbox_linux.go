@@ -51,7 +51,7 @@ func checkSandbox(binary, dir string) error {
 	if err != nil {
 		reason := strings.ToLower(string(output))
 		switch {
-		case strings.Contains(reason, "namespace"), strings.Contains(reason, "uid map"), strings.Contains(reason, "gid map"):
+		case strings.Contains(reason, "rtm_newaddr"), strings.Contains(reason, "namespace"), strings.Contains(reason, "uid map"), strings.Contains(reason, "gid map"):
 			return errors.New("validator_sandbox_namespace_denied")
 		case strings.Contains(reason, "no such file"), strings.Contains(reason, "not found"):
 			return errors.New("validator_sandbox_static_executable_required")

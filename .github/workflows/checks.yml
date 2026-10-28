@@ -50,7 +50,13 @@ jobs:
           npm run build --prefix web
       - name: Install Linux validation sandbox
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends bubblewrap util-linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap util-linux apparmor-profiles apparmor-utils
+          if [ ! -f /etc/apparmor.d/bwrap-userns-restrict ]; then
+            sudo install -m 0644 /usr/share/apparmor/extra-profiles/bwrap-userns-restrict /etc/apparmor.d/bwrap-userns-restrict
+          fi
+          sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
       - name: Fetch and verify native validator
         run: |
           python tools/fetch_validator.py
