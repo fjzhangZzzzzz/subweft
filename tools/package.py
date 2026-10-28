@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """Build application-only candidate archives from clean committed source."""
 from pathlib import Path
+import argparse
 import gzip
 import hashlib
 import io
 import json
 import os
+import platform
 import subprocess
 import tarfile
 
 ROOT=Path(__file__).resolve().parents[1]
 def git(*args):return subprocess.check_output(['git',*args],cwd=ROOT,text=True).strip()
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--platform',choices=['all','native'],default='all')
+    args=parser.parse_args()
     if git('status','--porcelain'):raise SystemExit('Commit the intended source before packaging')
     version=(ROOT/'internal/buildinfo/VERSION').read_text().strip()
     commit=git('rev-parse','HEAD');stamp=int(git('show','-s','--format=%ct','HEAD'))
@@ -25,7 +30,12 @@ def main():
     output=ROOT/'output/packages'/commit;output.mkdir(parents=True,exist_ok=True)
     common=['LICENSE','THIRD_PARTY.md','deploy/Dockerfile','deploy/compose.yml','deploy/seccomp.json','deploy/subweft.apparmor','deploy/runtime.env.example','deploy/nginx.conf.example','internal/validator/lock.json','tools/fetch_validator.py']
     sums=[]
-    for system,arch in [('linux','amd64'),('linux','arm64'),('windows','amd64')]:
+    platforms=[('linux','amd64'),('linux','arm64'),('windows','amd64')]
+    if args.platform=='native':
+        native=({'Linux':'linux','Windows':'windows'}.get(platform.system()),{'x86_64':'amd64','AMD64':'amd64','aarch64':'arm64'}.get(platform.machine()))
+        if native not in platforms:raise SystemExit('Unsupported native platform')
+        platforms=[native]
+    for system,arch in platforms:
         name=f'subweft-v{version}-{system}-{arch}'
         target=output/(name+'.tar.gz')
         if target.exists():raise SystemExit('Refusing to overwrite an existing candidate archive')
@@ -60,5 +70,5 @@ def main():
         with target.open('xb') as handle:handle.write(payload)
         binary.unlink();sums.append(hashlib.sha256(payload).hexdigest()+'  '+target.name)
     (output/'SHA256SUMS').write_text('\n'.join(sums)+'\n')
-    print(json.dumps({'version':version,'commit':commit,'platforms':['linux/amd64','linux/arm64','windows/amd64'],'directory':str(output),'contains_mihomo':False}))
+    print(json.dumps({'version':version,'commit':commit,'platforms':['/'.join(p) for p in platforms],'directory':str(output),'contains_mihomo':False}))
 if __name__=='__main__':main()

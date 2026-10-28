@@ -4,11 +4,11 @@
 
 [简体中文](README.md) · [Design](docs/design.md) · [Scope](docs/support-matrix.md) · [Acceptance criteria](docs/acceptance.md)
 
-> Runnable development preview: field subsets for six protocols and their form workflows are implemented. Full initial scope and production replacement are not accepted yet. No formal release artifacts are available.
+> **v0.1.0-rc.1 acceptance candidate**: complete structured forms, migration, publication and device workflows are available. Real Pocket ID, local Clash Verge and production cutover still require human acceptance. Start with the [acceptance walkthrough](docs/human-acceptance.md).
 
 Subweft is intended for personal and household use. It brings subscriptions, manual nodes, policy groups, rules, configuration publishing, and device links into a form-based web interface.
 
-## Planned behavior
+## Capabilities
 
 - Structured forms for routine and advanced settings; YAML is reserved for import, export, and read-only previews.
 - Shared sources and independent configuration profiles with their own groups, ordered rules, DNS, and client settings.
@@ -24,13 +24,15 @@ The service keeps upstream credentials server-side. Revoking a device prevents f
 
 ## Deployment and status
 
-The initial production targets are Linux amd64 and arm64. Windows is intended for development and local evaluation. Initial client acceptance is limited to a local Clash Verge installation. A local development launcher is available. Production images and real client workflows remain unverified.
+The initial production targets are Linux amd64 and arm64. Windows is intended for development and local evaluation. Initial client acceptance is limited to a local Clash Verge installation. Native Linux amd64 and arm64 containers have passed isolation, actual CLI backup/restore and large-ruleset performance checks. See the [container guide](docs/container.md) for Compose and basic Nginx proxy examples. Real client workflows remain human checks.
 
 Subweft does not run a traffic-serving proxy core. It invokes a pinned Mihomo executable for configuration validation. The deployer owns installation, TLS, host operations, and system recovery. The application database owns business state.
 
 This is a new public project with no imported legacy Git history, URL compatibility, or legacy authentication support. Existing deployments must import their data and enroll new device links before switching over.
 
-## Development
+Candidate archives contain the application, deployment examples, build identity, dependency licenses and checksums. Mihomo is fetched separately by pinned digest and is not bundled. Candidates are listed in [GitHub releases](https://github.com/fjzhangZzzzzz/subweft/releases).
+
+## Acceptance and development
 
 With Go 1.27, Node.js with npm, Python 3.10+, and Git installed:
 

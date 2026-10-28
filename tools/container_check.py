@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 """Native disposable Docker verification. No host state or real credentials are mounted."""
 from pathlib import Path
-import os, subprocess, json
+import os, subprocess, json, platform, tarfile, hashlib
 ROOT=Path(__file__).resolve().parents[1]
 def run(*args,**kw): return subprocess.run(args,cwd=ROOT,check=True,**kw)
 def main():
     out=ROOT/'output/container';out.mkdir(parents=True,exist_ok=True)
     env={**os.environ,'CGO_ENABLED':'0'}
-    run('go','build','-tags','webui','-o',str(out/'subweft'),'./cmd/subweft',env=env)
+    arch={'x86_64':'amd64','aarch64':'arm64'}[platform.machine()]
+    commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+    candidates=list((ROOT/'output/packages'/commit).glob('subweft-*-linux-'+arch+'.tar.gz'))
+    if len(candidates)!=1:raise SystemExit('One exact native candidate is required before container verification')
+    with tarfile.open(candidates[0]) as package:
+        prefix=candidates[0].name.removesuffix('.tar.gz')
+        binary=package.extractfile(prefix+'/subweft').read()
+        manifest=json.load(package.extractfile(prefix+'/BUILD.json'))
+        if hashlib.sha256(binary).hexdigest()!=manifest['files']['subweft']:raise SystemExit('Candidate digest mismatch')
+        (out/'subweft').write_bytes(binary);(out/'subweft').chmod(0o555)
     run('go','build','-o',str(out/'devfixture'),'./tools/devfixture',env=env)
     for package in ('validator','app','server'):
         run('go','test','-c','-o',str(out/(package+'.test')),'./internal/'+package,env=env)

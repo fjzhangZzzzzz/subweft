@@ -4,7 +4,7 @@
 
 [English](README.en.md) · [设计](docs/design.md) · [支持矩阵](docs/support-matrix.md) · [验收标准](docs/acceptance.md)
 
-> 当前为可本地运行的开发预览，已实现13 种协议的字段契约与版本化资源能力，尚未完成完整首版与生产替代验收。没有正式发布工件。
+> **v0.1.0-rc.1 人工验收候选**：完整表单、迁移、发布及设备流程已提供；真实 Pocket ID、Clash Verge 和生产切换尚待验收。先看[人工验收入口](docs/human-acceptance.md)。
 
 Subweft 面向个人和家庭，把订阅、手工节点、策略组、规则、配置发布及设备链接维护集中到 Web 表单。服务持有上游凭据，设备通过独立授权获取渲染后的 Mihomo 配置。
 
@@ -28,13 +28,13 @@ Subweft 面向个人和家庭，把订阅、手工节点、策略组、规则、
 
 ## 部署边界
 
-正式运行目标是 Linux amd64、arm64；Windows 用于开发和本地试用。首版客户端验收范围为本机 Clash Verge。现有本地启动工具；正式容器和真实客户端集成仍待验收。
+正式运行目标是 Linux amd64、arm64；Windows 用于开发和本地试用。首版客户端验收范围为本机 Clash Verge。Linux 双架构已通过原生容器、隔离、实际 CLI 恢复和大规则集性能检查；[安装说明](docs/container.md)提供 Compose 与 Nginx 示例。真实客户端集成由人工验收。
 
 应用自身不运行供设备使用的代理内核；配置校验独立调用固定版本 Mihomo。安装升级、证书、主机运维和整机备份恢复由部署方负责。实例业务状态归数据库，不由部署脚本重复投射覆盖。
 
 使用新的独立子域名和 URL，不兼容旧命令、下载链接、认证或 Git 推送渲染流程。迁移需要重新生成设备链接并进行客户端验收。
 
-## 开发
+## 验收与开发
 
 需要 Go 1.27、Node.js（含 npm）、Python 3.10+ 和 Git：
 
@@ -43,6 +43,8 @@ python tools/dev.py
 ```
 
 打开 `http://127.0.0.1:18880`，通过本地测试身份页登录。只使用虚构数据。工具构建程序并保留独立开发状态，不修改系统软件或生产配置。详情见[本地运行](docs/running.md)与[开发说明](docs/development.md)。
+
+候选包仅包含应用、部署示例、版本来源、依赖许可和校验和；Mihomo 按锁定摘要单独取得，不随包分发。候选源码和下载见 [GitHub](https://github.com/fjzhangZzzzzz/subweft/releases)。
 
 [文档导航](docs/README.md)列出实施依据和阶段门槛。公开开发、源码提交、构建、发布、部署和完成替代是不同状态。
 

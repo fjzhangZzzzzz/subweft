@@ -69,8 +69,27 @@ jobs:
       - name: Build application
         run: go build -tags webui -o output/subweft-ci ./cmd/subweft
 
+      - name: Package native acceptance candidate
+        run: python tools/package.py --platform native
+
       - name: Native container isolation and business recovery
         if: runner.os == 'Linux'
         run: |
           sudo apparmor_parser -r deploy/subweft.apparmor
           python3 tools/container_check.py
+
+      - name: Packaged Windows development workflow and recovery
+        if: runner.os == 'Windows'
+        run: python tools/windows_check.py
+
+      - name: Preserve verified native candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: candidate-${{ matrix.os }}
+          path: |
+            output/packages/*/*.tar.gz
+            output/packages/*/SHA256SUMS
+            output/container/results/benchmark.json
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
