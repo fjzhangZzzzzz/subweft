@@ -47,6 +47,7 @@ func New(issuer, redirect, subject string) (*Issuer, error) {
 }
 func (f *Issuer) Handler() http.Handler {
 	mux := http.NewServeMux()
+	benchRoutes(mux)
 	mux.HandleFunc("GET /.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
 		write(w, map[string]any{"issuer": f.URL, "authorization_endpoint": f.URL + "/authorize", "token_endpoint": f.URL + "/token", "jwks_uri": f.URL + "/jwks", "response_types_supported": []string{"code"}, "subject_types_supported": []string{"public"}, "id_token_signing_alg_values_supported": []string{"RS256"}, "code_challenge_methods_supported": []string{"S256"}})
 	})

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Application-only image: supply the independently verified Mihomo binary as read-only mount.
-FROM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3
+FROM debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3 AS runtime-base
 COPY output/container/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 RUN printf 'deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20261027T000000Z bookworm main\ndeb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20261027T000000Z bookworm-security main\n' > /etc/apt/sources.list \
  && rm -f /etc/apt/sources.list.d/debian.sources \
@@ -17,3 +17,11 @@ ENV SUBWEFT_LISTEN=0.0.0.0:8080 SUBWEFT_VALIDATION_DIR=/run/subweft/validation S
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/subweft"]
 CMD ["serve","--data-dir","/var/lib/subweft","--key-file","/run/secrets/master.key"]
+
+# Disposable CI target only; never used for the product image.
+FROM runtime-base AS acceptance
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*
+USER 10001:10001
+
+FROM runtime-base AS runtime
