@@ -16,7 +16,7 @@ def git(*args):return subprocess.check_output(['git',*args],cwd=ROOT,text=True).
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--platform',choices=['all','native'],default='all')
-    args=parser.parse_args()
+    options=parser.parse_args()
     if git('status','--porcelain'):raise SystemExit('Commit the intended source before packaging')
     version=(ROOT/'internal/buildinfo/VERSION').read_text().strip()
     commit=git('rev-parse','HEAD');stamp=int(git('show','-s','--format=%ct','HEAD'))
@@ -31,7 +31,7 @@ def main():
     common=['LICENSE','THIRD_PARTY.md','deploy/Dockerfile','deploy/compose.yml','deploy/seccomp.json','deploy/subweft.apparmor','deploy/runtime.env.example','deploy/nginx.conf.example','internal/validator/lock.json','tools/fetch_validator.py']
     sums=[]
     platforms=[('linux','amd64'),('linux','arm64'),('windows','amd64')]
-    if args.platform=='native':
+    if options.platform=='native':
         native=({'Linux':'linux','Windows':'windows'}.get(platform.system()),{'x86_64':'amd64','AMD64':'amd64','aarch64':'arm64'}.get(platform.machine()))
         if native not in platforms:raise SystemExit('Unsupported native platform')
         platforms=[native]
@@ -40,7 +40,9 @@ def main():
         target=output/(name+'.tar.gz')
         if target.exists():raise SystemExit('Refusing to overwrite an existing candidate archive')
         binary=output/('subweft.exe' if system=='windows' else 'subweft')
+        if git('rev-parse','HEAD')!=commit or git('status','--porcelain'):raise SystemExit('Source changed during packaging')
         subprocess.run(['go','build','-trimpath','-buildvcs=true','-tags','webui','-o',str(binary),'./cmd/subweft'],cwd=ROOT,env={**os.environ,'CGO_ENABLED':'0','GOOS':system,'GOARCH':arch},check=True)
+        if git('rev-parse','HEAD')!=commit or git('status','--porcelain'):raise SystemExit('Source changed during packaging')
         files={f:(ROOT/f).read_bytes() for f in common}
         # Preserve upstream license/notice files in the actual binary distribution.
         modules=json.loads('['+subprocess.check_output(['go','list','-m','-json','all'],cwd=ROOT,text=True).replace('}\n{','},\n{')+']')
