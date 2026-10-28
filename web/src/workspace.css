@@ -1,0 +1,596 @@
+/* Task-oriented workspace. Shared tokens retain system/light/dark themes. */
+:root {
+  --accent: #087f8c;
+  --accent-soft: #e1f3f3;
+  --border: #dce3e9;
+  --muted: #596777;
+}
+:root[data-theme="dark"] {
+  --accent: #70d5d4;
+  --accent-soft: #193a40;
+  --border: #36424c;
+  --muted: #abb8c6;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --accent: #70d5d4;
+    --accent-soft: #193a40;
+    --border: #36424c;
+    --muted: #abb8c6;
+  }
+}
+.sidebar {
+  width: 184px;
+  padding: 24px 12px 16px;
+}
+.workspace {
+  margin-left: 184px;
+  width: calc(100% - 184px);
+}
+.brand {
+  font-size: 23px;
+  padding: 0 9px;
+  gap: 9px;
+}
+.workspace-label {
+  margin: 28px 12px 12px;
+  letter-spacing: 0;
+}
+.nav-item {
+  min-height: 42px;
+  padding: 0 12px;
+  margin-bottom: 3px;
+  gap: 10px;
+}
+.topbar {
+  height: 56px;
+  padding: 0 28px;
+}
+.content {
+  padding: 24px 28px;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+.page-header {
+  margin-bottom: 20px;
+  gap: 16px;
+}
+.page-header h1 {
+  font-size: 24px;
+  margin-bottom: 5px;
+}
+.page-header .eyebrow {
+  display: none;
+}
+.page-header p {
+  margin-bottom: 0;
+  font-size: 13px;
+}
+.panel {
+  border-radius: 9px;
+}
+.padded {
+  padding: 20px;
+}
+.section-intro {
+  margin-bottom: 16px;
+}
+.section-intro p {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.section-intro h3 {
+  margin: 0;
+}
+.field {
+  margin-bottom: 14px;
+}
+.field > label {
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+.field > small {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.field input,
+.field select,
+.field textarea {
+  font-size: 14px;
+  min-height: 38px;
+}
+.form-grid {
+  gap: 12px 18px;
+}
+.form-grid .field {
+  margin-bottom: 8px;
+}
+.check-field {
+  font-size: 13px;
+  min-height: 32px;
+}
+.button {
+  min-height: 34px;
+  font-size: 13px;
+  padding: 6px 11px;
+}
+.actions {
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.tabs button {
+  min-height: 40px;
+  font-size: 13px;
+}
+.tabs {
+  overflow: auto;
+  max-width: 100%;
+}
+.editor-header {
+  padding: 18px 20px;
+  gap: 16px;
+}
+.editor-header p {
+  margin: 5px 0 0;
+  font-size: 12px;
+}
+.editor-name {
+  padding: 0 20px 14px;
+}
+.editor-name .field {
+  margin: 0;
+  max-width: 400px;
+}
+.editor-body {
+  padding: 20px;
+}
+.editor-tabs {
+  padding: 0 20px;
+}
+.profile-picker {
+  margin-bottom: 12px;
+  gap: 8px;
+}
+.profile-chip {
+  padding: 8px 12px;
+}
+.profile-picker:has(.profile-chip:only-child) {
+  display: none;
+}
+.profile-editor > .notice {
+  margin: 0 20px 14px;
+}
+.settings-form {
+  max-width: 840px;
+}
+.settings-nav {
+  order: -1;
+  margin-bottom: 18px;
+}
+.table-scroll {
+  overflow: auto;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.compact-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+.compact-table th {
+  background: var(--soft);
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.compact-table td,
+.compact-table th {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.compact-table tr:last-child td {
+  border-bottom: 0;
+}
+.compact-table td:nth-child(2) {
+  min-width: 180px;
+  max-width: 380px;
+  overflow-wrap: anywhere;
+}
+.compact-table td:last-child {
+  white-space: nowrap;
+}
+.compact-table .check-field {
+  font-size: 12px;
+}
+.compact-table td:nth-child(4) .check-field span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.cell-detail {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 3px;
+}
+.selection-bar {
+  margin-bottom: 12px;
+  min-height: 34px;
+}
+.pagination {
+  justify-content: center;
+  margin-top: 12px;
+}
+.fallback-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px;
+  margin-top: 18px;
+  background: var(--soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.fallback-row p {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+.fallback-row .field {
+  margin: 0;
+  min-width: 180px;
+}
+.empty-list {
+  padding: 24px;
+  text-align: center;
+  margin: 0;
+}
+.row-more {
+  position: relative;
+}
+.row-more summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.row-more[open] {
+  display: flex;
+  flex-wrap: wrap;
+}
+.row-more .button {
+  margin: 4px;
+}
+/* Dialog chrome stays visible; only the content scrolls. */
+dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+}
+dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.dialog-close {
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  background: var(--surface);
+}
+.dialog-content {
+  overflow: auto;
+  min-height: 0;
+  padding: 22px;
+  max-height: calc(100dvh - 42px);
+}
+.dialog-content form {
+  margin: 0;
+}
+.modal-title {
+  position: sticky;
+  top: -22px;
+  z-index: 3;
+  padding: 14px 42px 14px 0;
+  margin: -8px 0 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.modal-title .eyebrow {
+  display: none;
+}
+.modal-title h2 {
+  font-size: 18px;
+  letter-spacing: 0;
+  margin: 0;
+}
+.dialog-content .form-footer {
+  position: sticky;
+  bottom: -22px;
+  z-index: 3;
+  background: var(--surface);
+  padding: 14px 0;
+  margin: 16px 0 -8px;
+  border-top: 1px solid var(--border);
+}
+.modal-error {
+  flex-shrink: 0;
+  margin: 12px 52px 0 16px;
+}
+.editor-dialog .dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 12px;
+}
+.dialog-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.editor-dialog .dialog-body {
+  padding: 20px;
+  overflow: auto;
+  min-height: 0;
+}
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--surface);
+}
+.group-card {
+  padding: 0;
+  border: 0;
+  background: none;
+  margin: 0;
+}
+.source-selector {
+  padding: 12px 0;
+  border: 0;
+  margin: 0;
+}
+.checkbox-grid {
+  gap: 4px 14px;
+}
+.member-options {
+  max-height: 230px;
+  overflow: auto;
+  display: grid;
+  gap: 5px;
+}
+.member-summary {
+  padding: 10px 12px;
+  background: var(--soft);
+  border-radius: 6px;
+  font-size: 13px;
+  margin: 12px 0;
+}
+.tag-selector {
+  margin-top: 10px;
+}
+.schema-field {
+  padding: 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  min-width: 0;
+}
+.schema-field > .form-grid {
+  gap: 12px;
+}
+.schema-field .schema-field {
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+}
+.schema-field strong {
+  font-size: 13px;
+}
+.schema-row {
+  gap: 8px;
+}
+.advanced,
+details {
+  margin-top: 12px;
+}
+summary {
+  font-size: 13px;
+  cursor: pointer;
+  min-height: 30px;
+}
+details[open] > summary {
+  margin-bottom: 10px;
+}
+.settings-grid {
+  gap: 16px;
+}
+.resource-grid {
+  gap: 12px;
+}
+@media (max-width: 760px) {
+  .sidebar {
+    width: 64px;
+    padding: 18px 6px;
+  }
+  .sidebar .brand {
+    padding: 0;
+    justify-content: center;
+  }
+  .sidebar .brand > span:not(.brand-mark),
+  .workspace-label,
+  .nav-item span,
+  .nav-item small,
+  .identity > div:not(.avatar),
+  .version {
+    display: none;
+  }
+  .nav-item {
+    justify-content: center;
+    padding: 0;
+  }
+  .workspace {
+    margin-left: 64px;
+    width: calc(100% - 64px);
+  }
+  .topbar {
+    padding: 0 16px;
+  }
+  .content {
+    padding: 16px;
+  }
+  .editor-header,
+  .editor-name,
+  .editor-body {
+    padding: 16px;
+  }
+  .editor-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .editor-tabs {
+    padding: 0 12px;
+  }
+  .section-intro {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .fallback-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .fallback-row .field {
+    min-width: 140px;
+    flex: 1;
+  }
+  .dialog-content {
+    padding: 16px;
+  }
+  .modal-title {
+    top: -16px;
+  }
+  .dialog-content .form-footer {
+    bottom: -16px;
+  }
+  .editor-dialog .dialog-body {
+    padding: 16px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .dialog-header,
+  .dialog-footer {
+    padding: 12px 16px;
+  }
+  .settings-nav {
+    gap: 3px;
+  }
+  .settings-nav button {
+    padding: 8px;
+  }
+  .compact-table td,
+  .compact-table th {
+    padding: 9px 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+
+.compact-table td:last-child {
+  width: auto;
+  min-width: 220px;
+}
+.compact-table td:last-child .actions {
+  flex-wrap: nowrap;
+}
+.compact-table td:nth-child(1) {
+  width: 70px;
+}
+.compact-table td:nth-child(4) {
+  width: 60px;
+}
+.compact-table .row-more {
+  margin-top: 0;
+}
+.button.primary:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+.profile-more {
+  position: relative;
+  margin: 0;
+}
+.profile-more > summary {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  list-style: none;
+}
+.profile-more-menu {
+  position: absolute;
+  right: 0;
+  top: 42px;
+  width: 290px;
+  z-index: 5;
+  background: var(--surface);
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 30px #0002;
+  display: grid;
+  gap: 8px;
+}
+.profile-more-menu .field {
+  margin-bottom: 4px;
+}
+.editor-header h2 {
+  font-size: 18px;
+  display: inline;
+  margin-right: 12px;
+}
+.editor-header {
+  align-items: center;
+}
+.schema-field[data-complex="false"] > .schema-field-heading > strong {
+  display: none;
+}
+.settings-nav {
+  order: initial;
+}
+.profile-editor .publish-options {
+  display: none;
+}
+@media (max-width: 760px) {
+  .editor-header {
+    align-items: stretch;
+  }
+  .profile-more-menu {
+    right: 0;
+    width: min(290px, calc(100vw - 100px));
+  }
+}
+
+.table-panel {
+  overflow-x: auto;
+}
+body:has(dialog[open]) {
+  overflow: hidden;
+}

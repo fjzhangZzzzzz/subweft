@@ -9,9 +9,20 @@ import (
 
 func TestImportPreservesExplicitMembershipAndOrder(t *testing.T) {
 	p, e := migrate.Parse(migrate.Input{Name: "Imported", Content: testfixture.MigrationConfig})
-	if e != nil { t.Fatal(e) }
-	if len(p.Sources) != 2 || len(p.Nodes) != 1 || len(p.Resources) != 3 { t.Fatal("import lost inputs") }
-	for _, g := range p.Profile.Groups { if g.AllSources || len(g.Tags) != 0 { t.Fatal("unrequested membership") } }
+	if e != nil {
+		t.Fatal(e)
+	}
+	if len(p.Sources) != 2 || len(p.Nodes) != 1 || len(p.Resources) != 3 || p.Profile.GeoIPID == "" {
+		t.Fatal("import lost inputs")
+	}
+	for _, g := range p.Profile.Groups {
+		if g.AllSources || len(g.Tags) != 0 {
+			t.Fatal("import inferred unrequested membership")
+		}
+	}
+	if len(p.Profile.Groups[0].SourceIDs) != 2 || len(p.Profile.Groups[1].SourceIDs) != 1 {
+		t.Fatal("explicit membership changed")
+	}
 	policies := p.Profile.Settings.NameserverPolicy
 	if len(policies) != 2 || policies[0].Pattern != "+.example.invalid" || policies[1].Pattern != "*.invalid" {
 		t.Fatal("ordered DNS policy changed")

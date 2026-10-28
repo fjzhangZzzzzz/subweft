@@ -163,7 +163,7 @@ export const emptyGroup = (name = "Proxy"): Group => ({
   type: "select",
   sourceIds: [],
   tags: [],
-  allSources: true,
+  allSources: false,
   nodeIds: [],
   groups: [],
   builtins: [],
@@ -194,6 +194,6 @@ export const emptyProfile = (name: string): Profile => ({
     ipv6: false,
     dnsEnabled: false,
     dnsMode: "fake-ip",
-    nameservers: ["https://dns.google/dns-query"],
+    nameservers: [],
   },
 });

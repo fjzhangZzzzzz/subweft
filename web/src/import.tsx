@@ -38,7 +38,7 @@ export function ImportWizard({
   onDirtyChange: (v: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState(t("迁移配置", "Imported profile"));
+  const [name, setName] = useState(t("导入配置", "Imported profile"));
   const [content, setContent] = useState("");
   const [refresh, setRefresh] = useState(true);
   const [summary, setSummary] = useState<Summary>();
@@ -46,11 +46,7 @@ export function ImportWizard({
   const [created, setCreated] = useState("");
   const [fileError, setFileError] = useState("");
   useEffect(() => {
-    onDirtyChange(
-      open &&
-        !created &&
-        !!content,
-    );
+    onDirtyChange(open && !created && !!content);
     return () => onDirtyChange(false);
   }, [open, created, content, onDirtyChange]);
   const readFiles = async (
@@ -121,7 +117,7 @@ export function ImportWizard({
               <dl>
                 <dt>
                   {t(
-                    "订阅 / 手工节点 / 规则资源",
+                    "订阅 / 手工节点 / 规则集与地理数据",
                     "Sources / manual nodes / resources",
                   )}
                 </dt>
@@ -156,8 +152,9 @@ export function ImportWizard({
                       {g.allSources
                         ? t("全部启用来源", "All enabled sources")
                         : g.tags?.length
-                          ? "tags: " + g.tags.join(" / ")
-                          : (g.sourceIds?.length || 0) + " sources"}{" "}
+                          ? t("标签：", "Tags: ") + g.tags.join(" / ")
+                          : (g.sourceIds?.length || 0) +
+                            t(" 个订阅", " subscriptions")}{" "}
                       · {g.manualNodes} {t("手工节点", "manual nodes")}
                     </p>
                   </div>
@@ -170,7 +167,7 @@ export function ImportWizard({
               </ul>
               <CheckField
                 label={t(
-                  "创建草稿后抓取已启用的 HTTP 来源和规则资源；不自动发布",
+                  "创建草稿后抓取已启用的 HTTP 来源和规则集与地理数据；不自动发布",
                   "Refresh enabled HTTP sources and resources after creation; do not publish",
                 )}
                 checked={refresh}
@@ -242,16 +239,16 @@ export function ImportWizard({
                         if (failed)
                           setCreated(
                             t(
-                              "草稿已创建，部分抓取失败。请到来源和规则资源页检查，再预览和发布。",
+                              "草稿已创建，部分抓取失败。请到来源和规则集与地理数据页检查，再预览和发布。",
                               "Draft created; some refreshes failed. Check sources and resources before previewing and publishing.",
                             ),
                           );
                       },
-                      t("迁移草稿已创建", "Migration draft created"),
+                      t("导入草稿已创建", "Import draft created"),
                     )
                   }
                 >
-                  {t("确认创建迁移草稿", "Create reviewed migration drafts")}
+                  {t("确认创建导入草稿", "Create reviewed import draft")}
                 </Button>
               </div>
             </>

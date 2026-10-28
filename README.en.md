@@ -4,7 +4,7 @@
 
 [简体中文](README.md) · [Design](docs/design.md) · [Scope](docs/support-matrix.md) · [Acceptance criteria](docs/acceptance.md)
 
-> **v0.1.0-rc.1 acceptance candidate**: complete structured forms, migration, publication and device workflows are available. Real Pocket ID, local Clash Verge and production cutover still require human acceptance. Start with the [acceptance walkthrough](docs/human-acceptance.md).
+> **v0.1.0-rc.2 acceptance candidate**: task-oriented forms, standard configuration import, one-step apply and device workflows are available. Real Pocket ID, local Clash Verge and production cutover still require human acceptance. Start with the [acceptance walkthrough](docs/human-acceptance.md).
 
 Subweft is intended for personal and household use. It brings subscriptions, manual nodes, policy groups, rules, configuration publishing, and device links into a form-based web interface.
 

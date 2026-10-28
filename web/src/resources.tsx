@@ -1,3 +1,4 @@
+import { ruleTypes, ruleLabel } from "./rules";
 import { SecretControl } from "./schema-form";
 import { useState } from "react";
 import { Button, Field, CheckField } from "./ui";
@@ -55,7 +56,7 @@ export function ResourcesPanel({
           id: "",
           revision: 0,
           name: "",
-          kind: "http",
+          kind: "local",
           type: "ruleset",
           behavior: "domain",
           format: "yaml",
@@ -84,16 +85,20 @@ export function ResourcesPanel({
         onSave={(v) =>
           void onRun(
             async () => {
-              await request(
+              const saved = await request<Resource>(
                 edit.id ? "resources/" + edit.id : "resources",
                 edit.id ? "PUT" : "POST",
                 v,
               );
               setEdit(undefined);
               onDirtyChange(false);
+              if (saved.kind === "http" && saved.enabled)
+                await request("resources/" + saved.id + "/refresh", "POST", {
+                  revision: saved.revision,
+                });
             },
             t(
-              "资源已保存；发布后客户端生效",
+              "已保存；应用配置后客户端生效",
               "Resource saved; publish to apply",
             ),
           )
@@ -114,10 +119,10 @@ export function ResourcesPanel({
           </p>
         </div>
         <Button primary onClick={() => open()}>
-          {t("添加资源", "Add resource")}
+          {t("添加规则集或地理数据", "Add resource")}
         </Button>
       </div>
-      <Field label={t("搜索资源", "Search resources")}>
+      <Field label={t("搜索名称", "Search resources")}>
         <input value={query} onChange={(e) => setQuery(e.target.value)} />
       </Field>
       <div className="resource-grid">
@@ -127,11 +132,16 @@ export function ResourcesPanel({
             <article className="panel" key={v.id}>
               <h3>{v.name}</h3>
               <p>
-                {v.type} {v.behavior} · {v.count} {t("条目", "entries")}
+                {v.type === "ruleset"
+                  ? t("规则集", "Ruleset")
+                  : v.type.toUpperCase()}{" "}
+                · {v.count} {t("条目", "entries")}
               </p>
               <p className="muted">
-                {v.digest ? v.digest.slice(0, 16) : t("尚无缓存", "No cache")} ·{" "}
-                {v.enabled ? t("启用", "Enabled") : t("停用", "Disabled")}
+                {v.digest
+                  ? t("内容已就绪", "Ready")
+                  : t("尚未更新", "Not fetched")}{" "}
+                · {v.enabled ? t("启用", "Enabled") : t("停用", "Disabled")}
               </p>
               {v.lastError && (
                 <p role="status" className="alert error">
@@ -227,8 +237,8 @@ function ResourceForm({
     >
       <h2>
         {value.id
-          ? t("编辑资源", "Edit resource")
-          : t("添加资源", "Add resource")}
+          ? t("编辑规则集或地理数据", "Edit resource")
+          : t("添加规则集或地理数据", "Add resource")}
       </h2>
       <Field name="name" label={t("名称", "Name")}>
         <input
@@ -247,7 +257,17 @@ function ResourceForm({
             }}
           >
             {["ruleset", "mmdb", "geoip", "geosite", "asn"].map((k) => (
-              <option key={k}>{k}</option>
+              <option key={k} value={k}>
+                {(
+                  {
+                    ruleset: t("规则集", "Ruleset"),
+                    mmdb: "GeoIP (MMDB)",
+                    geoip: "GeoIP (DAT)",
+                    geosite: "GeoSite",
+                    asn: "ASN",
+                  } as Record<string, string>
+                )[k] || k}
+              </option>
             ))}
           </select>
         </Field>
@@ -256,10 +276,8 @@ function ResourceForm({
             value={draft.kind}
             onChange={(e) => set("kind", e.target.value)}
           >
-            <option value="http">HTTP(S)</option>
-            <option value="local">
-              {t("本地表单 / 文件", "Local forms / file")}
-            </option>
+            <option value="http">{t("订阅远程规则", "Remote URL")}</option>
+            <option value="local">{t("手动维护", "Edit locally")}</option>
           </select>
         </Field>
       </div>
@@ -289,11 +307,11 @@ function ResourceForm({
       {draft.kind === "http" ? (
         <>
           <Field
-            label={t("资源 URL（留空保留）", "Resource URL (blank retains)")}
+            label={t("下载地址（留空保留）", "Resource URL (blank retains)")}
           >
             <SecretControl
               t={t}
-              name={t("资源 URL", "Resource URL")}
+              name={t("下载地址", "Resource URL")}
               value={url}
               required={!draft.id}
               onChange={setURL}
@@ -317,8 +335,8 @@ function ResourceForm({
           <p className="muted">
             {draft.behavior === "classical"
               ? t(
-                  "每项填写规则类型与匹配内容，例如 DOMAIN-SUFFIX,example.com；目标由配置方案选择。",
-                  "Enter TYPE,value, e.g. DOMAIN-SUFFIX,example.com; profiles choose the target.",
+                  "选择匹配方式并填写内容；去向由使用此规则集的配置决定。",
+                  "Choose a match type and value. The profile selects the destination.",
                 )
               : t(
                   "逐项维护域名或 CIDR。支持批量添加。",
@@ -336,12 +354,50 @@ function ResourceForm({
           </Field>
           {filtered.slice(page * 50, page * 50 + 50).map(({ v, i }) => (
             <div className="schema-row" key={i}>
-              <Field label={String(i + 1)}>
+              {draft.behavior === "classical" && (
+                <Field label={t("匹配方式", "Match type")}>
+                  <select
+                    value={v.split(",")[0]}
+                    onChange={(e) =>
+                      setEntries(
+                        entries.map((x, j) =>
+                          i === j
+                            ? e.target.value + "," + v.slice(v.indexOf(",") + 1)
+                            : x,
+                        ),
+                      )
+                    }
+                  >
+                    {[...new Set([...ruleTypes, v.split(",")[0]])].map((k) => (
+                      <option key={k} value={k}>
+                        {ruleLabel(k, t)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+              <Field
+                label={
+                  draft.behavior === "classical"
+                    ? t("匹配内容", "Match value")
+                    : String(i + 1)
+                }
+              >
                 <input
-                  value={v}
+                  value={
+                    draft.behavior === "classical"
+                      ? v.slice(v.indexOf(",") + 1)
+                      : v
+                  }
                   onChange={(e) =>
                     setEntries(
-                      entries.map((v, j) => (i === j ? e.target.value : v)),
+                      entries.map((v, j) =>
+                        i === j
+                          ? draft.behavior === "classical"
+                            ? v.split(",")[0] + "," + e.target.value
+                            : e.target.value
+                          : v,
+                      ),
                     )
                   }
                 />
@@ -354,6 +410,16 @@ function ResourceForm({
               </Button>
             </div>
           ))}
+          <Button
+            onClick={() =>
+              setEntries([
+                ...entries,
+                draft.behavior === "classical" ? "DOMAIN-SUFFIX," : "",
+              ])
+            }
+          >
+            {t("添加条目", "Add entry")}
+          </Button>
           <div className="actions">
             <Button disabled={page === 0} onClick={() => setPage(page - 1)}>
               ←
@@ -421,14 +487,14 @@ function ResourceForm({
       )}
       {fileError && <p role="alert">{fileError}</p>}
       <CheckField
-        label={t("启用资源", "Enable resource")}
+        label={t("启用", "Enable resource")}
         checked={draft.enabled}
         onChange={(v) => set("enabled", v)}
       />
       <div className="form-footer">
         <Button onClick={onCancel}>{t("取消", "Cancel")}</Button>
         <Button primary type="submit" disabled={busy}>
-          {t("保存资源", "Save resource")}
+          {t("保存", "Save resource")}
         </Button>
       </div>
     </form>

@@ -1,8 +1,8 @@
 # 文档导航
 
-本仓库提供 v0.1.0-rc.1 完整首版人工验收候选；未替代生产。能力状态按[支持矩阵](support-matrix.md)记录，生产替代以[验收标准](acceptance.md)为准。
+本仓库提供 v0.1.0-rc.2 完整首版人工验收候选；未替代生产。能力状态按[支持矩阵](support-matrix.md)记录，生产替代以[验收标准](acceptance.md)为准。
 
-- [人工验收入口](human-acceptance.md)：完整表单路径、旧配置迁移、Pocket ID 与 Clash Verge。
+- [人工验收入口](human-acceptance.md)：完整表单路径、标准配置导入、Pocket ID 与 Clash Verge。
 - [Linux 容器](container.md)：双架构安装、Secret、Nginx、备份恢复与升级。
 - [本地运行](running.md)：构建、测试OIDC及独立开发状态。
 - [能力状态](status.md)：当前实现与真实验收边界。
@@ -21,3 +21,5 @@
 
 - [字段契约决策](adr/0004-pinned-form-contract.md)：固定版本字段与结构化表单。
 - [资源发布决策](adr/0005-versioned-resources.md)：版本关联、授权与一致性恢复。
+
+- [任务工作台决策](adr/0006-task-oriented-workspace.md)：日常表单、配置归属、一键应用与公开边界。

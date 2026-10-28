@@ -44,6 +44,24 @@ export function useCatalog() {
   return { catalog, error };
 }
 const labels: Record<string, [string, string]> = {
+  enable: ["启用", "Enabled"],
+  lazy: ["仅在使用时检查", "Check when used"],
+  healthCheck: ["健康检查", "Health check"],
+  url: ["地址", "URL"],
+  expectedStatus: ["期望状态码", "Expected status"],
+  "skip-cert-verify": ["跳过证书验证", "Skip certificate verification"],
+  "client-fingerprint": ["客户端指纹", "Client fingerprint"],
+  "udp-over-tcp": ["通过 TCP 传输 UDP", "UDP over TCP"],
+  "interface-name": ["网络接口", "Network interface"],
+  "routing-mark": ["路由标记", "Routing mark"],
+  "respect-rules": ["遵循分流规则", "Respect routing rules"],
+  "default-nameserver": ["默认解析器", "Default nameservers"],
+  "proxy-server-nameserver": ["代理服务器解析器", "Proxy server nameservers"],
+  "direct-nameserver": ["直连解析器", "Direct nameservers"],
+  "fake-ip-range": ["虚拟 IP 地址段", "Fake IP range"],
+  "fake-ip-filter": ["不使用虚拟 IP 的域名", "Fake IP exclusions"],
+  listen: ["监听地址", "Listen address"],
+  "enhanced-mode": ["DNS 模式", "DNS mode"],
   name: ["名称", "Name"],
   timeout: ["超时", "Timeout"],
   retries: ["重试次数", "Retries"],
@@ -197,12 +215,8 @@ export function ObjectForm({
             data-field={p}
           >
             <div className="schema-field-heading">
-              <strong>
-                {label}{" "}
-                <small>
-                  {labels[key] ? key : ""}
-                  {s.required ? " *" : ""}
-                </small>
+              <strong title={key}>
+                {label} <small>{s.required ? " *" : ""}</small>
               </strong>
               {!s.required && (
                 <Button
@@ -212,7 +226,7 @@ export function ObjectForm({
                     onChange(v);
                   }}
                 >
-                  {t("移除", "Remove")}
+                  {t("取消设置", "Unset")}
                 </Button>
               )}
             </div>
@@ -429,15 +443,20 @@ export function ValueForm({
       />
     );
   return (
-    <Field name={path} label={path}>
+    <Field
+      name={path}
+      label={
+        labels[path.split(".").at(-1)!]
+          ? t(...labels[path.split(".").at(-1)!])
+          : path.split(".").at(-1)!
+      }
+    >
       {s.kind === "boolean" ? (
-        <select
-          value={String(value)}
-          onChange={(e) => onChange(e.target.value === "true")}
-        >
-          <option value="true">true</option>
-          <option value="false">false</option>
-        </select>
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(e) => onChange(e.target.checked)}
+        />
       ) : s.enum ? (
         <select
           value={String(value)}

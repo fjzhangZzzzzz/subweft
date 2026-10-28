@@ -1,6 +1,89 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 export type T = (zh: string, en: string) => string;
+export function EditorDialog({
+  title,
+  children,
+  footer,
+  dirty,
+  onClose,
+  t,
+}: {
+  title: string;
+  children: ReactNode;
+  footer: ReactNode;
+  dirty: boolean;
+  onClose: () => void;
+  t: T;
+}) {
+  const ref = React.useRef<HTMLDialogElement>(null);
+  const titleId = React.useId();
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    ref.current?.showModal();
+    ref.current
+      ?.querySelector<HTMLInputElement>("input,select,textarea")
+      ?.focus();
+    return () => {
+      ref.current?.close();
+      previous?.focus();
+    };
+  }, []);
+  useEffect(() => {
+    const guard = (event: BeforeUnloadEvent) => {
+      if (dirty) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [dirty]);
+  const close = () => {
+    if (
+      !dirty ||
+      confirm(t("放弃未保存的表单修改？", "Discard unsaved form changes?"))
+    )
+      onClose();
+  };
+  return createPortal(
+    <dialog
+      className="editor-dialog"
+      ref={ref}
+      aria-labelledby={titleId}
+      onCancel={(e) => {
+        e.preventDefault();
+        close();
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          const r = e.currentTarget.getBoundingClientRect();
+          if (
+            e.clientX < r.left ||
+            e.clientX > r.right ||
+            e.clientY < r.top ||
+            e.clientY > r.bottom
+          )
+            close();
+        }
+      }}
+    >
+      <header className="dialog-header">
+        <h2 id={titleId}>{title}</h2>
+        <Button aria-label={t("关闭对话框", "Close dialog")} onClick={close}>
+          ×
+        </Button>
+      </header>
+      <div className="dialog-body">{children}</div>
+      <footer className="dialog-footer">
+        <Button onClick={close}>{t("取消", "Cancel")}</Button>
+        {footer}
+      </footer>
+    </dialog>,
+    document.body,
+  );
+}
 export const FormErrorContext = createContext({
   field: "",
   message: "",

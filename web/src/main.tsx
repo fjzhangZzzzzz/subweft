@@ -9,6 +9,7 @@ import {
   ModalTitle,
   FormErrorContext,
   ErrorFieldLink,
+  EditorDialog,
 } from "./ui";
 import type { T } from "./ui";
 import {
@@ -71,9 +72,11 @@ import type {
 } from "./types";
 import { emptyGroup, emptyProfile } from "./types";
 import "./style.css";
+import "./workspace.css";
 
 type Page =
   | "overview"
+  | "nodes"
   | "sources"
   | "profiles"
   | "devices"
@@ -130,7 +133,7 @@ function App() {
     localStorage.getItem("subweft.theme") || "system",
   );
   const [page, setPage] = useState<Page>(
-    (location.hash.slice(1) as Page) || "overview",
+    (location.hash.slice(1) as Page) || "sources",
   );
   const [state, setState] = useState<State | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,7 +164,8 @@ function App() {
     window.addEventListener("beforeunload", guard);
     return () => window.removeEventListener("beforeunload", guard);
   }, [unsaved, modalDirty]);
-  const [sourceTab, setSourceTab] = useState("subscriptions");
+  const [nodeSource, setNodeSource] = useState("");
+  const sourceTab = page === "nodes" ? "nodes" : "subscriptions";
   const [query, setQuery] = useState("");
   const [selectedProfile, setSelectedProfile] = useState("");
   const modalRef = useRef<HTMLDialogElement>(null);
@@ -263,11 +267,11 @@ function App() {
         "This protocol is not supported yet. See the field matrix.",
       ],
       unsupported_root_field: [
-        "请使用仅含 proxies 的 provider YAML，或支持的代理 URI 列表。",
-        "Use provider YAML with only proxies, or a supported proxy URI list.",
+        "请使用仅含 proxies 的节点 YAML，或支持的代理 URI 列表。",
+        "Use 节点 YAML with only proxies, or a supported proxy URI list.",
       ],
       empty_group: [
-        "策略组没有匹配成员，请选择来源或明确的内置出口。",
+        "策略组没有匹配成员，请选择订阅或明确的内置出口。",
         "The group is empty. Select sources or an explicit built-in outbound.",
       ],
       group_cycle: ["策略组存在循环引用。", "Policy groups contain a cycle."],
@@ -296,15 +300,15 @@ function App() {
         "Mihomo rejected the candidate. The current release is unchanged.",
       ],
       resource_in_use: [
-        "资源仍被方案引用，请先解除引用。",
+        "资源仍被配置引用，请先解除引用。",
         "This resource is referenced by a profile.",
       ],
       published_profile_cannot_delete: [
-        "已发布方案暂不支持删除。",
+        "已发布配置暂不支持删除。",
         "Published profiles cannot be deleted in this slice.",
       ],
       profile_not_published: [
-        "先发布方案，再绑定设备。",
+        "先发布配置，再绑定设备。",
         "Publish the profile before binding a device.",
       ],
       csrf_rejected: [
@@ -315,7 +319,16 @@ function App() {
     const text =
       messages[e.message]?.[lang === "zh" ? 0 : 1] ||
       `${t("操作未完成", "Operation rejected")}: ${e.message}`;
-    return e.field ? `${text} (${e.field})` : text;
+    const location = e.field
+      .replace(
+        /^groups\.(\d+)/,
+        (_, n) => t("策略组 ", "Group ") + (Number(n) + 1),
+      )
+      .replace(
+        /^rules\.(\d+)/,
+        (_, n) => t("规则 ", "Rule ") + (Number(n) + 1),
+      );
+    return location ? `${text} (${location})` : text;
   };
   const reload = async () => {
     const value = await api<State>("state");
@@ -349,11 +362,12 @@ function App() {
   }, [theme]);
   useEffect(() => {
     const onHash = () => {
-      let next = (location.hash.slice(1) || "overview") as Page;
+      let next = (location.hash.slice(1) || "sources") as Page;
       if (
         ![
           "overview",
           "sources",
+          "nodes",
           "profiles",
           "resources",
           "devices",
@@ -361,7 +375,7 @@ function App() {
           "system",
         ].includes(next)
       )
-        next = "overview";
+        next = "sources";
       if (state?.role === "user") next = "devices";
       if (next === page) return;
       if (
@@ -460,13 +474,20 @@ function App() {
           t={t}
           onSave={(inValue) =>
             run(
-              () =>
-                api(
+              async () => {
+                const saved = await api<Source>(
                   value ? `sources/${value.id}` : "sources",
                   value ? "PUT" : "POST",
                   inValue,
-                ),
-              t("来源已保存", "Source saved"),
+                );
+                setModal(null);
+                setModalDirty(false);
+                if (saved.kind === "http" && saved.enabled)
+                  await api(`sources/${saved.id}/refresh`, "POST", {
+                    revision: saved.revision,
+                  });
+              },
+              t("订阅已保存", "Source saved"),
               true,
             )
           }
@@ -511,21 +532,17 @@ function App() {
   };
   const showProfile = () =>
     setModal(
-      <NameForm
-        title={t("新建配置方案", "New configuration profile")}
+      <NewProfileForm
+        state={state!}
         t={t}
-        onSave={(name) =>
+        onSave={(value) =>
           run(
             async () => {
-              const profile = await api<Profile>(
-                "profiles",
-                "POST",
-                emptyProfile(name),
-              );
+              const profile = await api<Profile>("profiles", "POST", value);
               setSelectedProfile(profile.id);
               navigate("profiles");
             },
-            t("方案草稿已创建", "Profile draft created"),
+            t("配置草稿已创建", "Profile draft created"),
             true,
           )
         }
@@ -540,14 +557,17 @@ function App() {
         t={t}
         onSave={(inValue) =>
           run(
-            () =>
-              api(
+            async () => {
+              const saved = await api<Device>(
                 value ? `devices/${value.id}` : "devices",
                 value ? "PUT" : "POST",
                 inValue,
-              ),
+              );
+              setModalDirty(false);
+              if (value) setModal(null);
+              else await showLink(saved);
+            },
             t("设备已保存", "Device saved"),
-            true,
           )
         }
       />,
@@ -626,7 +646,7 @@ function App() {
           <ModalTitle title={t("设备订阅链接", "Device subscription link")} />
           <p className="muted">
             {t(
-              "此链接包含设备凭据，请仅提供给这台设备。普通发布和切换方案不会改变链接。",
+              "此链接包含设备凭据，请仅提供给这台设备。普通发布和切换配置不会改变链接。",
               "This link contains a device credential. Publishing and profile switching preserve it.",
             )}
           </p>
@@ -677,13 +697,11 @@ function App() {
           minute: "2-digit",
         });
   const nav: Array<[Page, ReactNode, string]> = [
-    ["overview", <Activity size={18} />, t("概览", "Overview")],
-    ["sources", <Network size={18} />, t("来源", "Sources")],
-    ["resources", <Globe2 size={18} />, t("规则资源", "Resources")],
-    ["profiles", <Layers3 size={18} />, t("配置方案", "Profiles")],
+    ["sources", <Network size={18} />, t("订阅", "Subscriptions")],
+    ["nodes", <Server size={18} />, t("节点", "Nodes")],
+    ["profiles", <Layers3 size={18} />, t("配置", "Profiles")],
     ["devices", <Monitor size={18} />, t("设备", "Devices")],
-    ["users", <ShieldCheck size={18} />, t("使用者", "Users")],
-    ["system", <Settings2 size={18} />, t("系统", "System")],
+    ["system", <Settings2 size={18} />, t("设置", "Settings")],
   ];
   const activeProfile =
     state?.profiles.find((p) => p.id === selectedProfile) || state?.profiles[0];
@@ -750,7 +768,13 @@ function App() {
               <a
                 href={`#${key}`}
                 key={key}
-                className={page === key ? "nav-item active" : "nav-item"}
+                className={
+                  page === key ||
+                  (key === "system" &&
+                    ["users", "resources", "overview"].includes(page))
+                    ? "nav-item active"
+                    : "nav-item"
+                }
                 onClick={(e) => {
                   e.preventDefault();
                   navigate(key);
@@ -846,6 +870,27 @@ function App() {
               </button>
             </div>
           )}
+          {state.role === "admin" &&
+            ["system", "users", "resources", "overview"].includes(page) && (
+              <div className="tabs settings-nav">
+                {(
+                  [
+                    ["system", t("通用", "General")],
+                    ["resources", t("规则集与地理数据", "Rulesets & geodata")],
+                    ["users", t("使用者", "Users")],
+                    ["overview", t("运行概览", "Overview")],
+                  ] as [Page, string][]
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    className={key === page ? "selected" : ""}
+                    onClick={() => navigate(key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           {page === "overview" && state.role === "admin" && (
             <>
               <PageHeader
@@ -855,20 +900,20 @@ function App() {
                   "Your policies, in good order.",
                 )}
                 description={t(
-                  "从来源到设备，每次修改都有清晰的去向。",
+                  "从订阅到设备，每次修改都有清晰的去向。",
                   "From your sources to your devices, every change has a clear path.",
                 )}
                 action={
                   <Button primary onClick={() => showSource()}>
                     <Plus size={16} />
-                    {t("添加来源", "Add source")}
+                    {t("添加订阅", "Add source")}
                   </Button>
                 }
               />
               <div className="stats">
                 {[
                   [
-                    t("订阅来源", "Sources"),
+                    t("订阅", "Sources"),
                     state.sources.length,
                     <Network size={19} />,
                   ],
@@ -879,7 +924,7 @@ function App() {
                     <Server size={19} />,
                   ],
                   [
-                    t("已发布方案", "Published profiles"),
+                    t("已发布配置", "Published profiles"),
                     Object.keys(state.active).length,
                     <FileCheck2 size={19} />,
                   ],
@@ -917,7 +962,7 @@ function App() {
                     [
                       t("添加订阅或手工节点", "Add sources or manual nodes"),
                       t(
-                        "来源凭据由服务保管，节点按需复用。",
+                        "订阅凭据由服务保管，节点按需复用。",
                         "Keep credentials on the server and reuse sources.",
                       ),
                       "sources",
@@ -926,7 +971,7 @@ function App() {
                     [
                       t("编排策略组与规则", "Arrange groups and rules"),
                       t(
-                        "选择来源、设置策略，明确流量去向。",
+                        "选择订阅、设置策略，明确流量去向。",
                         "Choose members, policies, and routing destinations.",
                       ),
                       "profiles",
@@ -1022,70 +1067,225 @@ function App() {
               onDirtyChange={setUnsaved}
             />
           )}
-          {page === "sources" && state.role === "admin" && (
-            <>
-              <PageHeader
-                eyebrow="SOURCES"
-                title={t("来源", "Sources")}
-                description={t(
-                  "集中维护上游与手工节点，让方案专注于如何使用。",
-                  "Maintain subscriptions and manual nodes independently of profiles.",
-                )}
-                action={
-                  <Button
-                    primary
-                    onClick={() =>
-                      sourceTab === "subscriptions" ? showSource() : showNode()
-                    }
-                  >
-                    <Plus size={16} />
-                    {sourceTab === "subscriptions"
-                      ? t("添加订阅", "Add subscription")
-                      : t("添加节点", "Add node")}
-                  </Button>
-                }
-              />
-              <div className="toolbar">
-                <div className="tabs">
-                  <button
-                    className={sourceTab === "subscriptions" ? "selected" : ""}
-                    onClick={() => setSourceTab("subscriptions")}
-                  >
-                    {t("订阅来源", "Subscriptions")}{" "}
-                    <span>{state.sources.length}</span>
-                  </button>
-                  <button
-                    className={sourceTab === "nodes" ? "selected" : ""}
-                    onClick={() => setSourceTab("nodes")}
-                  >
-                    {t("手工节点", "Manual nodes")}{" "}
-                    <span>{state.nodes.length}</span>
-                  </button>
+          {(page === "sources" || page === "nodes") &&
+            state.role === "admin" && (
+              <>
+                <PageHeader
+                  eyebrow="SOURCES"
+                  title={
+                    page === "nodes"
+                      ? t("节点", "Nodes")
+                      : t("订阅", "Subscriptions")
+                  }
+                  description={t(
+                    "集中维护上游与手工节点，让配置专注于如何使用。",
+                    "Maintain subscriptions and manual nodes independently of profiles.",
+                  )}
+                  action={
+                    <Button
+                      primary
+                      onClick={() =>
+                        sourceTab === "subscriptions"
+                          ? showSource()
+                          : showNode()
+                      }
+                    >
+                      <Plus size={16} />
+                      {sourceTab === "subscriptions"
+                        ? t("添加订阅", "Add subscription")
+                        : t("添加节点", "Add node")}
+                    </Button>
+                  }
+                />
+                <div className="toolbar">
+                  {page === "nodes" && (
+                    <Field label={t("节点来源", "Node source")}>
+                      <select
+                        value={nodeSource}
+                        onChange={(e) => setNodeSource(e.target.value)}
+                      >
+                        <option value="">
+                          {t("手工节点", "Manual nodes")}
+                        </option>
+                        {state.sources.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} · {s.nodeCount}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  )}
+                  <div className="search">
+                    <Search size={15} />
+                    <input
+                      aria-label={t("搜索订阅", "Search sources")}
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={t("搜索名称…", "Search names…")}
+                    />
+                  </div>
                 </div>
-                <div className="search">
-                  <Search size={15} />
-                  <input
-                    aria-label={t("搜索来源", "Search sources")}
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={t("搜索名称…", "Search names…")}
-                  />
-                </div>
-              </div>
-              <section className="panel table-panel">
-                {sourceTab === "subscriptions" ? (
-                  state.sources.length === 0 ? (
+                <section className="panel table-panel">
+                  {page === "nodes" && nodeSource ? (
+                    <SubscriptionNodes
+                      key={nodeSource}
+                      source={state.sources.find((s) => s.id === nodeSource)!}
+                      t={t}
+                      onChanged={() => void reload()}
+                      onCopy={(name) =>
+                        setModal(
+                          <NameForm
+                            title={t("复制为手工节点", "Copy to manual node")}
+                            initial={name + t(" 副本", " copy")}
+                            t={t}
+                            onSave={(newName) =>
+                              run(
+                                () =>
+                                  api(
+                                    `sources/${nodeSource}/copy-node`,
+                                    "POST",
+                                    { name, newName },
+                                  ),
+                                t("手工节点已创建", "Manual node created"),
+                                true,
+                              )
+                            }
+                          />,
+                        )
+                      }
+                    />
+                  ) : sourceTab === "subscriptions" ? (
+                    state.sources.length === 0 ? (
+                      <Empty
+                        icon={<Network />}
+                        title={t("从第一个订阅开始", "Start with a source")}
+                        text={t(
+                          "添加订阅地址，或导入节点 YAML、代理 URI / Base64 列表。",
+                          "Add a subscription URL or import node YAML, proxy URI / Base64 lists.",
+                        )}
+                        action={
+                          <Button onClick={() => showSource()}>
+                            <Plus size={15} />
+                            {t("添加订阅", "Add subscription")}
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>{t("名称与标签", "Name & tags")}</th>
+                            <th>{t("节点", "Nodes")}</th>
+                            <th>{t("订阅状态", "Source status")}</th>
+                            <th>{t("最近成功", "Last success")}</th>
+                            <th>{t("操作", "Actions")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {state.sources
+                            .filter((v) => filter(v.name))
+                            .map((v) => (
+                              <tr key={v.id}>
+                                <td>
+                                  <div className="table-name">
+                                    <span className="item-icon">
+                                      <Network size={17} />
+                                    </span>
+                                    <div>
+                                      <strong>{v.name}</strong>
+                                      <small>
+                                        {v.kind === "http"
+                                          ? "HTTP"
+                                          : t("本地导入", "Local import")}
+                                        {(v.tags || []).map((tag) => (
+                                          <span className="tag" key={tag}>
+                                            {tag}
+                                          </span>
+                                        ))}
+                                      </small>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td>
+                                  <button
+                                    className="link-button"
+                                    onClick={() => void showNodes(v)}
+                                  >
+                                    {v.nodeCount} {t("个节点", "nodes")}
+                                  </button>
+                                </td>
+                                <td>
+                                  <span
+                                    className={`pill ${!v.enabled ? "subtle" : v.lastError ? "warning" : v.nodeCount ? "success" : "subtle"}`}
+                                  >
+                                    {!v.enabled
+                                      ? t("已停用", "Disabled")
+                                      : v.lastError
+                                        ? t(
+                                            "使用旧缓存 / 待更新",
+                                            "Cached / refresh needed",
+                                          )
+                                        : v.nodeCount
+                                          ? t("已有有效快照", "Valid snapshot")
+                                          : t("等待更新", "Awaiting refresh")}
+                                  </span>
+                                </td>
+                                <td className="muted">{time(v.lastSuccess)}</td>
+                                <td>
+                                  <div className="row-actions">
+                                    {v.kind === "http" && (
+                                      <Button
+                                        disabled={busy || !v.enabled}
+                                        onClick={() =>
+                                          void run(
+                                            () =>
+                                              api(
+                                                `sources/${v.id}/refresh`,
+                                                "POST",
+                                                { revision: v.revision },
+                                              ),
+                                            t(
+                                              "订阅已更新；重新发布配置后设备刷新可获取新配置",
+                                              "Source refreshed. Publish the profile, then refresh the client.",
+                                            ),
+                                          )
+                                        }
+                                      >
+                                        <RefreshCw size={14} />
+                                        {t("更新", "Refresh")}
+                                      </Button>
+                                    )}
+                                    <IconButton
+                                      label={t("编辑订阅", "Edit source")}
+                                      onClick={() => showSource(v)}
+                                    >
+                                      <Pencil size={15} />
+                                    </IconButton>
+                                    <IconButton
+                                      label={t("删除订阅", "Delete source")}
+                                      onClick={() => remove("sources", v)}
+                                    >
+                                      <Trash2 size={15} />
+                                    </IconButton>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    )
+                  ) : state.nodes.length === 0 ? (
                     <Empty
-                      icon={<Network />}
-                      title={t("从第一个来源开始", "Start with a source")}
+                      icon={<Server />}
+                      title={t("独立维护的手工节点", "Your manual nodes")}
                       text={t(
-                        "添加订阅地址，或导入 provider YAML、代理 URI / Base64 列表。",
-                        "Add a subscription URL or import provider YAML, proxy URI / Base64 lists.",
+                        "按协议表单创建节点，或从订阅节点复制。",
+                        "Create nodes with protocol forms, or copy from a subscription.",
                       )}
                       action={
-                        <Button onClick={() => showSource()}>
+                        <Button onClick={() => showNode()}>
                           <Plus size={15} />
-                          {t("添加订阅", "Add subscription")}
+                          {t("添加节点", "Add node")}
                         </Button>
                       }
                     />
@@ -1093,96 +1293,42 @@ function App() {
                     <table>
                       <thead>
                         <tr>
-                          <th>{t("名称与标签", "Name & tags")}</th>
-                          <th>{t("节点", "Nodes")}</th>
-                          <th>{t("来源状态", "Source status")}</th>
-                          <th>{t("最近成功", "Last success")}</th>
+                          <th>{t("节点", "Node")}</th>
+                          <th>{t("协议", "Protocol")}</th>
+                          <th>{t("状态", "Status")}</th>
                           <th>{t("操作", "Actions")}</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {state.sources
-                          .filter((v) => filter(v.name))
+                        {state.nodes
+                          .filter((v) => filter(v.node.name))
                           .map((v) => (
                             <tr key={v.id}>
                               <td>
-                                <div className="table-name">
-                                  <span className="item-icon">
-                                    <Network size={17} />
-                                  </span>
-                                  <div>
-                                    <strong>{v.name}</strong>
-                                    <small>
-                                      {v.kind === "http"
-                                        ? "HTTP"
-                                        : t("本地导入", "Local import")}
-                                      {(v.tags || []).map((tag) => (
-                                        <span className="tag" key={tag}>
-                                          {tag}
-                                        </span>
-                                      ))}
-                                    </small>
-                                  </div>
-                                </div>
+                                <strong>{v.node.name}</strong>
+                                <small>
+                                  {v.node.server}:{v.node.port}
+                                </small>
                               </td>
                               <td>
-                                <button
-                                  className="link-button"
-                                  onClick={() => void showNodes(v)}
-                                >
-                                  {v.nodeCount} {t("个节点", "nodes")}
-                                </button>
-                              </td>
-                              <td>
-                                <span
-                                  className={`pill ${!v.enabled ? "subtle" : v.lastError ? "warning" : v.nodeCount ? "success" : "subtle"}`}
-                                >
-                                  {!v.enabled
-                                    ? t("已停用", "Disabled")
-                                    : v.lastError
-                                      ? t(
-                                          "使用旧缓存 / 待更新",
-                                          "Cached / refresh needed",
-                                        )
-                                      : v.nodeCount
-                                        ? t("已有有效快照", "Valid snapshot")
-                                        : t("等待更新", "Awaiting refresh")}
+                                <span className="pill">
+                                  {v.node.type.toUpperCase()}
                                 </span>
                               </td>
-                              <td className="muted">{time(v.lastSuccess)}</td>
+                              <td>
+                                {v.enabled
+                                  ? t("启用", "Enabled")
+                                  : t("停用", "Disabled")}
+                              </td>
                               <td>
                                 <div className="row-actions">
-                                  {v.kind === "http" && (
-                                    <Button
-                                      disabled={busy || !v.enabled}
-                                      onClick={() =>
-                                        void run(
-                                          () =>
-                                            api(
-                                              `sources/${v.id}/refresh`,
-                                              "POST",
-                                              { revision: v.revision },
-                                            ),
-                                          t(
-                                            "来源已更新；重新发布方案后设备刷新可获取新配置",
-                                            "Source refreshed. Publish the profile, then refresh the client.",
-                                          ),
-                                        )
-                                      }
-                                    >
-                                      <RefreshCw size={14} />
-                                      {t("更新", "Refresh")}
-                                    </Button>
-                                  )}
+                                  <Button onClick={() => showNode(v)}>
+                                    <Pencil size={14} />
+                                    {t("编辑", "Edit")}
+                                  </Button>
                                   <IconButton
-                                    label={t("编辑来源", "Edit source")}
-                                    onClick={() => showSource(v)}
-                                  >
-                                    <Pencil size={15} />
-                                  </IconButton>
-                                  <IconButton
-                                    label={t("删除来源", "Delete source")}
-                                    onClick={() => remove("sources", v)}
+                                    label={t("删除节点", "Delete node")}
+                                    onClick={() => remove("nodes", v)}
                                   >
                                     <Trash2 size={15} />
                                   </IconButton>
@@ -1192,88 +1338,23 @@ function App() {
                           ))}
                       </tbody>
                     </table>
-                  )
-                ) : state.nodes.length === 0 ? (
-                  <Empty
-                    icon={<Server />}
-                    title={t("独立维护的手工节点", "Your manual nodes")}
-                    text={t(
-                      "按协议表单创建节点，或从订阅节点复制。",
-                      "Create nodes with protocol forms, or copy from a subscription.",
-                    )}
-                    action={
-                      <Button onClick={() => showNode()}>
-                        <Plus size={15} />
-                        {t("添加节点", "Add node")}
-                      </Button>
-                    }
-                  />
-                ) : (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>{t("节点", "Node")}</th>
-                        <th>{t("协议", "Protocol")}</th>
-                        <th>{t("状态", "Status")}</th>
-                        <th>{t("操作", "Actions")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {state.nodes
-                        .filter((v) => filter(v.node.name))
-                        .map((v) => (
-                          <tr key={v.id}>
-                            <td>
-                              <strong>{v.node.name}</strong>
-                              <small>
-                                {v.node.server}:{v.node.port}
-                              </small>
-                            </td>
-                            <td>
-                              <span className="pill">
-                                {v.node.type.toUpperCase()}
-                              </span>
-                            </td>
-                            <td>
-                              {v.enabled
-                                ? t("启用", "Enabled")
-                                : t("停用", "Disabled")}
-                            </td>
-                            <td>
-                              <div className="row-actions">
-                                <Button onClick={() => showNode(v)}>
-                                  <Pencil size={14} />
-                                  {t("编辑", "Edit")}
-                                </Button>
-                                <IconButton
-                                  label={t("删除节点", "Delete node")}
-                                  onClick={() => remove("nodes", v)}
-                                >
-                                  <Trash2 size={15} />
-                                </IconButton>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                )}
-              </section>
-            </>
-          )}
+                  )}
+                </section>
+              </>
+            )}
           {page === "profiles" && state.role === "admin" && (
             <>
               <PageHeader
                 eyebrow="CONFIGURATION PROFILES"
-                title={t("配置方案", "Profiles")}
+                title={t("配置", "Profiles")}
                 description={t(
-                  "组、规则与客户端设置，一份方案独立维护。",
+                  "组、规则与客户端设置，一份配置独立维护。",
                   "Maintain groups, routing rules, and client settings in one profile.",
                 )}
                 action={
                   <Button primary disabled={unsaved} onClick={showProfile}>
                     <Plus size={16} />
-                    {t("新建方案", "New profile")}
+                    {t("新建配置", "New profile")}
                   </Button>
                 }
               />
@@ -1281,15 +1362,15 @@ function App() {
                 <section className="panel">
                   <Empty
                     icon={<Layers3 />}
-                    title={t("把来源组织成方案", "Turn sources into a profile")}
+                    title={t("把订阅组织成配置", "Turn sources into a profile")}
                     text={t(
-                      "每份方案拥有独立的策略组、规则和设置。",
+                      "每份配置拥有独立的策略组、规则和设置。",
                       "Each profile has independent groups, rules, and settings.",
                     )}
                     action={
                       <Button onClick={showProfile}>
                         <Plus size={15} />
-                        {t("新建方案", "New profile")}
+                        {t("新建配置", "New profile")}
                       </Button>
                     }
                   />
@@ -1310,7 +1391,7 @@ function App() {
                             !unsaved ||
                             confirm(
                               t(
-                                "丢弃未保存修改并切换方案？",
+                                "丢弃未保存修改并切换配置？",
                                 "Discard unsaved changes and switch profiles?",
                               ),
                             )
@@ -1338,6 +1419,7 @@ function App() {
                       t={t}
                       time={time}
                       onRun={run}
+                      error={error}
                       onDelete={() => remove("profiles", activeProfile)}
                       onDirtyChange={setUnsaved}
                     />
@@ -1352,7 +1434,7 @@ function App() {
                 eyebrow="YOUR DEVICES"
                 title={t("设备", "Devices")}
                 description={t(
-                  "独立链接，明确归属。切换方案无需更换订阅地址。",
+                  "独立链接，明确归属。切换配置无需更换订阅地址。",
                   "Independent links and clear ownership. Switch profiles without changing the URL.",
                 )}
                 action={
@@ -1384,11 +1466,11 @@ function App() {
                     text={
                       Object.keys(state.active).length
                         ? t(
-                            "绑定已发布方案，即可复制链接或导入 Clash Verge。",
+                            "绑定已发布配置，即可复制链接或导入 Clash Verge。",
                             "Bind a published profile, then copy the link or import into Clash Verge.",
                           )
                         : t(
-                            "请先创建并发布一份配置方案。",
+                            "请先创建并发布一份配置。",
                             "Create and publish a profile first.",
                           )
                     }
@@ -1398,7 +1480,7 @@ function App() {
                     <thead>
                       <tr>
                         <th>{t("设备", "Device")}</th>
-                        <th>{t("绑定方案", "Profile")}</th>
+                        <th>{t("绑定配置", "Profile")}</th>
                         <th>{t("授权状态", "Authorization")}</th>
                         <th>{t("最近下载", "Last download")}</th>
                         <th>{t("操作", "Actions")}</th>
@@ -1464,7 +1546,7 @@ function App() {
                                     onClick={() => showDevice(d)}
                                   >
                                     {t(
-                                      "编辑 / 切换方案",
+                                      "编辑 / 切换配置",
                                       "Edit / switch profile",
                                     )}
                                   </button>
@@ -1572,7 +1654,7 @@ function App() {
             <>
               <PageHeader
                 eyebrow="SYSTEM"
-                title={t("系统", "System")}
+                title={t("设置", "Settings")}
                 description={t(
                   "了解当前实例的边界与验证状态。",
                   "Understand this instance’s scope and validation status.",
@@ -1682,7 +1764,7 @@ function App() {
         </main>
         <footer className="footer">
           Subweft <span>·</span>
-          {t("来源有序，策略清晰。", "Sources organized. Policies clear.")}
+          {t("订阅有序，策略清晰。", "Sources organized. Policies clear.")}
           <span className="footer-right">
             {t(
               "开发预览，尚未生产验收",
@@ -1709,6 +1791,18 @@ function App() {
         onCancel={(e) => {
           e.preventDefault();
           closeModal();
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            const r = e.currentTarget.getBoundingClientRect();
+            if (
+              e.clientX < r.left ||
+              e.clientX > r.right ||
+              e.clientY < r.top ||
+              e.clientY > r.bottom
+            )
+              closeModal();
+          }
         }}
         onClose={() => setModal(null)}
       >
@@ -1924,20 +2018,20 @@ function SourceForm({
       <ModalTitle
         title={
           value
-            ? t("编辑来源", "Edit source")
-            : t("添加订阅来源", "Add subscription source")
+            ? t("编辑订阅", "Edit source")
+            : t("添加订阅", "Add subscription source")
         }
       />
       <p className="muted">
         {t(
-          "支持 13 种协议的 provider YAML、常见代理 URI 列表及单层 Base64。未知节点字段会明确拒绝。",
-          "Use supported fields in provider YAML, proxy URI lists, or one Base64 envelope. Unknown fields are rejected.",
+          "支持 13 种协议的节点 YAML、常见代理 URI 列表及单层 Base64。未知节点字段会明确拒绝。",
+          "Use supported fields in node YAML, proxy URI lists, or one Base64 envelope. Unknown fields are rejected.",
         )}
       </p>
       <Field
-        label={t("来源名称", "Source name")}
+        label={t("订阅名称", "Source name")}
         hint={t(
-          "节点输出会带有此来源前缀。",
+          "节点输出会带有此订阅前缀。",
           "Output node names include this source prefix.",
         )}
       >
@@ -1949,7 +2043,7 @@ function SourceForm({
           onChange={(e) => setName(e.target.value)}
         />
       </Field>
-      <Field label={t("来源方式", "Source type")}>
+      <Field label={t("订阅方式", "Source type")}>
         <select
           value={kind}
           onChange={(e) => setKind(e.target.value as "http" | "local")}
@@ -1990,7 +2084,7 @@ function SourceForm({
             hint={
               value
                 ? t(
-                    "留空保留原内容。这里用于导入来源，不用于编辑生成配置。",
+                    "留空保留原内容。这里用于导入订阅，不用于编辑生成配置。",
                     "Leave blank to keep existing input. This imports a source; it does not edit generated configuration.",
                   )
                 : t(
@@ -2045,7 +2139,7 @@ function SourceForm({
       />
       <p className="muted">
         {t(
-          "启用提取时，来源中的规则、DNS 和客户端设置不会被导入。方案通过独立表单维护。",
+          "启用提取时，订阅中的规则、DNS 和客户端设置不会被导入。配置通过独立表单维护。",
           "Extraction imports only nodes; profile forms manage rules, DNS and client settings independently.",
         )}
       </p>
@@ -2082,12 +2176,12 @@ function SourceForm({
       )}
       <details>
         <summary>
-          {t("客户端 provider 参数", "Client provider settings")}
+          {t("客户端更新与健康检查", "Client updates & health checks")}
         </summary>
         <CheckField
           label={t(
-            "使用鉴权 provider 分发节点",
-            "Distribute nodes as an authenticated provider",
+            "允许客户端单独更新节点列表",
+            "Allow clients to update the node list separately",
           )}
           checked={clientProvider.enabled}
           onChange={(enabled) =>
@@ -2095,37 +2189,131 @@ function SourceForm({
           }
         />
         {clientProvider.enabled && (
-          <ObjectForm
-            schema={{
-              kind: "object",
-              properties: {
-                interval: {
-                  kind: "integer",
-                  min: 60,
-                  max: 604800,
-                  required: true,
-                },
-                proxy: { kind: "string" },
-                healthCheck: {
-                  kind: "object",
-                  required: true,
-                  properties: {
-                    enable: { kind: "boolean", required: true },
-                    url: { kind: "string" },
-                    interval: { kind: "integer", min: 30, max: 86400 },
-                    timeout: { kind: "integer", min: 100, max: 30000 },
-                    lazy: { kind: "boolean" },
-                    expectedStatus: { kind: "string" },
-                  },
-                },
-              },
-            }}
-            value={clientProvider}
-            exclude={["enabled"]}
-            t={t}
-            path="clientProvider"
-            onChange={(v) => setClientProvider(v as typeof clientProvider)}
-          />
+          <>
+            <div className="form-grid">
+              <Field
+                label={t(
+                  "客户端更新间隔（秒）",
+                  "Client refresh interval (seconds)",
+                )}
+              >
+                <input
+                  type="number"
+                  min={60}
+                  max={604800}
+                  value={clientProvider.interval}
+                  onChange={(e) =>
+                    setClientProvider({
+                      ...clientProvider,
+                      interval: Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
+              <Field
+                label={t("更新使用的代理（可选）", "Update proxy (optional)")}
+              >
+                <input
+                  value={clientProvider.proxy || ""}
+                  onChange={(e) =>
+                    setClientProvider({
+                      ...clientProvider,
+                      proxy: e.target.value,
+                    })
+                  }
+                />
+              </Field>
+            </div>
+            <CheckField
+              label={t(
+                "定期检查节点可用性",
+                "Check node availability periodically",
+              )}
+              checked={clientProvider.healthCheck.enable}
+              onChange={(enable) =>
+                setClientProvider({
+                  ...clientProvider,
+                  healthCheck: { ...clientProvider.healthCheck, enable },
+                })
+              }
+            />
+            {clientProvider.healthCheck.enable && (
+              <>
+                <Field label={t("检查地址", "Check URL")}>
+                  <input
+                    type="url"
+                    value={clientProvider.healthCheck.url}
+                    onChange={(e) =>
+                      setClientProvider({
+                        ...clientProvider,
+                        healthCheck: {
+                          ...clientProvider.healthCheck,
+                          url: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </Field>
+                <div className="form-grid">
+                  {(["interval", "timeout"] as const).map((key) => (
+                    <Field
+                      key={key}
+                      label={
+                        key === "interval"
+                          ? t("检查间隔（秒）", "Check interval (seconds)")
+                          : t("超时（毫秒）", "Timeout (milliseconds)")
+                      }
+                    >
+                      <input
+                        type="number"
+                        min={key === "interval" ? 30 : 100}
+                        max={key === "interval" ? 86400 : 30000}
+                        value={clientProvider.healthCheck[key]}
+                        onChange={(e) =>
+                          setClientProvider({
+                            ...clientProvider,
+                            healthCheck: {
+                              ...clientProvider.healthCheck,
+                              [key]: Number(e.target.value),
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+                  ))}
+                </div>
+                <CheckField
+                  label={t("仅检查正在使用的节点", "Check only nodes in use")}
+                  checked={clientProvider.healthCheck.lazy}
+                  onChange={(lazy) =>
+                    setClientProvider({
+                      ...clientProvider,
+                      healthCheck: { ...clientProvider.healthCheck, lazy },
+                    })
+                  }
+                />
+                <Field
+                  label={t(
+                    "期望 HTTP 状态码（可选）",
+                    "Expected HTTP status (optional)",
+                  )}
+                >
+                  <input
+                    value={clientProvider.healthCheck.expectedStatus || ""}
+                    onChange={(e) =>
+                      setClientProvider({
+                        ...clientProvider,
+                        healthCheck: {
+                          ...clientProvider.healthCheck,
+                          expectedStatus: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </Field>
+              </>
+            )}
+          </>
         )}
         <p className="muted">
           {t(
@@ -2135,13 +2323,13 @@ function SourceForm({
         </p>
       </details>
       <CheckField
-        label={t("启用来源", "Enable source")}
+        label={t("启用订阅", "Enable source")}
         checked={enabled}
         onChange={setEnabled}
       />
       <div className="form-footer">
         <Button primary type="submit">
-          {t("保存来源", "Save source")}
+          {t("保存订阅", "Save source")}
         </Button>
       </div>
     </form>
@@ -2200,9 +2388,9 @@ function DeviceForm({
         />
       </Field>
       <Field
-        label={t("绑定方案", "Profile")}
+        label={t("绑定配置", "Profile")}
         hint={t(
-          "切换方案保持订阅 URL 不变，客户端刷新后生效。",
+          "切换配置保持订阅 URL 不变，客户端刷新后生效。",
           "Switching preserves the URL; the client applies it after refreshing.",
         )}
       >
@@ -2243,6 +2431,7 @@ type Run = (
   close?: boolean,
 ) => Promise<void>;
 function ProfileEditor({
+  error,
   profile,
   state,
   busy,
@@ -2253,6 +2442,7 @@ function ProfileEditor({
   onDirtyChange,
 }: {
   profile: Profile;
+  error: string;
   state: State;
   busy: boolean;
   t: T;
@@ -2264,6 +2454,16 @@ function ProfileEditor({
   const { catalog } = useCatalog();
   const [draft, setDraft] = useState<Profile>(copy(profile) as Profile);
   const [tab, setTab] = useState("groups");
+  const [groupEdit, setGroupEdit] = useState<{
+    index: number;
+    value: Group;
+    original: Group;
+  }>();
+  const [groupError, setGroupError] = useState("");
+  const [deleteGroup, setDeleteGroup] = useState<number>();
+  const [replacement, setReplacement] = useState("DIRECT");
+  const [manageRulesets, setManageRulesets] = useState(false);
+  const [resourcesDirty, setResourcesDirty] = useState(false);
   const [allowStale, setAllowStale] = useState(false);
   const [preview, setPreview] = useState<{
     config: string;
@@ -2272,8 +2472,8 @@ function ProfileEditor({
   } | null>(null);
   useEffect(() => {
     setDraft(copy(profile) as Profile);
-    setPreview(null);
   }, [profile.id, profile.revision]);
+  useEffect(() => setPreview(null), [profile.id]);
   const dirty = JSON.stringify(draft) !== JSON.stringify(profile);
   const releases = state.releases
     .filter((r) => r.profileId === profile.id)
@@ -2308,121 +2508,140 @@ function ProfileEditor({
     window.addEventListener("beforeunload", guard);
     return () => window.removeEventListener("beforeunload", guard);
   }, [dirty]);
+  const saveIfDirty = async () =>
+    dirty
+      ? await api<Profile>(`profiles/${profile.id}`, "PUT", draft)
+      : profile;
+  const editGroup = (index: number, value: Group) => {
+    setGroupError("");
+    setGroupEdit({
+      index,
+      value: structuredClone(value),
+      original: structuredClone(value),
+    });
+  };
   const options = [...draft.groups.map((g) => g.name), "DIRECT", "REJECT"];
   return (
     <section className="panel profile-editor">
       <div className="editor-header">
         <div>
+          <h2>{draft.name}</h2>
           <span className="pill subtle">
-            {active?.profileRevision === profile.revision
-              ? t("方案修订已发布", "Profile revision published")
-              : t("草稿待发布", "Unpublished draft")}
+            {dirty
+              ? t("有未保存修改", "Unsaved changes")
+              : active?.profileRevision === profile.revision
+                ? t("已应用", "Applied")
+                : t("有待应用更改", "Pending changes")}
           </span>
-          <p className="muted">
-            {t("草稿修订", "Draft revision")} {profile.revision} ·{" "}
-            {active
-              ? `${t("发布修订", "Published revision")} ${active.profileRevision}`
-              : t("尚未发布", "Not published")}
-          </p>
         </div>
         <div className="actions">
           <Button
             disabled={busy || !dirty}
             onClick={() =>
               void onRun(
-                () => api(`profiles/${profile.id}`, "PUT", draft),
-                t("草稿已保存", "Draft saved"),
+                () => api("profiles/" + profile.id, "PUT", draft),
+                t("修改已保存", "Changes saved"),
               )
             }
           >
-            <Check size={15} />
-            {t("保存草稿", "Save draft")}
-          </Button>
-          <Button
-            disabled={busy || dirty}
-            onClick={() =>
-              void onRun(async () => {
-                const value = await api<{
-                  config: string;
-                  members: Record<string, string[]>;
-                  stale: string[];
-                }>(`profiles/${profile.id}/preview`, "POST", {
-                  revision: profile.revision,
-                  allowStale,
-                });
-                setPreview(value);
-                setTab("preview");
-              })
-            }
-          >
-            <Search size={15} />
-            {t("预览", "Preview")}
+            {t("保存修改", "Save changes")}
           </Button>
           <Button
             primary
-            disabled={busy || dirty}
+            disabled={busy}
             onClick={() =>
               void onRun(
-                () =>
-                  api(`profiles/${profile.id}/publish`, "POST", {
-                    revision: profile.revision,
+                async () => {
+                  const saved = await saveIfDirty();
+                  return api("profiles/" + profile.id + "/publish", "POST", {
+                    revision: saved.revision,
                     allowStale,
-                  }),
-                t("校验通过，方案已发布", "Validated and published"),
+                  });
+                },
+                t("校验通过，配置已应用", "Validated and applied"),
               )
             }
           >
-            <FileCheck2 size={16} />
-            {t("校验并发布", "Validate & publish")}
+            {t("应用更改", "Apply changes")}
           </Button>
-        </div>
-      </div>
-      <div className="editor-name">
-        <Field label={t("方案名称", "Profile name")}>
-          <input
-            value={draft.name}
-            maxLength={160}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
-        </Field>
-        <div className="actions">
-          <Button
-            disabled={busy || dirty}
-            onClick={() =>
-              void onRun(
-                () =>
-                  api(`profiles/${profile.id}/copy`, "POST", {
-                    revision: profile.revision,
-                  }),
-                t("方案已复制", "Profile copied"),
-              )
-            }
-          >
-            <Copy size={14} />
-            {t("复制方案", "Copy")}
-          </Button>
-          <IconButton
-            label={t("删除方案", "Delete profile")}
-            onClick={onDelete}
-          >
-            <Trash2 size={15} />
-          </IconButton>
+          <details className="profile-more">
+            <summary>{t("更多", "More")}</summary>
+            <div className="profile-more-menu">
+              <Field label={t("配置名称", "Profile name")}>
+                <input
+                  maxLength={160}
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                />
+              </Field>
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  void onRun(async () => {
+                    const saved = await saveIfDirty();
+                    const value = await api<{
+                      config: string;
+                      members: Record<string, string[]>;
+                      stale: string[];
+                    }>("profiles/" + profile.id + "/preview", "POST", {
+                      revision: saved.revision,
+                      allowStale,
+                    });
+                    setPreview(value);
+                    setTab("preview");
+                  })
+                }
+              >
+                {t("查看生成结果", "Preview generated configuration")}
+              </Button>
+              <Button onClick={() => setTab("preview")}>
+                {t("版本记录与回滚", "Versions & rollback")}
+              </Button>
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  void onRun(
+                    async () => {
+                      const saved = await saveIfDirty();
+                      return api("profiles/" + profile.id + "/copy", "POST", {
+                        revision: saved.revision,
+                      });
+                    },
+                    t("配置已复制", "Profile copied"),
+                  )
+                }
+              >
+                {t("复制配置", "Copy profile")}
+              </Button>
+              <Button danger disabled={busy} onClick={onDelete}>
+                {t("删除配置", "Delete profile")}
+              </Button>
+              <CheckField
+                label={t(
+                  "允许使用更新失败订阅的旧缓存",
+                  "Allow cached content after refresh failures",
+                )}
+                checked={allowStale}
+                onChange={setAllowStale}
+              />
+            </div>
+          </details>
         </div>
       </div>
       {dirty && (
         <div className="notice inline">
           {t(
-            "有未保存的表单修改，请先保存草稿再预览或发布。",
-            "Save your form changes before previewing or publishing.",
+            "应用更改会保存并校验；校验失败时设备继续使用当前版本。",
+            "Apply saves and validates changes. Failures preserve the current device configuration.",
           )}
         </div>
       )}
       <div className="editor-tabs tabs">
         {[
           ["groups", t("策略组", "Policy groups")],
-          ["rules", t("规则顺序", "Ordered rules")],
-          ["settings", t("客户端设置", "Client settings")],
-          ["preview", t("预览与版本", "Preview & revisions")],
+          ["rules", t("分流规则", "Routing rules")],
+          ["dns", "DNS"],
+          ["settings", t("连接设置", "Connection settings")],
         ].map(([key, label]) => (
           <button
             className={tab === key ? "selected" : ""}
@@ -2438,49 +2657,225 @@ function ProfileEditor({
           <>
             <div className="section-intro">
               <div>
-                <h3>
-                  {t("明确每组使用哪些来源", "Choose what each group uses")}
-                </h3>
+                <h3>{t("策略组", "Policy groups")}</h3>
                 <p>
                   {t(
-                    "来源、标签、节点与其他组可以组合；发布时会检查循环和空结果。",
-                    "Combine sources, tags, nodes, and groups. Publishing checks for cycles and empty results.",
+                    "选择订阅、节点或其他组，决定如何连接。",
+                    "Choose subscriptions, nodes or other groups and how to connect.",
                   )}
                 </p>
               </div>
               <Button
+                primary
                 onClick={() =>
-                  setDraft({
-                    ...draft,
-                    groups: [
-                      ...draft.groups,
-                      emptyGroup(`Group${draft.groups.length + 1}`),
-                    ],
-                  })
+                  editGroup(-1, emptyGroup(t("新策略组", "New group")))
                 }
               >
-                <Plus size={15} />
                 {t("添加策略组", "Add group")}
               </Button>
             </div>
-            {draft.groups.map((g, i) => (
-              <GroupForm
-                key={i}
-                value={g}
-                index={i}
-                groups={draft.groups}
-                state={state}
-                t={t}
-                onChange={(v) => updateGroup(i, v)}
-                onDelete={() =>
+            <div className="table-scroll">
+              <table className="compact-table">
+                <thead>
+                  <tr>
+                    <th>{t("名称", "Name")}</th>
+                    <th>{t("选择策略", "Strategy")}</th>
+                    <th>{t("组内成员", "Members")}</th>
+                    <th>{t("操作", "Actions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {draft.groups.map((g, i) => (
+                    <tr key={i}>
+                      <td>
+                        <strong>{g.name}</strong>
+                      </td>
+                      <td>
+                        {(
+                          {
+                            select: t("手动选择", "Manual select"),
+                            "url-test": t("自动测速", "URL test"),
+                            fallback: t("故障转移", "Fallback"),
+                            "load-balance": t("负载均衡", "Load balance"),
+                          } as Record<string, string>
+                        )[g.type] || g.type}
+                      </td>
+                      <td>
+                        {g.allSources
+                          ? t(
+                              "全部订阅（含以后新增）",
+                              "All subscriptions, including future additions",
+                            )
+                          : g.sourceIds.length +
+                            t(" 个订阅", " subscriptions")}{" "}
+                        · {g.nodeIds.length} {t("个节点", "nodes")} ·{" "}
+                        {g.groups.length} {t("个组", "groups")}
+                        {g.tags.length > 0 && (
+                          <small className="cell-detail">
+                            {t("动态标签：", "Dynamic tags: ") +
+                              g.tags.join("、")}
+                          </small>
+                        )}
+                        {g.builtins.length > 0 && (
+                          <small className="cell-detail">
+                            {g.builtins.join(" / ")}
+                          </small>
+                        )}
+                      </td>
+                      <td>
+                        <div className="actions">
+                          <Button onClick={() => editGroup(i, g)}>
+                            {t("编辑", "Edit")}
+                          </Button>
+                          <Button
+                            danger
+                            onClick={() => {
+                              setDeleteGroup(i);
+                              setReplacement("DIRECT");
+                            }}
+                          >
+                            {t("删除", "Delete")}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+        {groupEdit && (
+          <EditorDialog
+            title={
+              groupEdit.index < 0
+                ? t("添加策略组", "Add group")
+                : t("编辑策略组", "Edit group")
+            }
+            t={t}
+            dirty={
+              JSON.stringify(groupEdit.value) !==
+              JSON.stringify(groupEdit.original)
+            }
+            onClose={() => setGroupEdit(undefined)}
+            footer={
+              <Button
+                primary
+                onClick={() => {
+                  const g = {
+                    ...groupEdit.value,
+                    name: groupEdit.value.name.trim(),
+                  };
+                  if (
+                    !g.name ||
+                    draft.groups.some(
+                      (v, i) => i !== groupEdit.index && v.name === g.name,
+                    ) ||
+                    ["DIRECT", "REJECT"].includes(g.name)
+                  ) {
+                    setGroupError(
+                      t("请输入唯一的组名称。", "Enter a unique group name."),
+                    );
+                    return;
+                  }
+                  if (groupEdit.index < 0)
+                    setDraft({ ...draft, groups: [...draft.groups, g] });
+                  else updateGroup(groupEdit.index, g);
+                  setGroupEdit(undefined);
+                }}
+              >
+                {t("保存策略组", "Save group")}
+              </Button>
+            }
+          >
+            {groupError && (
+              <p role="alert" className="alert error">
+                {groupError}
+              </p>
+            )}
+            <GroupForm
+              value={groupEdit.value}
+              index={groupEdit.index}
+              groups={draft.groups}
+              state={state}
+              t={t}
+              onChange={(value) => setGroupEdit({ ...groupEdit, value })}
+              onDelete={() => setGroupEdit(undefined)}
+            />
+          </EditorDialog>
+        )}
+        {deleteGroup !== undefined && (
+          <EditorDialog
+            title={t("删除策略组", "Delete group")}
+            t={t}
+            dirty={false}
+            onClose={() => setDeleteGroup(undefined)}
+            footer={
+              <Button
+                danger
+                onClick={() => {
+                  const name = draft.groups[deleteGroup].name;
                   setDraft({
                     ...draft,
-                    groups: draft.groups.filter((_, index) => index !== i),
-                  })
-                }
-              />
-            ))}
-          </>
+                    groups: draft.groups
+                      .filter((_, i) => i !== deleteGroup)
+                      .map((g) => ({
+                        ...g,
+                        groups: g.groups.filter((n) => n !== name),
+                      })),
+                    rules: draft.rules.map((r) =>
+                      r.target === name ? { ...r, target: replacement } : r,
+                    ),
+                  });
+                  setDeleteGroup(undefined);
+                }}
+              >
+                {t("确认删除", "Delete group")}
+              </Button>
+            }
+          >
+            <p>
+              {t(
+                "其他组将移除此成员。指向它的规则将改用下方去向。",
+                "Other groups will remove this member. Rules using it will use the destination below.",
+              )}
+            </p>
+            <Field label={t("规则改用", "Replacement destination")}>
+              <select
+                value={replacement}
+                onChange={(e) => setReplacement(e.target.value)}
+              >
+                {options
+                  .filter((v) => v !== draft.groups[deleteGroup].name)
+                  .map((v) => (
+                    <option key={v}>{v}</option>
+                  ))}
+              </select>
+            </Field>
+          </EditorDialog>
+        )}
+        {manageRulesets && (
+          <EditorDialog
+            title={t("规则集", "Rulesets")}
+            t={t}
+            dirty={resourcesDirty}
+            onClose={() => setManageRulesets(false)}
+            footer={null}
+          >
+            {error && (
+              <p role="alert" className="alert error">
+                {error}
+              </p>
+            )}
+            <ResourcesPanel
+              values={state.resources || []}
+              t={t}
+              request={api}
+              onRun={onRun}
+              busy={busy}
+              onDirtyChange={setResourcesDirty}
+            />
+          </EditorDialog>
         )}
         {tab === "rules" && (
           <RulesEditor
@@ -2488,239 +2883,263 @@ function ProfileEditor({
             onChange={(rules) => setDraft({ ...draft, rules })}
             targets={options}
             resources={state.resources || []}
+            onManageResources={() => setManageRulesets(true)}
             t={t}
           />
         )}
-        {tab === "settings" && (
+        {(tab === "settings" || tab === "dns") && (
           <div className="settings-form">
-            <h3>{t("客户端参数", "Client parameters")}</h3>
-            <CheckField
-              label={t(
-                "上游更新后自动校验并发布",
-                "Automatically validate and publish upstream updates",
-              )}
-              checked={!!draft.autoPublish}
-              onChange={(autoPublish) => setDraft({ ...draft, autoPublish })}
-            />
-            <p className="muted">
-              {t(
-                "自动更新只使用最近已发布的方案定义；保存草稿不会自动发布草稿。失败保留现行版本。",
-                "Automatic updates use the last published definition. Saving a draft never publishes it; failures retain the active release.",
-              )}
-            </p>
-            {state.publishStatus
-              ?.filter((v) => v.id === draft.id && v.error)
-              .map((v) => (
-                <p className="alert error" key={v.id}>
-                  {t(
-                    "自动发布未成功，现行版本已保留：",
-                    "Automatic publication failed; active release retained: ",
-                  )}
-                  {v.error}
-                </p>
-              ))}
-            {(["geoIpId", "geoSiteId", "geoAsnId"] as const).map((key) => (
-              <Field
-                key={key}
-                label={
-                  key === "geoIpId"
-                    ? "GEOIP / Country.mmdb / GeoIP.dat"
-                    : key === "geoAsnId"
-                      ? "ASN / ASN.mmdb"
-                      : "GEOSITE / GeoSite.dat"
-                }
-              >
-                <select
-                  value={draft[key] || ""}
-                  onChange={(e) =>
-                    setDraft({ ...draft, [key]: e.target.value })
-                  }
-                >
-                  <option value="">{t("不使用", "Unused")}</option>
-                  {(state.resources || [])
-                    .filter((r) =>
-                      key === "geoIpId"
-                        ? ["mmdb", "geoip"].includes(r.type)
-                        : r.type === (key === "geoAsnId" ? "asn" : "geosite"),
-                    )
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                </select>
-              </Field>
-            ))}
-            <Field label={t("混合端口（0 停用）", "Mixed port (0 disables)")}>
-              <input
-                type="number"
-                min={0}
-                max={65535}
-                value={draft.settings.mixedPort}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    settings: {
-                      ...draft.settings,
-                      mixedPort: Number(e.target.value),
-                    },
-                  })
-                }
-              />
-            </Field>
-            <CheckField
-              label={t("允许局域网访问", "Allow LAN access")}
-              checked={draft.settings.allowLan}
-              onChange={(allowLan) =>
-                setDraft({
-                  ...draft,
-                  settings: { ...draft.settings, allowLan },
-                })
-              }
-            />
-            <CheckField
-              label="IPv6"
-              checked={draft.settings.ipv6}
-              onChange={(ipv6) =>
-                setDraft({ ...draft, settings: { ...draft.settings, ipv6 } })
-              }
-            />
-            <hr />
-            <CheckField
-              label={t("启用 DNS", "Enable DNS")}
-              checked={draft.settings.dnsEnabled}
-              onChange={(dnsEnabled) =>
-                setDraft({
-                  ...draft,
-                  settings: { ...draft.settings, dnsEnabled },
-                })
-              }
-            />
-            {draft.settings.dnsEnabled && (
+            {tab === "settings" && (
               <>
-                <Field label={t("DNS 模式", "DNS mode")}>
-                  <select
-                    value={draft.settings.dnsMode}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        settings: {
-                          ...draft.settings,
-                          dnsMode: e.target.value,
-                        },
-                      })
+                <h3>{t("连接设置", "Connection settings")}</h3>
+                <CheckField
+                  label={t(
+                    "上游更新后自动校验并发布",
+                    "Automatically validate and publish upstream updates",
+                  )}
+                  checked={!!draft.autoPublish}
+                  onChange={(autoPublish) =>
+                    setDraft({ ...draft, autoPublish })
+                  }
+                />
+                <p className="muted">
+                  {t(
+                    "自动更新只使用最近已发布的配置定义；保存草稿不会自动发布草稿。失败保留现行版本。",
+                    "Automatic updates use the last published definition. Saving a draft never publishes it; failures retain the active release.",
+                  )}
+                </p>
+                {state.publishStatus
+                  ?.filter((v) => v.id === draft.id && v.error)
+                  .map((v) => (
+                    <p className="alert error" key={v.id}>
+                      {t(
+                        "自动发布未成功，现行版本已保留：",
+                        "Automatic publication failed; active release retained: ",
+                      )}
+                      {v.error}
+                    </p>
+                  ))}
+                {(["geoIpId", "geoSiteId", "geoAsnId"] as const).map((key) => (
+                  <Field
+                    key={key}
+                    label={
+                      key === "geoIpId"
+                        ? "GEOIP / Country.mmdb / GeoIP.dat"
+                        : key === "geoAsnId"
+                          ? "ASN / ASN.mmdb"
+                          : "GEOSITE / GeoSite.dat"
                     }
                   >
-                    <option>fake-ip</option>
-                    <option>redir-host</option>
-                  </select>
-                </Field>
+                    <select
+                      value={draft[key] || ""}
+                      onChange={(e) =>
+                        setDraft({ ...draft, [key]: e.target.value })
+                      }
+                    >
+                      <option value="">{t("不使用", "Unused")}</option>
+                      {(state.resources || [])
+                        .filter((r) =>
+                          key === "geoIpId"
+                            ? ["mmdb", "geoip"].includes(r.type)
+                            : r.type ===
+                              (key === "geoAsnId" ? "asn" : "geosite"),
+                        )
+                        .map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
+                    </select>
+                  </Field>
+                ))}
                 <Field
-                  label={t("解析器（每行一个）", "Nameservers (one per line)")}
+                  label={t("混合端口（0 停用）", "Mixed port (0 disables)")}
                 >
-                  <textarea
-                    rows={4}
-                    value={draft.settings.nameservers.join("\n")}
+                  <input
+                    type="number"
+                    min={0}
+                    max={65535}
+                    value={draft.settings.mixedPort}
                     onChange={(e) =>
                       setDraft({
                         ...draft,
                         settings: {
                           ...draft.settings,
-                          nameservers: e.target.value.split("\n"),
+                          mixedPort: Number(e.target.value),
                         },
                       })
                     }
                   />
                 </Field>
+                <CheckField
+                  label={t("允许局域网访问", "Allow LAN access")}
+                  checked={draft.settings.allowLan}
+                  onChange={(allowLan) =>
+                    setDraft({
+                      ...draft,
+                      settings: { ...draft.settings, allowLan },
+                    })
+                  }
+                />
+                <CheckField
+                  label="IPv6"
+                  checked={draft.settings.ipv6}
+                  onChange={(ipv6) =>
+                    setDraft({
+                      ...draft,
+                      settings: { ...draft.settings, ipv6 },
+                    })
+                  }
+                />
               </>
             )}
-            {catalog && (
+            {tab === "dns" && (
               <>
-                <details>
-                  <summary>
-                    {t("完整 DNS 高级字段", "Complete DNS fields")}
-                  </summary>
-                  <ObjectForm
-                    schema={catalog.dns}
-                    exclude={[
-                      "enable",
-                      "enhanced-mode",
-                      "nameserver",
-                      "nameserver-policy",
-                      "proxy-server-nameserver-policy",
-                    ]}
-                    value={draft.settings.dns || {}}
-                    t={t}
-                    path="settings.dns"
-                    onChange={(dns) =>
-                      setDraft({
-                        ...draft,
-                        settings: { ...draft.settings, dns },
-                      })
-                    }
-                  />
-                </details>
-                {(["nameserverPolicy", "proxyNameserverPolicy"] as const).map(
-                  (key) => (
-                    <details key={key}>
-                      <summary>
-                        {key === "nameserverPolicy"
-                          ? "nameserver-policy"
-                          : "proxy-server-nameserver-policy"}
-                      </summary>
-                      <p className="muted">
-                        {t(
-                          "按顺序匹配；每条可设置多个解析器。",
-                          "Matched in order; each policy accepts multiple resolvers.",
-                        )}
-                      </p>
-                      <ValueForm
-                        schema={{
-                          kind: "array",
-                          items: {
-                            kind: "object",
-                            properties: {
-                              pattern: { kind: "string", required: true },
-                              nameservers: {
-                                kind: "array",
-                                required: true,
-                                items: { kind: "string" },
-                              },
-                            },
-                          },
-                        }}
-                        value={draft.settings[key] || []}
-                        t={t}
-                        path={"settings." + key}
-                        onChange={(v) =>
+                <CheckField
+                  label={t("启用 DNS", "Enable DNS")}
+                  checked={draft.settings.dnsEnabled}
+                  onChange={(dnsEnabled) =>
+                    setDraft({
+                      ...draft,
+                      settings: { ...draft.settings, dnsEnabled },
+                    })
+                  }
+                />
+                {draft.settings.dnsEnabled && (
+                  <>
+                    <Field label={t("DNS 模式", "DNS mode")}>
+                      <select
+                        value={draft.settings.dnsMode}
+                        onChange={(e) =>
                           setDraft({
                             ...draft,
-                            settings: { ...draft.settings, [key]: v },
+                            settings: {
+                              ...draft.settings,
+                              dnsMode: e.target.value,
+                            },
+                          })
+                        }
+                      >
+                        <option>fake-ip</option>
+                        <option>redir-host</option>
+                      </select>
+                    </Field>
+                    <Field
+                      label={t(
+                        "解析器（每行一个）",
+                        "Nameservers (one per line)",
+                      )}
+                    >
+                      <textarea
+                        rows={4}
+                        value={draft.settings.nameservers.join("\n")}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            settings: {
+                              ...draft.settings,
+                              nameservers: e.target.value.split("\n"),
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+                  </>
+                )}
+                {catalog && (
+                  <>
+                    <details>
+                      <summary>
+                        {t("完整 DNS 高级字段", "Complete DNS fields")}
+                      </summary>
+                      <ObjectForm
+                        schema={catalog.dns}
+                        exclude={[
+                          "enable",
+                          "enhanced-mode",
+                          "nameserver",
+                          "nameserver-policy",
+                          "proxy-server-nameserver-policy",
+                        ]}
+                        value={draft.settings.dns || {}}
+                        t={t}
+                        path="settings.dns"
+                        onChange={(dns) =>
+                          setDraft({
+                            ...draft,
+                            settings: { ...draft.settings, dns },
                           })
                         }
                       />
                     </details>
-                  ),
+                    {(
+                      ["nameserverPolicy", "proxyNameserverPolicy"] as const
+                    ).map((key) => (
+                      <details key={key}>
+                        <summary>
+                          {key === "nameserverPolicy"
+                            ? t("按域名选择解析器", "Nameserver policies")
+                            : t(
+                                "代理服务器域名解析规则",
+                                "Proxy nameserver policies",
+                              )}
+                        </summary>
+                        <p className="muted">
+                          {t(
+                            "按顺序匹配；每条可设置多个解析器。",
+                            "Matched in order; each policy accepts multiple resolvers.",
+                          )}
+                        </p>
+                        <ValueForm
+                          schema={{
+                            kind: "array",
+                            items: {
+                              kind: "object",
+                              properties: {
+                                pattern: { kind: "string", required: true },
+                                nameservers: {
+                                  kind: "array",
+                                  required: true,
+                                  items: { kind: "string" },
+                                },
+                              },
+                            },
+                          }}
+                          value={draft.settings[key] || []}
+                          t={t}
+                          path={"settings." + key}
+                          onChange={(v) =>
+                            setDraft({
+                              ...draft,
+                              settings: { ...draft.settings, [key]: v },
+                            })
+                          }
+                        />
+                      </details>
+                    ))}
+                  </>
                 )}
-                <details>
-                  <summary>
-                    {t("客户端全局参数", "Global client settings")}
-                  </summary>
-                  <ObjectForm
-                    schema={catalog.config}
-                    exclude={["mixed-port", "allow-lan", "ipv6"]}
-                    value={draft.settings.options || {}}
-                    t={t}
-                    path="settings.options"
-                    onChange={(options) =>
-                      setDraft({
-                        ...draft,
-                        settings: { ...draft.settings, options },
-                      })
-                    }
-                  />
-                </details>
               </>
+            )}
+            {tab === "settings" && catalog && (
+              <details>
+                <summary>
+                  {t("客户端全局参数", "Global client settings")}
+                </summary>
+                <ObjectForm
+                  schema={catalog.config}
+                  exclude={["mixed-port", "allow-lan", "ipv6"]}
+                  value={draft.settings.options || {}}
+                  t={t}
+                  path="settings.options"
+                  onChange={(options) =>
+                    setDraft({
+                      ...draft,
+                      settings: { ...draft.settings, options },
+                    })
+                  }
+                />
+              </details>
             )}
           </div>
         )}
@@ -2812,22 +3231,6 @@ function ProfileEditor({
           </>
         )}
       </div>
-      <div className="editor-footer">
-        <CheckField
-          label={t(
-            "若有来源更新失败，确认使用其旧缓存",
-            "Acknowledge stale cached sources if a refresh failed",
-          )}
-          checked={allowStale}
-          onChange={setAllowStale}
-        />
-        <span>
-          {t(
-            "来源或节点修改后需重新发布，设备刷新获取新版本",
-            "Publish after source or node changes; devices update on client refresh",
-          )}
-        </span>
-      </div>
     </section>
   );
 }
@@ -2901,7 +3304,7 @@ function SourceNodeList({
     } catch {
       setLocalError(
         t(
-          "保存失败，来源可能已更新；请关闭后重新打开。",
+          "保存失败，订阅可能已更新；请关闭后重新打开。",
           "Save failed; the source may have changed. Reopen this dialog.",
         ),
       );
@@ -2979,7 +3382,7 @@ function SourceNodeList({
             />
           </Field>
           <CheckField
-            label={t("从所有方案排除", "Exclude from all profiles")}
+            label={t("从所有配置排除", "Exclude from all profiles")}
             checked={overrideValue.excluded}
             onChange={(excluded) =>
               setOverrideValue({ ...overrideValue, excluded })
@@ -3059,7 +3462,6 @@ function GroupForm({
   state,
   t,
   onChange,
-  onDelete,
 }: {
   value: Group;
   index: number;
@@ -3072,22 +3474,13 @@ function GroupForm({
   const set = <K extends keyof Group>(key: K, value: Group[K]) =>
     onChange({ ...g, [key]: value });
   const { catalog } = useCatalog();
+  const [memberTab, setMemberTab] = useState("sources");
+  const [search, setSearch] = useState("");
+  const matches = (name: string) =>
+    name.toLowerCase().includes(search.toLowerCase());
   const tags = [...new Set(state.sources.flatMap((s) => s.tags || []))];
   return (
     <div className="group-card">
-      <div className="group-heading">
-        <span className="group-index">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <strong>{g.name || t("未命名组", "Unnamed group")}</strong>
-        <span className="pill">{g.type}</span>
-        <IconButton
-          label={`${t("删除策略组", "Delete group")} ${index + 1}`}
-          onClick={onDelete}
-        >
-          <Trash2 size={15} />
-        </IconButton>
-      </div>
       <div className="form-grid">
         <Field label={t("组名称", "Group name")}>
           <input value={g.name} onChange={(e) => set("name", e.target.value)} />
@@ -3109,96 +3502,143 @@ function GroupForm({
           </select>
         </Field>
       </div>
-      <div className="source-selector">
-        <div className="selector-heading">
-          <strong>{t("订阅来源", "Subscription sources")}</strong>
-          <CheckField
-            label={t("所有启用来源", "All enabled sources")}
-            checked={g.allSources}
-            onChange={(v) => set("allSources", v)}
-          />
-        </div>
-        <div className="checkbox-grid">
-          {state.sources.map((s) => (
-            <CheckField
-              key={s.id}
-              label={`${s.name} (${s.nodeCount})${s.enabled ? "" : " · disabled"}`}
-              checked={g.allSources ? s.enabled : g.sourceIds.includes(s.id)}
-              disabled={g.allSources}
-              onChange={() => set("sourceIds", toggle(g.sourceIds, s.id))}
-            />
-          ))}
-          {g.allSources && (
-            <p className="muted">
-              {t(
-                "自动包含现在和以后启用的来源。关闭此选项后可逐个选择来源或标签；手工节点可另外添加。",
-                "Includes current and future enabled sources. Turn this off to choose sources or tags; manual nodes remain independent.",
-              )}
-            </p>
-          )}
-          {state.sources.length === 0 && (
-            <span className="muted">
-              {t("尚无来源，请先添加。", "Add a source first.")}
-            </span>
-          )}
-        </div>
-        {tags.length > 0 && (
-          <div className="tag-selector">
-            <span>{t("或动态匹配标签", "Or match tags dynamically")}</span>
-            {tags.map((tag) => (
-              <button
-                key={tag}
-                disabled={g.allSources}
-                className={`tag-button ${g.tags.includes(tag) ? "selected" : ""}`}
-                aria-pressed={g.tags.includes(tag)}
-                onClick={() => set("tags", toggle(g.tags, tag))}
-              >
-                {g.tags.includes(tag) && <Check size={12} />}
-                {tag}
-              </button>
-            ))}
-          </div>
-        )}
+      <h3>{t("组内成员", "Group members")}</h3>
+      <div className="tabs">
+        {[
+          ["sources", t("订阅", "Subscriptions")],
+          ["nodes", t("手工节点", "Manual nodes")],
+          ["groups", t("其他组与直连", "Groups & direct")],
+        ].map(([key, label]) => (
+          <button
+            type="button"
+            key={key}
+            className={memberTab === key ? "selected" : ""}
+            onClick={() => setMemberTab(key)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
-      {state.nodes.length > 0 && (
+      <Field label={t("搜索成员", "Search members")}>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </Field>
+      {memberTab === "sources" && (
+        <div className="source-selector">
+          <div className="selector-heading">
+            <strong>{t("订阅", "Subscription sources")}</strong>
+            <CheckField
+              label={t(
+                "自动加入现在及以后所有启用订阅",
+                "Include all current and future enabled subscriptions",
+              )}
+              checked={g.allSources}
+              onChange={(v) => set("allSources", v)}
+            />
+          </div>
+          <div className="checkbox-grid">
+            {state.sources
+              .filter((s) => matches(s.name))
+              .map((s) => (
+                <CheckField
+                  key={s.id}
+                  label={`${s.name} (${s.nodeCount})${s.enabled ? "" : t(" · 已停用", " · disabled")}`}
+                  checked={
+                    g.allSources ? s.enabled : g.sourceIds.includes(s.id)
+                  }
+                  disabled={g.allSources}
+                  onChange={() => set("sourceIds", toggle(g.sourceIds, s.id))}
+                />
+              ))}
+            {g.allSources && (
+              <p className="muted">
+                {t(
+                  "自动包含现在和以后启用的订阅。关闭此选项后可逐个选择订阅或标签；手工节点可另外添加。",
+                  "Includes current and future enabled sources. Turn this off to choose sources or tags; manual nodes remain independent.",
+                )}
+              </p>
+            )}
+            {state.sources.length === 0 && (
+              <span className="muted">
+                {t("尚无订阅，请先添加。", "Add a source first.")}
+              </span>
+            )}
+          </div>
+          {tags.length > 0 && (
+            <div className="tag-selector">
+              <span>{t("或动态匹配标签", "Or match tags dynamically")}</span>
+              {tags.map((tag) => (
+                <button
+                  key={tag}
+                  disabled={g.allSources}
+                  className={`tag-button ${g.tags.includes(tag) ? "selected" : ""}`}
+                  aria-pressed={g.tags.includes(tag)}
+                  onClick={() => set("tags", toggle(g.tags, tag))}
+                >
+                  {g.tags.includes(tag) && <Check size={12} />}
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {memberTab === "nodes" && (
         <div className="source-selector">
           <strong>{t("手工节点", "Manual nodes")}</strong>
           <div className="checkbox-grid">
-            {state.nodes.map((n) => (
+            {state.nodes
+              .filter((n) => matches(n.node.name))
+              .map((n) => (
+                <CheckField
+                  key={n.id}
+                  label={n.node.name}
+                  checked={g.nodeIds.includes(n.id)}
+                  onChange={() => set("nodeIds", toggle(g.nodeIds, n.id))}
+                />
+              ))}
+          </div>
+        </div>
+      )}
+      {memberTab === "groups" && (
+        <div className="source-selector">
+          <div className="checkbox-grid">
+            {groups
+              .filter((v, i) => i !== index && matches(v.name))
+              .map((other, i) => (
+                <CheckField
+                  key={`${other.name}-${i}`}
+                  label={other.name}
+                  checked={g.groups.includes(other.name)}
+                  onChange={() => set("groups", toggle(g.groups, other.name))}
+                />
+              ))}
+            {["DIRECT", "REJECT"].map((name) => (
               <CheckField
-                key={n.id}
-                label={n.node.name}
-                checked={g.nodeIds.includes(n.id)}
-                onChange={() => set("nodeIds", toggle(g.nodeIds, n.id))}
+                key={name}
+                label={name}
+                checked={g.builtins.includes(name)}
+                onChange={() => set("builtins", toggle(g.builtins, name))}
               />
             ))}
           </div>
         </div>
       )}
+      <p className="member-summary">
+        {t("已选择：", "Selected: ")}
+        {g.allSources
+          ? t("全部订阅", "All subscriptions")
+          : g.sourceIds.length + t(" 个订阅", " subscriptions")}{" "}
+        · {g.nodeIds.length} {t("个节点", "nodes")} · {g.groups.length}{" "}
+        {t("个组", "groups")}
+      </p>
       <details className="advanced">
         <summary>
-          {t("高级选择与筛选", "Advanced selection & filtering")}
+          {t("筛选节点与动态标签", "Node filters & dynamic tags")}
         </summary>
-        <div className="checkbox-grid">
-          {groups
-            .filter((_, i) => i !== index)
-            .map((other, i) => (
-              <CheckField
-                key={`${other.name}-${i}`}
-                label={other.name}
-                checked={g.groups.includes(other.name)}
-                onChange={() => set("groups", toggle(g.groups, other.name))}
-              />
-            ))}
-          {["DIRECT", "REJECT"].map((name) => (
-            <CheckField
-              key={name}
-              label={name}
-              checked={g.builtins.includes(name)}
-              onChange={() => set("builtins", toggle(g.builtins, name))}
-            />
-          ))}
-        </div>
         <div className="form-grid">
           <Field
             label={t(
@@ -3321,3 +3761,163 @@ createRoot(document.getElementById("root")!).render(
     </PageBoundary>
   </React.StrictMode>,
 );
+
+function NewProfileForm({
+  state,
+  t,
+  onSave,
+}: {
+  state: State;
+  t: T;
+  onSave: (p: Profile) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [sourceIds, setSources] = useState<string[]>([]);
+  const [nodeIds, setNodes] = useState<string[]>([]);
+  const [direct, setDirect] = useState(false);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const p = emptyProfile(name.trim());
+        p.autoPublish = true;
+        p.groups[0] = {
+          ...p.groups[0],
+          name: t("默认节点", "Default nodes"),
+          sourceIds,
+          nodeIds,
+          builtins: direct ? ["DIRECT"] : [],
+        };
+        p.rules[0].target = p.groups[0].name;
+        void onSave(p);
+      }}
+    >
+      <ModalTitle title={t("新建配置", "New profile")} />
+      <Field label={t("配置名称", "Profile name")}>
+        <input
+          required
+          maxLength={160}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </Field>
+      <p>
+        {t(
+          "选择这份配置使用的订阅和节点。之后可添加策略组和分流规则。",
+          "Choose subscriptions and nodes. Add policy groups and routing rules later.",
+        )}
+      </p>
+      <h3>{t("订阅", "Subscriptions")}</h3>
+      <div className="member-options">
+        {state.sources
+          .filter((s) => s.enabled)
+          .map((s) => (
+            <CheckField
+              key={s.id}
+              label={s.name + " · " + s.nodeCount + t(" 个节点", " nodes")}
+              checked={sourceIds.includes(s.id)}
+              onChange={() => setSources(toggle(sourceIds, s.id))}
+            />
+          ))}
+      </div>
+      <h3>{t("手工节点", "Manual nodes")}</h3>
+      <div className="member-options">
+        {state.nodes
+          .filter((n) => n.enabled)
+          .map((n) => (
+            <CheckField
+              key={n.id}
+              label={n.node.name}
+              checked={nodeIds.includes(n.id)}
+              onChange={() => setNodes(toggle(nodeIds, n.id))}
+            />
+          ))}
+      </div>
+      {!state.sources.length && !state.nodes.length && (
+        <p className="notice">
+          {t(
+            "尚无订阅或节点。可以先添加，或创建仅直连的配置。",
+            "Add a subscription or node first, or create a direct-only profile.",
+          )}
+        </p>
+      )}
+      <CheckField
+        label={t("允许选择直连", "Include direct connection")}
+        checked={direct}
+        onChange={setDirect}
+      />
+      <p className="muted">
+        {t(
+          "仅使用本次选择；以后新增订阅不会自动加入。",
+          "Only these selections are included; future subscriptions are not added automatically.",
+        )}
+      </p>
+      <div className="form-footer">
+        <Button
+          primary
+          type="submit"
+          disabled={
+            !name.trim() || (!sourceIds.length && !nodeIds.length && !direct)
+          }
+        >
+          {t("创建配置", "Create profile")}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function SubscriptionNodes({
+  source,
+  t,
+  onChanged,
+  onCopy,
+}: {
+  source: Source;
+  t: T;
+  onChanged: () => void;
+  onCopy: (name: string) => void;
+}) {
+  const [nodes, setNodes] =
+    useState<React.ComponentProps<typeof SourceNodeList>["nodes"]>();
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setNodes(undefined);
+    setFailed(false);
+    api<React.ComponentProps<typeof SourceNodeList>["nodes"]>(
+      "sources/" + source.id + "/nodes",
+    )
+      .then((v) => {
+        if (active) setNodes(v);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [source.id]);
+  return (
+    <div className="padded">
+      {failed ? (
+        <p role="alert">
+          {t(
+            "节点加载失败，请刷新页面重试。",
+            "Could not load nodes. Refresh to retry.",
+          )}
+        </p>
+      ) : nodes ? (
+        <SourceNodeList
+          source={source}
+          nodes={nodes}
+          t={t}
+          onChanged={onChanged}
+          onCopy={(n) => onCopy(n.name)}
+        />
+      ) : (
+        <p>{t("正在加载节点…", "Loading nodes…")}</p>
+      )}
+    </div>
+  );
+}
