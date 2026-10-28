@@ -23,11 +23,12 @@ import (
 )
 
 type Store struct {
-	lock *os.File
-	db   *sql.DB
-	aead cipher.AEAD
-	key  []byte
-	mu   sync.Mutex
+	directory string
+	lock      *os.File
+	db        *sql.DB
+	aead      cipher.AEAD
+	key       []byte
+	mu        sync.Mutex
 }
 
 func Initialize(dir, keyFile string) error {
@@ -100,7 +101,7 @@ func open(dir, keyFile string, create bool) (*Store, error) {
 		return nil, e
 	}
 	db.SetMaxOpenConns(1)
-	s := &Store{db: db, aead: aead, key: k, lock: lock}
+	s := &Store{directory: dir, db: db, aead: aead, key: k, lock: lock}
 	fail := func(err error) (*Store, error) { db.Close(); return nil, err }
 	if _, e = db.Exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;`); e != nil {
 		return fail(e)
@@ -109,7 +110,7 @@ func open(dir, keyFile string, create bool) (*Store, error) {
 	if e = db.QueryRow(`PRAGMA user_version`).Scan(&version); e != nil {
 		return fail(e)
 	}
-	if version > 1 {
+	if version > 2 {
 		return fail(errors.New("database_version_too_new"))
 	}
 	if version == 0 {
@@ -145,6 +146,9 @@ INSERT INTO meta VALUES('generation','0'); PRAGMA user_version=1;`)
 	if e = os.Chmod(path, 0600); e != nil {
 		return fail(e)
 	}
+	if e = s.ensureReleaseIndex(); e != nil {
+		return fail(e)
+	}
 	keepLock = true
 	return s, nil
 }
@@ -175,7 +179,9 @@ func (s *Store) TokenHash(token string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 func aad(kind, id string, revision int) string { return kind + "/" + id + "/" + strconv.Itoa(revision) }
-func business(kind string) bool                { return kind == "source" || kind == "node" || kind == "profile" }
+func business(kind string) bool {
+	return kind == "source" || kind == "node" || kind == "profile" || kind == "resource"
+}
 
 func Save[T any](ctx context.Context, s *Store, kind string, meta *domain.Meta, value T, lookup string) error {
 	s.mu.Lock()
@@ -298,6 +304,9 @@ func (s *Store) Snapshot(ctx context.Context) (domain.Snapshot, error) {
 	if snap.Sources, e = List[domain.Source](ctx, s, "source"); e != nil {
 		return snap, e
 	}
+	if snap.Resources, e = List[domain.Resource](ctx, s, "resource"); e != nil {
+		return snap, e
+	}
 	if snap.Nodes, e = List[domain.ManualNode](ctx, s, "node"); e != nil {
 		return snap, e
 	}
@@ -307,7 +316,7 @@ func (s *Store) Snapshot(ctx context.Context) (domain.Snapshot, error) {
 	if snap.Devices, e = List[domain.Device](ctx, s, "device"); e != nil {
 		return snap, e
 	}
-	if snap.Releases, e = List[domain.Release](ctx, s, "release"); e != nil {
+	if snap.Releases, e = s.ReleaseSummaries(ctx); e != nil {
 		return snap, e
 	}
 	snap.Active = map[string]string{}
@@ -347,6 +356,13 @@ func (s *Store) Publish(ctx context.Context, generation int64, r *domain.Release
 		return e
 	}
 	if _, e = tx.ExecContext(ctx, `INSERT INTO objects(kind,id,revision,body) VALUES('release',?,1,?)`, r.ID, s.seal(aad("release", r.ID, 1), b)); e != nil {
+		return e
+	}
+	summary := *r
+	summary.Config = nil
+	summary.Definition = nil
+	summaryBytes, _ := json.Marshal(summary)
+	if _, e = tx.ExecContext(ctx, `INSERT INTO release_index(id,body) VALUES(?,?)`, r.ID, s.seal(aad("release-index", r.ID, 1), summaryBytes)); e != nil {
 		return e
 	}
 	if _, e = tx.ExecContext(ctx, `INSERT INTO active VALUES(?,?) ON CONFLICT(profile_id) DO UPDATE SET release_id=excluded.release_id`, r.ProfileID, r.ID); e != nil {

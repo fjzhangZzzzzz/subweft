@@ -1,3 +1,6 @@
+import { UsersPanel } from "./users";
+import { RulesEditor } from "./rules";
+import { ResourcesPanel } from "./resources";
 import {
   Button,
   Field,
@@ -7,6 +10,7 @@ import {
   ErrorFieldLink,
 } from "./ui";
 import type { T } from "./ui";
+import { useCatalog, ObjectForm, ValueForm } from "./schema-form";
 import { NodeForm } from "./node-form";
 import React, { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -62,7 +66,14 @@ import type {
 import { emptyGroup, emptyProfile } from "./types";
 import "./style.css";
 
-type Page = "overview" | "sources" | "profiles" | "devices" | "system";
+type Page =
+  | "overview"
+  | "sources"
+  | "profiles"
+  | "devices"
+  | "system"
+  | "resources"
+  | "users";
 let csrf = "";
 class APIError extends Error {
   field: string;
@@ -173,8 +184,8 @@ function App() {
         "The gRPC service name is too long or contains control characters.",
       ],
       unsupported_transport: [
-        "当前支持 TCP、WebSocket 和 gRPC。",
-        "Supported transports are TCP, WebSocket and gRPC.",
+        "请检查所选协议适用的传输方式。",
+        "Check which transports apply to this protocol.",
       ],
       unsupported_cipher: [
         "所选加密方式不在当前协议的支持范围内。",
@@ -297,6 +308,12 @@ function App() {
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
+    if (state?.role === "user") {
+      setPage("devices");
+      location.hash = "devices";
+    }
+  }, [state?.role]);
+  useEffect(() => {
     localStorage.setItem("subweft.lang", lang);
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
   }, [lang]);
@@ -379,26 +396,34 @@ function App() {
       setBusy(false);
     }
   };
-  const showSource = (value?: Source) =>
-    setModal(
-      <SourceForm
-        key={value?.id || "new"}
-        value={value}
-        t={t}
-        onSave={(inValue) =>
-          run(
-            () =>
-              api(
-                value ? `sources/${value.id}` : "sources",
-                value ? "PUT" : "POST",
-                inValue,
-              ),
-            t("来源已保存", "Source saved"),
-            true,
-          )
-        }
-      />,
-    );
+  const showSource = async (value?: Source) => {
+    try {
+      const editable = value
+        ? await api<Source>(`sources/${value.id}/edit`)
+        : undefined;
+      setModal(
+        <SourceForm
+          key={value?.id || "new"}
+          value={editable}
+          t={t}
+          onSave={(inValue) =>
+            run(
+              () =>
+                api(
+                  value ? `sources/${value.id}` : "sources",
+                  value ? "PUT" : "POST",
+                  inValue,
+                ),
+              t("来源已保存", "Source saved"),
+              true,
+            )
+          }
+        />,
+      );
+    } catch (e) {
+      setError(msg(e));
+    }
+  };
   const showNode = async (value?: ManualNode) => {
     setBusy(true);
     setError("");
@@ -493,7 +518,18 @@ function App() {
     setBusy(true);
     try {
       const nodes = await api<
-        Array<Pick<Node, "name" | "type" | "server" | "port">>
+        Array<
+          Pick<Node, "name" | "type" | "server" | "port"> & {
+            identity?: string;
+            ambiguous?: boolean;
+            override?: {
+              identity: string;
+              name: string;
+              excluded: boolean;
+              notes: string;
+            };
+          }
+        >
       >(`sources/${source.id}/nodes`);
       setModal(
         <SourceNodeList
@@ -590,8 +626,10 @@ function App() {
   const nav: Array<[Page, ReactNode, string]> = [
     ["overview", <Activity size={18} />, t("概览", "Overview")],
     ["sources", <Network size={18} />, t("来源", "Sources")],
+    ["resources", <Globe2 size={18} />, t("规则资源", "Resources")],
     ["profiles", <Layers3 size={18} />, t("配置方案", "Profiles")],
     ["devices", <Monitor size={18} />, t("设备", "Devices")],
+    ["users", <ShieldCheck size={18} />, t("使用者", "Users")],
     ["system", <Settings2 size={18} />, t("系统", "System")],
   ];
   const activeProfile =
@@ -653,30 +691,36 @@ function App() {
           {t("个人工作台", "PERSONAL WORKSPACE")}
         </div>
         <nav aria-label={t("主导航", "Main navigation")}>
-          {nav.map(([key, icon, label]) => (
-            <a
-              href={`#${key}`}
-              key={key}
-              className={page === key ? "nav-item active" : "nav-item"}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(key);
-              }}
-              aria-label={label}
-              aria-current={page === key ? "page" : undefined}
-            >
-              {icon}
-              <span>{label}</span>
-              {key === "sources" && <small>{state.sources.length}</small>}
-            </a>
-          ))}
+          {nav
+            .filter(([key]) => state.role === "admin" || key === "devices")
+            .map(([key, icon, label]) => (
+              <a
+                href={`#${key}`}
+                key={key}
+                className={page === key ? "nav-item active" : "nav-item"}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(key);
+                }}
+                aria-label={label}
+                aria-current={page === key ? "page" : undefined}
+              >
+                {icon}
+                <span>{label}</span>
+                {key === "sources" && <small>{state.sources.length}</small>}
+              </a>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           <div className="identity">
             <div className="avatar">{state.user.slice(0, 1)}</div>
             <div>
               <strong>{state.user}</strong>
-              <small>{t("管理员", "Administrator")}</small>
+              <small>
+                {state.role === "admin"
+                  ? t("管理员", "Administrator")
+                  : t("使用者", "User")}
+              </small>
             </div>
             <button
               className="icon-button"
@@ -749,7 +793,7 @@ function App() {
               </button>
             </div>
           )}
-          {page === "overview" && (
+          {page === "overview" && state.role === "admin" && (
             <>
               <PageHeader
                 eyebrow="YOUR CONFIGURATION WORKSPACE"
@@ -903,7 +947,29 @@ function App() {
               </div>
             </>
           )}
-          {page === "sources" && (
+          {page === "users" && state.role === "admin" && (
+            <UsersPanel
+              values={state.users || []}
+              issuer={state.issuer}
+              profiles={state.profiles}
+              t={t}
+              request={api}
+              onRun={run}
+              busy={busy}
+              onDirtyChange={setUnsaved}
+            />
+          )}
+          {page === "resources" && state.role === "admin" && (
+            <ResourcesPanel
+              values={state.resources || []}
+              t={t}
+              request={api}
+              onRun={run}
+              busy={busy}
+              onDirtyChange={setUnsaved}
+            />
+          )}
+          {page === "sources" && state.role === "admin" && (
             <>
               <PageHeader
                 eyebrow="SOURCES"
@@ -1142,7 +1208,7 @@ function App() {
               </section>
             </>
           )}
-          {page === "profiles" && (
+          {page === "profiles" && state.role === "admin" && (
             <>
               <PageHeader
                 eyebrow="CONFIGURATION PROFILES"
@@ -1449,7 +1515,7 @@ function App() {
               </section>
             </>
           )}
-          {page === "system" && (
+          {page === "system" && state.role === "admin" && (
             <>
               <PageHeader
                 eyebrow="SYSTEM"
@@ -1703,6 +1769,23 @@ function SourceForm({
   const [content, setContent] = useState("");
   const [tags, setTags] = useState(value?.tags?.join(", ") || "");
   const [interval, setInterval] = useState(value?.interval || 3600);
+  const [clientProvider, setClientProvider] = useState(
+    value?.clientProvider || {
+      enabled: false,
+      interval: 3600,
+      healthCheck: {
+        enable: false,
+        url: "https://www.gstatic.com/generate_204",
+        interval: 300,
+        timeout: 5000,
+        lazy: true,
+      },
+    },
+  );
+  const [extractNodes, setExtract] = useState(value?.extractNodes || false);
+  const [fetchOptions, setFetch] = useState(
+    value?.fetch || { timeout: 20, retries: 1 },
+  );
   const [enabled, setEnabled] = useState(value?.enabled ?? true);
   return (
     <form
@@ -1718,6 +1801,9 @@ function SourceForm({
           tags: split(tags),
           interval,
           enabled,
+          extractNodes,
+          fetch: fetchOptions,
+          clientProvider,
         });
       }}
     >
@@ -1730,7 +1816,7 @@ function SourceForm({
       />
       <p className="muted">
         {t(
-          "支持六种协议的明确字段：仅含 proxies 的 provider YAML，代理 URI 列表，或其单层 Base64 编码。未知字段拒绝导入。",
+          "支持 13 种协议的 provider YAML、常见代理 URI 列表及单层 Base64。未知节点字段会明确拒绝。",
           "Use supported fields in provider YAML, proxy URI lists, or one Base64 envelope. Unknown fields are rejected.",
         )}
       </p>
@@ -1835,6 +1921,105 @@ function SourceForm({
           />
         </Field>
       </div>
+      <CheckField
+        label={t(
+          "从完整 Clash 配置中仅提取 proxies",
+          "Extract only proxies from a complete Clash configuration",
+        )}
+        checked={extractNodes}
+        onChange={setExtract}
+      />
+      <p className="muted">
+        {t(
+          "启用提取时，来源中的规则、DNS 和客户端设置不会被导入。方案通过独立表单维护。",
+          "Extraction imports only nodes; profile forms manage rules, DNS and client settings independently.",
+        )}
+      </p>
+      {kind === "http" && (
+        <details>
+          <summary>{t("抓取高级参数", "Advanced fetch settings")}</summary>
+          <ObjectForm
+            schema={{
+              kind: "object",
+              properties: {
+                timeout: { kind: "integer", min: 3, max: 120 },
+                retries: { kind: "integer", min: 0, max: 3 },
+                proxy: { kind: "string", secret: true },
+                userAgent: { kind: "string" },
+                headers: {
+                  kind: "map",
+                  values: { kind: "string" },
+                  secret: true,
+                },
+              },
+            }}
+            value={fetchOptions}
+            t={t}
+            path="fetch"
+            onChange={(v) => setFetch(v as typeof fetchOptions)}
+          />
+          <p className="muted">
+            {t(
+              "代理仅支持 HTTP(S) CONNECT；目标与代理地址都会检查 SSRF 边界。",
+              "Proxies use HTTP(S) CONNECT; both target and proxy destinations receive SSRF checks.",
+            )}
+          </p>
+        </details>
+      )}
+      <details>
+        <summary>
+          {t("客户端 provider 参数", "Client provider settings")}
+        </summary>
+        <CheckField
+          label={t(
+            "使用鉴权 provider 分发节点",
+            "Distribute nodes as an authenticated provider",
+          )}
+          checked={clientProvider.enabled}
+          onChange={(enabled) =>
+            setClientProvider({ ...clientProvider, enabled })
+          }
+        />
+        {clientProvider.enabled && (
+          <ObjectForm
+            schema={{
+              kind: "object",
+              properties: {
+                interval: {
+                  kind: "integer",
+                  min: 60,
+                  max: 604800,
+                  required: true,
+                },
+                proxy: { kind: "string" },
+                healthCheck: {
+                  kind: "object",
+                  required: true,
+                  properties: {
+                    enable: { kind: "boolean", required: true },
+                    url: { kind: "string" },
+                    interval: { kind: "integer", min: 30, max: 86400 },
+                    timeout: { kind: "integer", min: 100, max: 30000 },
+                    lazy: { kind: "boolean" },
+                    expectedStatus: { kind: "string" },
+                  },
+                },
+              },
+            }}
+            value={clientProvider}
+            exclude={["enabled"]}
+            t={t}
+            path="clientProvider"
+            onChange={(v) => setClientProvider(v as typeof clientProvider)}
+          />
+        )}
+        <p className="muted">
+          {t(
+            "客户端读取已发布的节点快照；上游地址保留在服务端。这里的 proxy 与健康检查由客户端执行。",
+            "Clients read published snapshots. Upstream URLs remain server-side; proxy and health checks here run in the client.",
+          )}
+        </p>
+      </details>
       <CheckField
         label={t("启用来源", "Enable source")}
         checked={enabled}
@@ -1962,6 +2147,7 @@ function ProfileEditor({
   onDelete: () => void;
   onDirtyChange: (v: boolean) => void;
 }) {
+  const { catalog } = useCatalog();
   const [draft, setDraft] = useState<Profile>(copy(profile) as Profile);
   const [tab, setTab] = useState("groups");
   const [allowStale, setAllowStale] = useState(false);
@@ -1993,16 +2179,6 @@ function ProfileEditor({
         target: rename(rule.target),
       })),
     });
-  };
-  const setRule = (i: number, value: Rule) =>
-    setDraft({
-      ...draft,
-      rules: draft.rules.map((r, index) => (i === index ? value : r)),
-    });
-  const moveRule = (i: number, offset: number) => {
-    const rules = [...draft.rules];
-    [rules[i], rules[i + offset]] = [rules[i + offset], rules[i]];
-    setDraft({ ...draft, rules });
   };
   useEffect(() => {
     onDirtyChange(dirty);
@@ -2193,150 +2369,71 @@ function ProfileEditor({
           </>
         )}
         {tab === "rules" && (
-          <>
-            <div className="section-intro">
-              <div>
-                <h3>
-                  {t(
-                    "从上到下匹配，兜底放在最后",
-                    "Match top to bottom; fallback last",
-                  )}
-                </h3>
-                <p>
-                  {t(
-                    "支持域名与 IP 规则。当前闭环暂不包含规则集和 GEOIP。",
-                    "Domain and IP rules are available. Rulesets and GEOIP are outside this slice.",
-                  )}
-                </p>
-              </div>
-              <Button
-                onClick={() => {
-                  const rules = [...draft.rules];
-                  const at = rules.findIndex((r) => r.type === "MATCH");
-                  rules.splice(at < 0 ? rules.length : at, 0, {
-                    type: "DOMAIN-SUFFIX",
-                    value: "",
-                    target: options[0],
-                    enabled: true,
-                    noResolve: false,
-                  });
-                  setDraft({ ...draft, rules });
-                }}
-              >
-                <Plus size={15} />
-                {t("添加规则", "Add rule")}
-              </Button>
-            </div>
-            <div className="rule-list">
-              {draft.rules.map((r, i) => (
-                <div className="rule-card" key={i}>
-                  <div className="rule-number">
-                    {String(i + 1).padStart(2, "0")}
-                  </div>
-                  <Field label={t("类型", "Type")}>
-                    <select
-                      value={r.type}
-                      onChange={(e) =>
-                        setRule(i, {
-                          ...r,
-                          type: e.target.value,
-                          value: e.target.value === "MATCH" ? "" : r.value,
-                          noResolve: false,
-                        })
-                      }
-                    >
-                      {[
-                        "DOMAIN",
-                        "DOMAIN-SUFFIX",
-                        "DOMAIN-KEYWORD",
-                        "IP-CIDR",
-                        "IP-CIDR6",
-                        "MATCH",
-                      ].map((type) => (
-                        <option key={type}>{type}</option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label={t("匹配内容", "Match value")}>
-                    <input
-                      aria-label={`${t("匹配内容", "Match value")} ${i + 1}`}
-                      disabled={r.type === "MATCH"}
-                      value={r.value}
-                      placeholder={
-                        r.type === "MATCH"
-                          ? t("所有剩余流量", "All remaining traffic")
-                          : "example.com"
-                      }
-                      onChange={(e) =>
-                        setRule(i, { ...r, value: e.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label={t("目标", "Target")}>
-                    <select
-                      value={r.target}
-                      onChange={(e) =>
-                        setRule(i, { ...r, target: e.target.value })
-                      }
-                    >
-                      {options.map((o, index) => (
-                        <option key={`${o}-${index}`}>{o}</option>
-                      ))}
-                    </select>
-                  </Field>
-                  <div className="rule-options">
-                    <CheckField
-                      label={t("启用", "Enabled")}
-                      checked={r.enabled}
-                      onChange={(enabled) => setRule(i, { ...r, enabled })}
-                    />
-                    {r.type.startsWith("IP-") && (
-                      <CheckField
-                        label="no-resolve"
-                        checked={r.noResolve}
-                        onChange={(noResolve) =>
-                          setRule(i, { ...r, noResolve })
-                        }
-                      />
-                    )}
-                  </div>
-                  <div className="rule-actions">
-                    <button
-                      className="icon-button"
-                      disabled={i === 0}
-                      aria-label={`${t("上移规则", "Move rule up")} ${i + 1}`}
-                      onClick={() => moveRule(i, -1)}
-                    >
-                      <ArrowUp size={15} />
-                    </button>
-                    <button
-                      className="icon-button"
-                      disabled={i === draft.rules.length - 1}
-                      aria-label={`${t("下移规则", "Move rule down")} ${i + 1}`}
-                      onClick={() => moveRule(i, 1)}
-                    >
-                      <ArrowDown size={15} />
-                    </button>
-                    <IconButton
-                      label={`${t("删除规则", "Delete rule")} ${i + 1}`}
-                      onClick={() =>
-                        setDraft({
-                          ...draft,
-                          rules: draft.rules.filter((_, index) => index !== i),
-                        })
-                      }
-                    >
-                      <Trash2 size={15} />
-                    </IconButton>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          <RulesEditor
+            rules={draft.rules}
+            onChange={(rules) => setDraft({ ...draft, rules })}
+            targets={options}
+            resources={state.resources || []}
+            t={t}
+          />
         )}
         {tab === "settings" && (
           <div className="settings-form">
             <h3>{t("客户端参数", "Client parameters")}</h3>
+            <CheckField
+              label={t(
+                "上游更新后自动校验并发布",
+                "Automatically validate and publish upstream updates",
+              )}
+              checked={!!draft.autoPublish}
+              onChange={(autoPublish) => setDraft({ ...draft, autoPublish })}
+            />
+            <p className="muted">
+              {t(
+                "自动更新只使用最近已发布的方案定义；保存草稿不会自动发布草稿。失败保留现行版本。",
+                "Automatic updates use the last published definition. Saving a draft never publishes it; failures retain the active release.",
+              )}
+            </p>
+            {state.publishStatus
+              ?.filter((v) => v.id === draft.id && v.error)
+              .map((v) => (
+                <p className="alert error" key={v.id}>
+                  {t(
+                    "自动发布未成功，现行版本已保留：",
+                    "Automatic publication failed; active release retained: ",
+                  )}
+                  {v.error}
+                </p>
+              ))}
+            {(["geoIpId", "geoSiteId"] as const).map((key) => (
+              <Field
+                key={key}
+                label={
+                  key === "geoIpId"
+                    ? "GEOIP / Country.mmdb"
+                    : "GEOSITE / GeoSite.dat"
+                }
+              >
+                <select
+                  value={draft[key] || ""}
+                  onChange={(e) =>
+                    setDraft({ ...draft, [key]: e.target.value })
+                  }
+                >
+                  <option value="">{t("不使用", "Unused")}</option>
+                  {(state.resources || [])
+                    .filter(
+                      (r) =>
+                        r.type === (key === "geoIpId" ? "mmdb" : "geosite"),
+                    )
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                </select>
+              </Field>
+            ))}
             <Field label={t("混合端口", "Mixed port")}>
               <input
                 type="number"
@@ -2420,12 +2517,94 @@ function ProfileEditor({
                 </Field>
               </>
             )}
-            <div className="notice inline">
-              {t(
-                "当前仅实现这组明确字段；完整 DNS 和其他高级字段后续按支持矩阵扩展。",
-                "Only the listed fields are implemented. Full DNS and advanced fields follow the support matrix.",
-              )}
-            </div>
+            {catalog && (
+              <>
+                <details>
+                  <summary>
+                    {t("完整 DNS 高级字段", "Complete DNS fields")}
+                  </summary>
+                  <ObjectForm
+                    schema={catalog.dns}
+                    exclude={[
+                      "enable",
+                      "enhanced-mode",
+                      "nameserver",
+                      "nameserver-policy",
+                      "proxy-server-nameserver-policy",
+                    ]}
+                    value={draft.settings.dns || {}}
+                    t={t}
+                    path="settings.dns"
+                    onChange={(dns) =>
+                      setDraft({
+                        ...draft,
+                        settings: { ...draft.settings, dns },
+                      })
+                    }
+                  />
+                </details>
+                {(["nameserverPolicy", "proxyNameserverPolicy"] as const).map(
+                  (key) => (
+                    <details key={key}>
+                      <summary>
+                        {key === "nameserverPolicy"
+                          ? "nameserver-policy"
+                          : "proxy-server-nameserver-policy"}
+                      </summary>
+                      <p className="muted">
+                        {t(
+                          "按顺序匹配；每条可设置多个解析器。",
+                          "Matched in order; each policy accepts multiple resolvers.",
+                        )}
+                      </p>
+                      <ValueForm
+                        schema={{
+                          kind: "array",
+                          items: {
+                            kind: "object",
+                            properties: {
+                              pattern: { kind: "string", required: true },
+                              nameservers: {
+                                kind: "array",
+                                required: true,
+                                items: { kind: "string" },
+                              },
+                            },
+                          },
+                        }}
+                        value={draft.settings[key] || []}
+                        t={t}
+                        path={"settings." + key}
+                        onChange={(v) =>
+                          setDraft({
+                            ...draft,
+                            settings: { ...draft.settings, [key]: v },
+                          })
+                        }
+                      />
+                    </details>
+                  ),
+                )}
+                <details>
+                  <summary>
+                    {t("客户端全局参数", "Global client settings")}
+                  </summary>
+                  <ObjectForm
+                    schema={catalog.config}
+                    exclude={["mixed-port", "allow-lan", "ipv6"]}
+                    value={draft.settings.options || {}}
+                    t={t}
+                    path="settings.options"
+                    onChange={(options) =>
+                      setDraft({
+                        ...draft,
+                        settings: { ...draft.settings, options },
+                      })
+                    }
+                  />
+                </details>
+              </>
+            )}
           </div>
         )}
         {tab === "preview" && (
@@ -2542,13 +2721,71 @@ function SourceNodeList({
   onCopy,
 }: {
   source: Source;
-  nodes: Array<Pick<Node, "name" | "type" | "server" | "port">>;
+  nodes: Array<
+    Pick<Node, "name" | "type" | "server" | "port"> & {
+      identity?: string;
+      ambiguous?: boolean;
+      override?: {
+        identity: string;
+        name: string;
+        excluded: boolean;
+        notes: string;
+      };
+    }
+  >;
   t: T;
-  onCopy: (node: Pick<Node, "name" | "type" | "server" | "port">) => void;
+  onCopy: (
+    node: Pick<Node, "name" | "type" | "server" | "port"> & {
+      identity?: string;
+      ambiguous?: boolean;
+      override?: {
+        identity: string;
+        name: string;
+        excluded: boolean;
+        notes: string;
+      };
+    },
+  ) => void;
 }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
-  const filtered = nodes.filter((node) =>
+  const [localRevision, setLocalRevision] = useState(source.revision);
+  const [localNodes, setLocalNodes] = useState(nodes);
+  const [overrideEdit, setOverrideEdit] = useState<(typeof nodes)[number]>();
+  const [overrideValue, setOverrideValue] = useState({
+    identity: "",
+    name: "",
+    excluded: false,
+    notes: "",
+  });
+  const [localError, setLocalError] = useState("");
+  const saveOverride = async (remove = false) => {
+    try {
+      const saved = await api<Source>(
+        `sources/${source.id}/overrides`,
+        "POST",
+        { revision: localRevision, override: overrideValue, remove },
+      );
+      setLocalRevision(saved.revision);
+      setLocalNodes(
+        localNodes.map((n) =>
+          n.identity === overrideValue.identity
+            ? { ...n, override: remove ? undefined : overrideValue }
+            : n,
+        ),
+      );
+      setOverrideEdit(undefined);
+      setLocalError("");
+    } catch {
+      setLocalError(
+        t(
+          "保存失败，来源可能已更新；请关闭后重新打开。",
+          "Save failed; the source may have changed. Reopen this dialog.",
+        ),
+      );
+    }
+  };
+  const filtered = localNodes.filter((node) =>
     node.name.toLowerCase().includes(query.toLowerCase()),
   );
   const pages = Math.max(1, Math.ceil(filtered.length / 50));
@@ -2570,15 +2807,87 @@ function SourceNodeList({
           }}
         />
       </Field>
+      {localError && (
+        <p role="alert" className="alert error">
+          {localError}
+        </p>
+      )}
+      {overrideEdit && (
+        <div className="panel">
+          <h3>{overrideEdit.name}</h3>
+          <Field
+            label={t(
+              "本地名称（留空使用上游）",
+              "Local name (blank uses upstream)",
+            )}
+          >
+            <input
+              value={overrideValue.name}
+              onChange={(e) =>
+                setOverrideValue({ ...overrideValue, name: e.target.value })
+              }
+            />
+          </Field>
+          <Field label={t("备注", "Notes")}>
+            <input
+              value={overrideValue.notes}
+              onChange={(e) =>
+                setOverrideValue({ ...overrideValue, notes: e.target.value })
+              }
+            />
+          </Field>
+          <CheckField
+            label={t("从所有方案排除", "Exclude from all profiles")}
+            checked={overrideValue.excluded}
+            onChange={(excluded) =>
+              setOverrideValue({ ...overrideValue, excluded })
+            }
+          />
+          <div className="actions">
+            <Button onClick={() => void saveOverride()}>
+              {t("保存覆盖", "Save override")}
+            </Button>
+            <Button onClick={() => void saveOverride(true)}>
+              {t("清除覆盖", "Clear override")}
+            </Button>
+            <Button onClick={() => setOverrideEdit(undefined)}>
+              {t("取消", "Cancel")}
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="node-list">
         {filtered.slice(page * 50, (page + 1) * 50).map((node) => (
           <div className="node-row" key={node.name}>
             <div>
-              <strong>{node.name}</strong>
+              <strong>
+                {node.override?.name || node.name}
+                {node.override?.excluded ? " · excluded" : ""}
+              </strong>
               <small>
                 {node.type} · {node.server}:{node.port}
               </small>
             </div>
+            <Button
+              disabled={node.ambiguous || !node.identity}
+              onClick={() => {
+                setOverrideEdit(node);
+                setOverrideValue(
+                  node.override?.identity
+                    ? node.override
+                    : {
+                        identity: node.identity!,
+                        name: "",
+                        excluded: false,
+                        notes: "",
+                      },
+                );
+              }}
+            >
+              {node.ambiguous
+                ? t("身份歧义，禁止覆盖", "Ambiguous identity")
+                : t("本地覆盖", "Local override")}
+            </Button>
             <Button onClick={() => onCopy(node)}>
               <Copy size={14} />
               {t("复制", "Copy")}
@@ -2620,6 +2929,7 @@ function GroupForm({
 }) {
   const set = <K extends keyof Group>(key: K, value: Group[K]) =>
     onChange({ ...g, [key]: value });
+  const { catalog } = useCatalog();
   const tags = [...new Set(state.sources.flatMap((s) => s.tags || []))];
   return (
     <div className="group-card">
@@ -2806,6 +3116,18 @@ function GroupForm({
             )}
           </div>
         </div>
+      )}
+      {catalog?.groups[g.type] && (
+        <details>
+          <summary>{t("高级策略参数", "Advanced policy settings")}</summary>
+          <ObjectForm
+            schema={catalog.groups[g.type]}
+            value={g.options || {}}
+            t={t}
+            path={"groups." + index + ".options"}
+            onChange={(v) => set("options", v)}
+          />
+        </details>
       )}
     </div>
   );

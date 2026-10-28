@@ -71,3 +71,7 @@ go run ./tools/bench -validator /absolute/path/to/mihomo -requests 200
 工具使用虚构的10个来源、2000个SS节点、5份方案、20台设备和10并发，在原生校验后测量真实授权下载接口。只输出汇总，不输出Token或配置正文。它使用临时加密数据库，结束后清理自己的临时数据。
 
 该基准未包含大型公共规则集、外网传输或实际代理连接，Go heap不等于RSS；不能把其结果当作完整首版性能验收。
+
+## Linux 校验前置条件
+
+Linux 需安装发行版 bubblewrap、util-linux（prlimit），并允许该程序建立非特权用户/文件/网络命名空间。服务启动时验证隔离可用；不满足时拒绝校验器，不降级运行。Windows 仅用于可信合成数据的本地开发，不能据此验收 Linux 隔离。

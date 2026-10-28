@@ -34,6 +34,8 @@ type Auth struct {
 	verifier    *oidc.IDTokenVerifier
 }
 type Session struct {
+	Role       string   `json:"role"`
+	ProfileIDs []string `json:"profileIds"`
 	domain.Meta
 	Issuer  string    `json:"issuer"`
 	Subject string    `json:"subject"`
@@ -132,13 +134,7 @@ func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
 		fail()
 		return
 	}
-	admin := false
-	for _, sub := range a.cfg.AdminSubjects {
-		if idToken.Subject == sub {
-			admin = true
-		}
-	}
-	if !admin {
+	if _, e := a.Principal(ctx, idToken.Issuer, idToken.Subject); e != nil {
 		http.Error(w, "access_denied", http.StatusForbidden)
 		return
 	}
@@ -170,15 +166,12 @@ func (a *Auth) Session(r *http.Request) (Session, error) {
 	if e != nil || !time.Now().Before(s.Expires) || s.Issuer != a.cfg.Issuer {
 		return Session{}, domain.ErrNotFound
 	}
-	allowed := false
-	for _, sub := range a.cfg.AdminSubjects {
-		if s.Subject == sub {
-			allowed = true
-		}
-	}
-	if !allowed {
+	user, e := a.Principal(r.Context(), s.Issuer, s.Subject)
+	if e != nil {
 		return Session{}, domain.ErrNotFound
 	}
+	s.Role = user.Role
+	s.ProfileIDs = user.ProfileIDs
 	return s, nil
 }
 func (a *Auth) CheckMutation(r *http.Request, s Session) bool {
@@ -188,4 +181,45 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request, s Session) {
 	_ = a.store.Delete(r.Context(), "session", s.ID, s.Revision)
 	a.setCookie(w, a.cookieName(), "", -1)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *Auth) Issuer() string { return a.cfg.Issuer }
+func (a *Auth) IsBootstrap(issuer, subject string) bool {
+	if issuer != a.cfg.Issuer {
+		return false
+	}
+	for _, sub := range a.cfg.AdminSubjects {
+		if sub == subject {
+			return true
+		}
+	}
+	return false
+}
+func (a *Auth) BootstrapUsers() []domain.User {
+	out := []domain.User{}
+	for _, sub := range a.cfg.AdminSubjects {
+		out = append(out, domain.User{Meta: domain.Meta{ID: domain.UserID(a.cfg.Issuer, sub)}, Issuer: a.cfg.Issuer, Subject: sub, Name: "Bootstrap administrator", Role: "admin", Enabled: true, Bootstrap: true})
+	}
+	return out
+}
+func (a *Auth) Principal(ctx context.Context, issuer, subject string) (domain.User, error) {
+	if a.IsBootstrap(issuer, subject) {
+		return domain.User{Issuer: issuer, Subject: subject, Role: "admin", Enabled: true}, nil
+	}
+	if issuer != a.cfg.Issuer {
+		return domain.User{}, domain.ErrNotFound
+	}
+	u, e := storage.Load[domain.User](ctx, a.store, "user", domain.UserID(issuer, subject))
+	if e != nil || !u.Enabled {
+		return domain.User{}, domain.ErrNotFound
+	}
+	return u, nil
+}
+func (a *Auth) DeviceAllowed(ctx context.Context, d domain.Device) bool {
+	parts := strings.SplitN(d.Owner, "#", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	u, e := a.Principal(ctx, parts[0], parts[1])
+	return e == nil && u.Allows(d.ProfileID)
 }

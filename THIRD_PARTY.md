@@ -22,3 +22,7 @@ Mihomo不被Go链接，也不包含在当前公开源码或正式发布包中。
 - [对应源码](https://github.com/MetaCubeX/mihomo/tree/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8)。
 
 独立进程不免除再分发义务。正式打包任何依赖或校验器之前，必须将适用许可、版权声明和相应源码义务落实到该工件；本文件不替代完整分发声明。当前没有包含Mihomo的Subweft正式二进制或容器发行。
+
+## MaxMind 测试样例
+
+原生 GEOIP 测试按 tools/fetch_testdata.py 固定 MaxMind-DB commit 和 SHA256，获取 Apache-2.0 的 GeoIP2-Country-Test.mmdb。来源：https://github.com/maxmind/MaxMind-DB/tree/d1551916cff0712d12ff602c309234471b0402a2 。这是非生产样例，不随应用工件分发，不代表完整地理数据覆盖。

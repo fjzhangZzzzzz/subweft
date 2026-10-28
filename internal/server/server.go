@@ -11,6 +11,7 @@ import (
 	"github.com/fjzhangZzzzzz/subweft/internal/auth"
 	"github.com/fjzhangZzzzzz/subweft/internal/compile"
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
+	"github.com/fjzhangZzzzzz/subweft/internal/fields"
 	"github.com/fjzhangZzzzzz/subweft/internal/storage"
 )
 
@@ -33,6 +34,7 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /auth/login", a.Auth.Login)
 	mux.HandleFunc("GET /auth/callback", a.Auth.Callback)
 	mux.HandleFunc("GET /s/{token}/config.yaml", a.download)
+	mux.HandleFunc("GET /s/{token}/releases/{release}/resources/{name}", a.resourceDownload)
 	mux.Handle("/api/v1/", http.HandlerFunc(a.manage))
 	mux.Handle("/", a.UI)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +75,7 @@ func fail(w http.ResponseWriter, e error) {
 	respond(w, status, map[string]any{"error": v})
 }
 func read(w http.ResponseWriter, r *http.Request, v any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, 3<<20)
+	r.Body = http.MaxBytesReader(w, r.Body, 90<<20)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if e := decoder.Decode(v); e != nil {
@@ -94,6 +96,9 @@ func read(w http.ResponseWriter, r *http.Request, v any) bool {
 }
 
 type sourceView struct {
+	ClientProvider *domain.ClientProvider `json:"clientProvider,omitempty"`
+	ExtractNodes   bool                   `json:"extractNodes"`
+	Overrides      []domain.NodeOverride  `json:"overrides,omitempty"`
 	domain.Meta
 	Name        string   `json:"name"`
 	Kind        string   `json:"kind"`
@@ -107,9 +112,9 @@ type sourceView struct {
 }
 
 func sourceMeta(v domain.Source) sourceView {
-	return sourceView{v.Meta, v.Name, v.Kind, v.Enabled, v.Tags, v.Interval, len(v.Nodes), v.LastSuccess, v.LastAttempt, v.LastError}
+	return sourceView{v.ClientProvider, v.ExtractNodes, v.Overrides, v.Meta, v.Name, v.Kind, v.Enabled, v.Tags, v.Interval, len(v.Nodes), v.LastSuccess, v.LastAttempt, v.LastError}
 }
-func releaseMeta(v domain.Release) domain.Release    { v.Config = nil; return v }
+func releaseMeta(v domain.Release) domain.Release    { v.Config = nil; v.Definition = nil; return v }
 func deviceMeta(v domain.Device) domain.Device       { v.Token = ""; return v }
 func nodeMeta(v domain.ManualNode) domain.ManualNode { v.Node = domain.NodeMetadata(v.Node); return v }
 func (a *API) manage(w http.ResponseWriter, r *http.Request) {
@@ -139,8 +144,40 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	s := a.Service
+	if path == "fields" && r.Method == "GET" {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		_, _ = w.Write(fields.Catalog)
+		return
+	}
 	if path == "logout" && r.Method == "POST" {
 		a.Auth.Logout(w, r, session)
+		return
+	}
+	if session.Role != "admin" && path != "state" && kind != "devices" {
+		respond(w, 403, map[string]any{"error": domain.Error{Code: "access_denied"}})
+		return
+	}
+	if kind == "devices" && session.Role != "admin" && id != "" {
+		d, e := storage.Load[domain.Device](ctx, s.Store, "device", id)
+		if e != nil || d.Owner != session.Issuer+"#"+session.Subject || !allows(session, d.ProfileID) {
+			respond(w, 404, map[string]any{"error": domain.Error{Code: "not_found"}})
+			return
+		}
+	}
+	if path == "backup" && session.Role == "admin" && r.Method == "POST" {
+		var in struct{}
+		if !read(w, r, &in) {
+			return
+		}
+		file, cleanup, e := s.Store.PrepareBackup(ctx)
+		if e != nil {
+			fail(w, domain.Invalid("backup_failed", "backup"))
+			return
+		}
+		defer cleanup()
+		w.Header().Set("Content-Type", "application/vnd.sqlite3")
+		w.Header().Set("Content-Disposition", `attachment; filename="subweft-encrypted.sqlite"`)
+		http.ServeFile(w, r, file)
 		return
 	}
 	if path == "state" && r.Method == "GET" {
@@ -149,6 +186,17 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 			fail(w, e)
 			return
 		}
+		if session.Role != "admin" {
+			a.userState(w, r, session, snap)
+			return
+		}
+		users, e := storage.List[domain.User](ctx, s.Store, "user")
+		if e != nil {
+			fail(w, e)
+			return
+		}
+		users = append(users, a.Auth.BootstrapUsers()...)
+		publishStatus, _ := storage.List[app.PublishStatus](ctx, s.Store, "publish-status")
 		sources := []sourceView{}
 		for _, v := range snap.Sources {
 			sources = append(sources, sourceMeta(v))
@@ -170,11 +218,45 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 			fail(w, e)
 			return
 		}
-		respond(w, 200, map[string]any{"user": session.Name, "csrf": session.CSRF, "sources": sources, "nodes": nodes, "profiles": snap.Profiles, "devices": devices, "releases": releases, "active": snap.Active, "seen": seen, "validator": s.Validator.Identity(), "capabilities": map[string]any{"protocols": domain.Protocols(), "groups": []string{"select", "url-test", "fallback", "load-balance"}, "automaticPublish": false}})
+		respond(w, 200, map[string]any{"user": session.Name, "role": session.Role, "issuer": a.Auth.Issuer(), "users": users, "publishStatus": publishStatus, "csrf": session.CSRF, "sources": sources, "nodes": nodes, "profiles": snap.Profiles, "resources": resourceMetas(snap.Resources), "devices": devices, "releases": releases, "active": snap.Active, "seen": seen, "validator": s.Validator.Identity(), "capabilities": map[string]any{"protocols": domain.Protocols(), "groups": []string{"select", "url-test", "fallback", "load-balance"}, "automaticPublish": true}})
 		return
 	}
 	switch kind {
+	case "users":
+		if a.manageUsers(w, r, id, action) {
+			return
+		}
+	case "resources":
+		if a.manageResources(w, r, id, action) {
+			return
+		}
 	case "sources":
+		if id != "" && action == "edit" && r.Method == "GET" {
+			v, e := storage.Load[domain.Source](ctx, s.Store, "source", id)
+			if e != nil {
+				fail(w, e)
+			} else {
+				respond(w, 200, app.SourceInput{Meta: v.Meta, Name: v.Name, Kind: v.Kind, Enabled: v.Enabled, Tags: v.Tags, Interval: v.Interval, ExtractNodes: v.ExtractNodes, Fetch: v.Fetch})
+			}
+			return
+		}
+		if id != "" && action == "overrides" && r.Method == "POST" {
+			var in struct {
+				Revision int                 `json:"revision"`
+				Override domain.NodeOverride `json:"override"`
+				Remove   bool                `json:"remove"`
+			}
+			if !read(w, r, &in) {
+				return
+			}
+			v, e := s.SaveOverride(ctx, id, in.Revision, in.Override, in.Remove)
+			if e != nil {
+				fail(w, e)
+			} else {
+				respond(w, 200, sourceMeta(v))
+			}
+			return
+		}
 		if id != "" && action == "refresh" && r.Method == "POST" {
 			var in struct {
 				Revision int `json:"revision"`
@@ -205,9 +287,17 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 				fail(w, e)
 				return
 			}
+			counts := map[string]int{}
+			overrides := map[string]domain.NodeOverride{}
+			for _, n := range v.Nodes {
+				counts[domain.NodeIdentity(n)]++
+			}
+			for _, o := range v.Overrides {
+				overrides[o.Identity] = o
+			}
 			values := []map[string]any{}
 			for _, n := range v.Nodes {
-				values = append(values, map[string]any{"name": n.Name, "type": n.Type, "server": n.Server, "port": n.Port})
+				values = append(values, map[string]any{"name": n.Name, "type": n.Type, "server": n.Server, "port": n.Port, "identity": domain.NodeIdentity(n), "ambiguous": counts[domain.NodeIdentity(n)] > 1, "override": overrides[domain.NodeIdentity(n)]})
 			}
 			respond(w, 200, values)
 			return
@@ -416,6 +506,10 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
+			if !allows(session, v.ProfileID) {
+				respond(w, 403, map[string]any{"error": domain.Error{Code: "access_denied"}})
+				return
+			}
 			v, e = s.SaveDevice(ctx, v, session.Issuer+"#"+session.Subject)
 			if e != nil {
 				fail(w, e)
@@ -426,7 +520,7 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if r.Method == "DELETE" && id != "" && action == "" {
-		kinds := map[string]string{"sources": "source", "nodes": "node", "profiles": "profile", "devices": "device"}
+		kinds := map[string]string{"sources": "source", "resources": "resource", "nodes": "node", "profiles": "profile", "devices": "device"}
 		if target, ok := kinds[kind]; ok {
 			var in struct {
 				Revision int `json:"revision"`
@@ -446,13 +540,21 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 }
 func (a *API) download(w http.ResponseWriter, r *http.Request) {
 	d, release, e := a.Service.Store.Download(r.Context(), r.PathValue("token"))
-	if e != nil {
+	if e != nil || !a.Auth.DeviceAllowed(r.Context(), d) {
 		http.Error(w, "not_found", 404)
 		return
 	}
 	w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="subweft.yaml"`)
 	w.Header().Set("X-Subweft-Release", release.ID)
-	_, _ = w.Write(release.Config)
+	body := release.Config
+	if len(release.Resources) > 0 {
+		body, e = compile.DeviceConfig(body, a.BaseURL+"/s/"+d.Token+"/releases/"+release.ID+"/resources/")
+		if e != nil {
+			http.Error(w, "unavailable", 503)
+			return
+		}
+	}
+	_, _ = w.Write(body)
 	a.Service.Store.Seen(r.Context(), d.ID)
 }

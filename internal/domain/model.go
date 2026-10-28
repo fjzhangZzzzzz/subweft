@@ -29,7 +29,32 @@ type ManualNode struct {
 	Node    Node `json:"node"`
 	Enabled bool `json:"enabled"`
 }
+type FetchOptions struct {
+	Timeout   int               `json:"timeout"`
+	Retries   int               `json:"retries"`
+	Proxy     string            `json:"proxy,omitempty"`
+	UserAgent string            `json:"userAgent,omitempty"`
+	Headers   map[string]string `json:"headers,omitempty"`
+}
+type HealthCheck struct {
+	Enable         bool   `json:"enable"`
+	URL            string `json:"url"`
+	Interval       int    `json:"interval"`
+	Timeout        int    `json:"timeout"`
+	Lazy           bool   `json:"lazy"`
+	ExpectedStatus string `json:"expectedStatus,omitempty"`
+}
+type ClientProvider struct {
+	Enabled     bool        `json:"enabled"`
+	Interval    int         `json:"interval"`
+	Proxy       string      `json:"proxy,omitempty"`
+	HealthCheck HealthCheck `json:"healthCheck"`
+}
 type Source struct {
+	ClientProvider *ClientProvider `json:"clientProvider,omitempty"`
+	Fetch          FetchOptions    `json:"fetch"`
+	ExtractNodes   bool            `json:"extractNodes"`
+	Overrides      []NodeOverride  `json:"overrides,omitempty"`
 	Meta
 	Name        string    `json:"name"`
 	Kind        string    `json:"kind"`
@@ -44,37 +69,50 @@ type Source struct {
 	LastError   string    `json:"lastError,omitempty"`
 }
 type Group struct {
-	Name       string   `json:"name"`
-	Type       string   `json:"type"`
-	SourceIDs  []string `json:"sourceIds"`
-	Tags       []string `json:"tags"`
-	AllSources bool     `json:"allSources"`
-	NodeIDs    []string `json:"nodeIds"`
-	Groups     []string `json:"groups"`
-	Builtins   []string `json:"builtins"`
-	Filter     string   `json:"filter,omitempty"`
-	Exclude    string   `json:"exclude,omitempty"`
-	URL        string   `json:"url,omitempty"`
-	Interval   int      `json:"interval"`
-	Tolerance  int      `json:"tolerance"`
-	Strategy   string   `json:"strategy,omitempty"`
+	Options    map[string]any `json:"options,omitempty"`
+	Name       string         `json:"name"`
+	Type       string         `json:"type"`
+	SourceIDs  []string       `json:"sourceIds"`
+	Tags       []string       `json:"tags"`
+	AllSources bool           `json:"allSources"`
+	NodeIDs    []string       `json:"nodeIds"`
+	Groups     []string       `json:"groups"`
+	Builtins   []string       `json:"builtins"`
+	Filter     string         `json:"filter,omitempty"`
+	Exclude    string         `json:"exclude,omitempty"`
+	URL        string         `json:"url,omitempty"`
+	Interval   int            `json:"interval"`
+	Tolerance  int            `json:"tolerance"`
+	Strategy   string         `json:"strategy,omitempty"`
 }
 type Rule struct {
-	Type      string `json:"type"`
-	Value     string `json:"value"`
-	Target    string `json:"target"`
-	NoResolve bool   `json:"noResolve"`
-	Enabled   bool   `json:"enabled"`
+	Conditions []Condition `json:"conditions,omitempty"`
+	Type       string      `json:"type"`
+	Value      string      `json:"value"`
+	Target     string      `json:"target"`
+	NoResolve  bool        `json:"noResolve"`
+	Enabled    bool        `json:"enabled"`
 }
-type Settings struct {
-	MixedPort   int      `json:"mixedPort"`
-	AllowLAN    bool     `json:"allowLan"`
-	IPv6        bool     `json:"ipv6"`
-	DNSEnabled  bool     `json:"dnsEnabled"`
-	DNSMode     string   `json:"dnsMode"`
+type DNSPolicy struct {
+	Pattern     string   `json:"pattern"`
 	Nameservers []string `json:"nameservers"`
 }
+type Settings struct {
+	Options               map[string]any `json:"options,omitempty"`
+	DNS                   map[string]any `json:"dns,omitempty"`
+	NameserverPolicy      []DNSPolicy    `json:"nameserverPolicy,omitempty"`
+	ProxyNameserverPolicy []DNSPolicy    `json:"proxyNameserverPolicy,omitempty"`
+	MixedPort             int            `json:"mixedPort"`
+	AllowLAN              bool           `json:"allowLan"`
+	IPv6                  bool           `json:"ipv6"`
+	DNSEnabled            bool           `json:"dnsEnabled"`
+	DNSMode               string         `json:"dnsMode"`
+	Nameservers           []string       `json:"nameservers"`
+}
 type Profile struct {
+	AutoPublish bool   `json:"autoPublish"`
+	GeoIPID     string `json:"geoIpId,omitempty"`
+	GeoSiteID   string `json:"geoSiteId,omitempty"`
 	Meta
 	Name     string   `json:"name"`
 	Groups   []Group  `json:"groups"`
@@ -91,6 +129,8 @@ type Device struct {
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 }
 type Release struct {
+	Resources  map[string]string `json:"resources,omitempty"`
+	Definition *Profile          `json:"definition,omitempty"`
 	Meta
 	ProfileID       string            `json:"profileId"`
 	ProfileRevision int               `json:"profileRevision"`
@@ -101,6 +141,7 @@ type Release struct {
 	Validator       string            `json:"validator"`
 }
 type Snapshot struct {
+	Resources  []Resource
 	Generation int64
 	Sources    []Source
 	Nodes      []ManualNode

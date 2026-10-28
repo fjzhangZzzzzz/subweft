@@ -1,0 +1,3461 @@
+{
+  "commit": "3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8",
+  "config": {
+    "kind": "object",
+    "properties": {
+      "allow-lan": {
+        "kind": "boolean"
+      },
+      "authentication": {
+        "kind": "array",
+        "items": {
+          "kind": "string",
+          "secret": true
+        },
+        "secret": true
+      },
+      "bind-address": {
+        "kind": "string"
+      },
+      "disable-keep-alive": {
+        "kind": "boolean"
+      },
+      "external-controller": {
+        "kind": "string"
+      },
+      "external-controller-cors": {
+        "kind": "object",
+        "properties": {
+          "allow-origins": {
+            "kind": "array",
+            "items": {
+              "kind": "string"
+            }
+          },
+          "allow-private-network": {
+            "kind": "boolean"
+          }
+        }
+      },
+      "find-process-mode": {
+        "kind": "string",
+        "enum": [
+          "off",
+          "strict",
+          "always"
+        ]
+      },
+      "global-client-fingerprint": {
+        "kind": "string"
+      },
+      "global-ua": {
+        "kind": "string"
+      },
+      "hosts": {
+        "kind": "map",
+        "values": {
+          "kind": "union",
+          "alternatives": [
+            {
+              "kind": "string"
+            },
+            {
+              "kind": "array",
+              "items": {
+                "kind": "string"
+              }
+            }
+          ]
+        }
+      },
+      "inbound-mptcp": {
+        "kind": "boolean"
+      },
+      "inbound-tfo": {
+        "kind": "boolean"
+      },
+      "interface-name": {
+        "kind": "string"
+      },
+      "ipv6": {
+        "kind": "boolean"
+      },
+      "keep-alive-idle": {
+        "kind": "integer"
+      },
+      "keep-alive-interval": {
+        "kind": "integer"
+      },
+      "lan-allowed-ips": {
+        "kind": "array",
+        "items": {
+          "kind": "string"
+        }
+      },
+      "lan-disallowed-ips": {
+        "kind": "array",
+        "items": {
+          "kind": "string"
+        }
+      },
+      "log-level": {
+        "kind": "string",
+        "enum": [
+          "debug",
+          "info",
+          "warning",
+          "error",
+          "silent"
+        ]
+      },
+      "mixed-port": {
+        "kind": "integer"
+      },
+      "mode": {
+        "kind": "string",
+        "enum": [
+          "rule",
+          "global",
+          "direct"
+        ]
+      },
+      "port": {
+        "kind": "integer"
+      },
+      "profile": {
+        "kind": "object",
+        "properties": {
+          "store-fake-ip": {
+            "kind": "boolean"
+          },
+          "store-selected": {
+            "kind": "boolean"
+          }
+        }
+      },
+      "redir-port": {
+        "kind": "integer"
+      },
+      "routing-mark": {
+        "kind": "integer"
+      },
+      "secret": {
+        "kind": "string",
+        "secret": true
+      },
+      "skip-auth-prefixes": {
+        "kind": "array",
+        "items": {
+          "kind": "string"
+        },
+        "secret": true
+      },
+      "sniffer": {
+        "kind": "object",
+        "properties": {
+          "enable": {
+            "kind": "boolean"
+          },
+          "force-dns-mapping": {
+            "kind": "boolean"
+          },
+          "force-domain": {
+            "kind": "array",
+            "items": {
+              "kind": "string"
+            }
+          },
+          "override-destination": {
+            "kind": "boolean"
+          },
+          "parse-pure-ip": {
+            "kind": "boolean"
+          },
+          "port-whitelist": {
+            "kind": "array",
+            "items": {
+              "kind": "string"
+            }
+          },
+          "skip-domain": {
+            "kind": "array",
+            "items": {
+              "kind": "string"
+            }
+          },
+          "skip-dst-address": {
+            "kind": "array",
+            "items": {
+              "kind": "string"
+            }
+          },
+          "skip-src-address": {
+            "kind": "array",
+            "items": {
+              "kind": "string"
+            }
+          },
+          "sniff": {
+            "kind": "map",
+            "values": {
+              "kind": "object",
+              "properties": {
+                "override-destination": {
+                  "kind": "boolean"
+                },
+                "ports": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "string"
+                  }
+                }
+              }
+            }
+          },
+          "sniffing": {
+            "kind": "array",
+            "items": {
+              "kind": "string"
+            }
+          }
+        }
+      },
+      "socks-port": {
+        "kind": "integer"
+      },
+      "tcp-concurrent": {
+        "kind": "boolean"
+      },
+      "tproxy-port": {
+        "kind": "integer"
+      },
+      "unified-delay": {
+        "kind": "boolean"
+      }
+    }
+  },
+  "dns": {
+    "kind": "object",
+    "properties": {
+      "cache-algorithm": {
+        "kind": "string",
+        "enum": [
+          "lru",
+          "arc"
+        ]
+      },
+      "cache-max-size": {
+        "kind": "integer"
+      },
+      "default-nameserver": {
+        "kind": "array",
+        "items": {
+          "kind": "string"
+        }
+      },
+      "direct-nameserver": {
+        "kind": "array",
+        "items": {
+          "kind": "string"
+        }
+      },
+      "direct-nameserver-follow-policy": {
+        "kind": "boolean"
+      },
+      "enable": {
+        "kind": "boolean"
+      },
+      "enhanced-mode": {
+        "kind": "string",
+        "enum": [
+          "fake-ip",
+          "redir-host"
+        ]
+      },
+      "fake-ip-filter": {
+        "kind": "array",
+        "items": {
+          "kind": "string"
+        }
+      },
+      "fake-ip-filter-mode": {
+        "kind": "string",
+        "enum": [
+          "blacklist",
+          "whitelist",
+          "rule"
+        ]
+      },
+      "fake-ip-range": {
+        "kind": "string"
+      },
+      "fake-ip-range6": {
+        "kind": "string"
+      },
+      "fake-ip-ttl": {
+        "kind": "integer"
+      },
+      "fallback": {
+        "kind": "array",
+        "items": {
+          "kind": "string"
+        }
+      },
+      "fallback-filter": {
+        "kind": "object",
+        "properties": {
+          "domain": {
+            "kind": "array",
+            "items": {
+              "kind": "string"
+            }
+          },
+          "geoip": {
+            "kind": "boolean"
+          },
+          "geoip-code": {
+            "kind": "string"
+          },
+          "geosite": {
+            "kind": "array",
+            "items": {
+              "kind": "string"
+            }
+          },
+          "ipcidr": {
+            "kind": "array",
+            "items": {
+              "kind": "string"
+            }
+          }
+        }
+      },
+      "fallback-lazy-query": {
+        "kind": "boolean"
+      },
+      "ipv6": {
+        "kind": "boolean"
+      },
+      "ipv6-timeout": {
+        "kind": "integer",
+        "min": 0
+      },
+      "listen": {
+        "kind": "string"
+      },
+      "listen-routing-mark": {
+        "kind": "integer"
+      },
+      "nameserver": {
+        "kind": "array",
+        "items": {
+          "kind": "string"
+        }
+      },
+      "nameserver-policy": {
+        "kind": "map",
+        "values": {
+          "kind": "union",
+          "alternatives": [
+            {
+              "kind": "string"
+            },
+            {
+              "kind": "array",
+              "items": {
+                "kind": "string"
+              }
+            }
+          ]
+        }
+      },
+      "prefer-h3": {
+        "kind": "boolean"
+      },
+      "proxy-server-nameserver": {
+        "kind": "array",
+        "items": {
+          "kind": "string"
+        }
+      },
+      "proxy-server-nameserver-policy": {
+        "kind": "map",
+        "values": {
+          "kind": "union",
+          "alternatives": [
+            {
+              "kind": "string"
+            },
+            {
+              "kind": "array",
+              "items": {
+                "kind": "string"
+              }
+            }
+          ]
+        }
+      },
+      "respect-rules": {
+        "kind": "boolean"
+      },
+      "use-hosts": {
+        "kind": "boolean"
+      },
+      "use-system-hosts": {
+        "kind": "boolean"
+      }
+    }
+  },
+  "groups": {
+    "fallback": {
+      "kind": "object",
+      "properties": {
+        "disable-udp": {
+          "kind": "boolean"
+        },
+        "exclude-type": {
+          "kind": "string"
+        },
+        "expected-status": {
+          "kind": "string"
+        },
+        "hidden": {
+          "kind": "boolean"
+        },
+        "icon": {
+          "kind": "string"
+        },
+        "lazy": {
+          "kind": "boolean"
+        },
+        "max-failed-times": {
+          "kind": "integer"
+        },
+        "timeout": {
+          "kind": "integer"
+        }
+      }
+    },
+    "load-balance": {
+      "kind": "object",
+      "properties": {
+        "disable-udp": {
+          "kind": "boolean"
+        },
+        "exclude-type": {
+          "kind": "string"
+        },
+        "expected-status": {
+          "kind": "string"
+        },
+        "hash-key": {
+          "kind": "string"
+        },
+        "hidden": {
+          "kind": "boolean"
+        },
+        "icon": {
+          "kind": "string"
+        },
+        "lazy": {
+          "kind": "boolean"
+        },
+        "max-failed-times": {
+          "kind": "integer"
+        },
+        "timeout": {
+          "kind": "integer"
+        }
+      }
+    },
+    "select": {
+      "kind": "object",
+      "properties": {
+        "default-selected": {
+          "kind": "string"
+        },
+        "disable-udp": {
+          "kind": "boolean"
+        },
+        "exclude-type": {
+          "kind": "string"
+        },
+        "expected-status": {
+          "kind": "string"
+        },
+        "hidden": {
+          "kind": "boolean"
+        },
+        "icon": {
+          "kind": "string"
+        },
+        "lazy": {
+          "kind": "boolean"
+        },
+        "max-failed-times": {
+          "kind": "integer"
+        },
+        "timeout": {
+          "kind": "integer"
+        }
+      }
+    },
+    "url-test": {
+      "kind": "object",
+      "properties": {
+        "disable-udp": {
+          "kind": "boolean"
+        },
+        "exclude-type": {
+          "kind": "string"
+        },
+        "expected-status": {
+          "kind": "string"
+        },
+        "hidden": {
+          "kind": "boolean"
+        },
+        "icon": {
+          "kind": "string"
+        },
+        "lazy": {
+          "kind": "boolean"
+        },
+        "max-failed-times": {
+          "kind": "integer"
+        },
+        "timeout": {
+          "kind": "integer"
+        }
+      }
+    }
+  },
+  "plugins": {
+    "gost-plugin": {
+      "kind": "object",
+      "properties": {
+        "certificate": {
+          "kind": "string"
+        },
+        "ech-opts": {
+          "kind": "object",
+          "properties": {
+            "config": {
+              "kind": "string"
+            },
+            "enable": {
+              "kind": "boolean"
+            },
+            "query-server-name": {
+              "kind": "string"
+            }
+          }
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "headers": {
+          "kind": "map",
+          "values": {
+            "kind": "string"
+          },
+          "secret": true
+        },
+        "host": {
+          "kind": "string"
+        },
+        "mode": {
+          "kind": "string",
+          "required": true
+        },
+        "mux": {
+          "kind": "boolean"
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "path": {
+          "kind": "string",
+          "secret": true
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "tls": {
+          "kind": "boolean"
+        }
+      }
+    },
+    "jls": {
+      "kind": "object",
+      "properties": {
+        "alpn": {
+          "kind": "array",
+          "items": {
+            "kind": "string"
+          }
+        },
+        "host": {
+          "kind": "string",
+          "required": true
+        },
+        "password": {
+          "kind": "string",
+          "required": true,
+          "secret": true
+        },
+        "username": {
+          "kind": "string",
+          "required": true,
+          "secret": true
+        }
+      }
+    },
+    "kcptun": {
+      "kind": "object",
+      "properties": {
+        "acknodelay": {
+          "kind": "boolean"
+        },
+        "autoexpire": {
+          "kind": "integer"
+        },
+        "conn": {
+          "kind": "integer"
+        },
+        "crypt": {
+          "kind": "string"
+        },
+        "datashard": {
+          "kind": "integer"
+        },
+        "dscp": {
+          "kind": "integer"
+        },
+        "framesize": {
+          "kind": "integer"
+        },
+        "interval": {
+          "kind": "integer"
+        },
+        "keepalive": {
+          "kind": "integer"
+        },
+        "key": {
+          "kind": "string",
+          "secret": true
+        },
+        "mode": {
+          "kind": "string"
+        },
+        "mtu": {
+          "kind": "integer"
+        },
+        "nc": {
+          "kind": "integer"
+        },
+        "nocomp": {
+          "kind": "boolean"
+        },
+        "nodelay": {
+          "kind": "integer"
+        },
+        "parityshard": {
+          "kind": "integer"
+        },
+        "ratelimit": {
+          "kind": "integer"
+        },
+        "rcvwnd": {
+          "kind": "integer"
+        },
+        "resend": {
+          "kind": "integer"
+        },
+        "scavengettl": {
+          "kind": "integer"
+        },
+        "smuxbuf": {
+          "kind": "integer"
+        },
+        "smuxver": {
+          "kind": "integer"
+        },
+        "sndwnd": {
+          "kind": "integer"
+        },
+        "sockbuf": {
+          "kind": "integer"
+        },
+        "streambuf": {
+          "kind": "integer"
+        }
+      }
+    },
+    "obfs": {
+      "kind": "object",
+      "properties": {
+        "host": {
+          "kind": "string"
+        },
+        "mode": {
+          "kind": "string"
+        }
+      }
+    },
+    "restls": {
+      "kind": "object",
+      "properties": {
+        "fingerprint": {
+          "kind": "string"
+        },
+        "force-tls12": {
+          "kind": "boolean"
+        },
+        "host": {
+          "kind": "string",
+          "required": true
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "password": {
+          "kind": "string",
+          "required": true,
+          "secret": true
+        },
+        "restls-script": {
+          "kind": "string"
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "version-hint": {
+          "kind": "string",
+          "required": true
+        }
+      }
+    },
+    "shadow-tls": {
+      "kind": "object",
+      "properties": {
+        "alpn": {
+          "kind": "array",
+          "items": {
+            "kind": "string"
+          }
+        },
+        "certificate": {
+          "kind": "string"
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "host": {
+          "kind": "string",
+          "required": true
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "password": {
+          "kind": "string",
+          "secret": true
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "version": {
+          "kind": "integer"
+        }
+      }
+    },
+    "v2ray-plugin": {
+      "kind": "object",
+      "properties": {
+        "certificate": {
+          "kind": "string"
+        },
+        "ech-opts": {
+          "kind": "object",
+          "properties": {
+            "config": {
+              "kind": "string"
+            },
+            "enable": {
+              "kind": "boolean"
+            },
+            "query-server-name": {
+              "kind": "string"
+            }
+          }
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "headers": {
+          "kind": "map",
+          "values": {
+            "kind": "string"
+          },
+          "secret": true
+        },
+        "host": {
+          "kind": "string"
+        },
+        "mode": {
+          "kind": "string",
+          "required": true
+        },
+        "mux": {
+          "kind": "boolean"
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "path": {
+          "kind": "string",
+          "secret": true
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "tls": {
+          "kind": "boolean"
+        },
+        "v2ray-http-upgrade": {
+          "kind": "boolean"
+        },
+        "v2ray-http-upgrade-fast-open": {
+          "kind": "boolean"
+        }
+      }
+    }
+  },
+  "protocols": {
+    "anytls": {
+      "kind": "object",
+      "properties": {
+        "alpn": {
+          "kind": "array",
+          "items": {
+            "kind": "string"
+          }
+        },
+        "certificate": {
+          "kind": "string"
+        },
+        "client-fingerprint": {
+          "kind": "string"
+        },
+        "client-metadata": {
+          "kind": "string",
+          "secret": true
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "disable-reuse": {
+          "kind": "boolean"
+        },
+        "ech-opts": {
+          "kind": "object",
+          "properties": {
+            "config": {
+              "kind": "string"
+            },
+            "enable": {
+              "kind": "boolean"
+            },
+            "query-server-name": {
+              "kind": "string"
+            }
+          }
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "idle-session-check-interval": {
+          "kind": "integer"
+        },
+        "idle-session-timeout": {
+          "kind": "integer"
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "jls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "required": true,
+              "secret": true
+            },
+            "username": {
+              "kind": "string",
+              "required": true,
+              "secret": true
+            }
+          }
+        },
+        "min-idle-session": {
+          "kind": "integer"
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "password": {
+          "kind": "string",
+          "required": true,
+          "secret": true
+        },
+        "port": {
+          "kind": "integer",
+          "required": true,
+          "min": 1,
+          "max": 65535
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "restls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "secret": true
+            },
+            "restls-script": {
+              "kind": "string"
+            },
+            "version-hint": {
+              "kind": "string"
+            }
+          }
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "shadow-tls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "secret": true
+            },
+            "version": {
+              "kind": "integer"
+            }
+          }
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "sni": {
+          "kind": "string"
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "anytls"
+          ],
+          "required": true
+        },
+        "udp": {
+          "kind": "boolean"
+        }
+      }
+    },
+    "http": {
+      "kind": "object",
+      "properties": {
+        "certificate": {
+          "kind": "string"
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "headers": {
+          "kind": "map",
+          "values": {
+            "kind": "string"
+          },
+          "secret": true
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "password": {
+          "kind": "string",
+          "secret": true
+        },
+        "port": {
+          "kind": "integer",
+          "required": true,
+          "min": 1,
+          "max": 65535
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "sni": {
+          "kind": "string"
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "tls": {
+          "kind": "boolean"
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "http"
+          ],
+          "required": true
+        },
+        "username": {
+          "kind": "string",
+          "secret": true
+        }
+      }
+    },
+    "hysteria": {
+      "kind": "object",
+      "properties": {
+        "alpn": {
+          "kind": "array",
+          "items": {
+            "kind": "string"
+          }
+        },
+        "auth": {
+          "kind": "string",
+          "secret": true
+        },
+        "auth-str": {
+          "kind": "string",
+          "secret": true
+        },
+        "certificate": {
+          "kind": "string"
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "disable-mtu-discovery": {
+          "kind": "boolean"
+        },
+        "down": {
+          "kind": "string",
+          "required": true
+        },
+        "down-speed": {
+          "kind": "integer"
+        },
+        "ech-opts": {
+          "kind": "object",
+          "properties": {
+            "config": {
+              "kind": "string"
+            },
+            "enable": {
+              "kind": "boolean"
+            },
+            "query-server-name": {
+              "kind": "string"
+            }
+          }
+        },
+        "fast-open": {
+          "kind": "boolean"
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "hop-interval": {
+          "kind": "integer"
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "obfs": {
+          "kind": "string"
+        },
+        "obfs-protocol": {
+          "kind": "string"
+        },
+        "port": {
+          "kind": "integer",
+          "min": 1,
+          "max": 65535
+        },
+        "ports": {
+          "kind": "string"
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "protocol": {
+          "kind": "string"
+        },
+        "recv-window": {
+          "kind": "integer"
+        },
+        "recv-window-conn": {
+          "kind": "integer"
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "sni": {
+          "kind": "string"
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "hysteria"
+          ],
+          "required": true
+        },
+        "up": {
+          "kind": "string",
+          "required": true
+        },
+        "up-speed": {
+          "kind": "integer"
+        }
+      }
+    },
+    "hysteria2": {
+      "kind": "object",
+      "properties": {
+        "alpn": {
+          "kind": "array",
+          "items": {
+            "kind": "string"
+          }
+        },
+        "bbr-profile": {
+          "kind": "string"
+        },
+        "certificate": {
+          "kind": "string"
+        },
+        "cwnd": {
+          "kind": "integer"
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "down": {
+          "kind": "string"
+        },
+        "ech-opts": {
+          "kind": "object",
+          "properties": {
+            "config": {
+              "kind": "string"
+            },
+            "enable": {
+              "kind": "boolean"
+            },
+            "query-server-name": {
+              "kind": "string"
+            }
+          }
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "handshake-timeout": {
+          "kind": "integer"
+        },
+        "hop-interval": {
+          "kind": "string"
+        },
+        "initial-connection-receive-window": {
+          "kind": "integer",
+          "min": 0
+        },
+        "initial-stream-receive-window": {
+          "kind": "integer",
+          "min": 0
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "max-connection-receive-window": {
+          "kind": "integer",
+          "min": 0
+        },
+        "max-stream-receive-window": {
+          "kind": "integer",
+          "min": 0
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "obfs": {
+          "kind": "string"
+        },
+        "obfs-max-packet-size": {
+          "kind": "integer"
+        },
+        "obfs-min-packet-size": {
+          "kind": "integer"
+        },
+        "obfs-password": {
+          "kind": "string",
+          "secret": true
+        },
+        "password": {
+          "kind": "string",
+          "secret": true
+        },
+        "port": {
+          "kind": "integer",
+          "min": 1,
+          "max": 65535
+        },
+        "ports": {
+          "kind": "string"
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "realm-opts": {
+          "kind": "object",
+          "properties": {
+            "alpn": {
+              "kind": "array",
+              "items": {
+                "kind": "string"
+              }
+            },
+            "certificate": {
+              "kind": "string"
+            },
+            "enable": {
+              "kind": "boolean"
+            },
+            "fingerprint": {
+              "kind": "string"
+            },
+            "name-cert-verify": {
+              "kind": "string"
+            },
+            "private-key": {
+              "kind": "string",
+              "secret": true
+            },
+            "realm-id": {
+              "kind": "string"
+            },
+            "server-url": {
+              "kind": "string"
+            },
+            "skip-cert-verify": {
+              "kind": "boolean"
+            },
+            "sni": {
+              "kind": "string"
+            },
+            "stun-servers": {
+              "kind": "array",
+              "items": {
+                "kind": "string"
+              }
+            },
+            "token": {
+              "kind": "string",
+              "secret": true
+            }
+          }
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "sni": {
+          "kind": "string"
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "hysteria2"
+          ],
+          "required": true
+        },
+        "udp-mtu": {
+          "kind": "integer"
+        },
+        "up": {
+          "kind": "string"
+        }
+      }
+    },
+    "snell": {
+      "kind": "object",
+      "properties": {
+        "client-fingerprint": {
+          "kind": "string"
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "obfs-opts": {
+          "kind": "object",
+          "properties": {
+            "host": {
+              "kind": "string"
+            },
+            "mode": {
+              "kind": "string"
+            }
+          }
+        },
+        "port": {
+          "kind": "integer",
+          "required": true,
+          "min": 1,
+          "max": 65535
+        },
+        "psk": {
+          "kind": "string",
+          "required": true,
+          "secret": true
+        },
+        "reuse": {
+          "kind": "boolean"
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "snell"
+          ],
+          "required": true
+        },
+        "udp": {
+          "kind": "boolean"
+        },
+        "version": {
+          "kind": "integer"
+        }
+      }
+    },
+    "socks5": {
+      "kind": "object",
+      "properties": {
+        "certificate": {
+          "kind": "string"
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "password": {
+          "kind": "string",
+          "secret": true
+        },
+        "port": {
+          "kind": "integer",
+          "required": true,
+          "min": 1,
+          "max": 65535
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "tls": {
+          "kind": "boolean"
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "socks5"
+          ],
+          "required": true
+        },
+        "udp": {
+          "kind": "boolean"
+        },
+        "username": {
+          "kind": "string",
+          "secret": true
+        }
+      }
+    },
+    "ss": {
+      "kind": "object",
+      "properties": {
+        "cipher": {
+          "kind": "string",
+          "required": true
+        },
+        "client-fingerprint": {
+          "kind": "string"
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "password": {
+          "kind": "string",
+          "required": true,
+          "secret": true
+        },
+        "plugin": {
+          "kind": "string",
+          "enum": [
+            "obfs",
+            "v2ray-plugin",
+            "gost-plugin",
+            "shadow-tls",
+            "restls",
+            "jls",
+            "kcptun"
+          ]
+        },
+        "plugin-opts": {
+          "kind": "map",
+          "values": {
+            "kind": "any"
+          }
+        },
+        "port": {
+          "kind": "integer",
+          "required": true,
+          "min": 1,
+          "max": 65535
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "ss"
+          ],
+          "required": true
+        },
+        "udp": {
+          "kind": "boolean"
+        },
+        "udp-over-tcp": {
+          "kind": "boolean"
+        },
+        "udp-over-tcp-version": {
+          "kind": "integer"
+        }
+      }
+    },
+    "ssr": {
+      "kind": "object",
+      "properties": {
+        "cipher": {
+          "kind": "string",
+          "required": true
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "obfs": {
+          "kind": "string",
+          "required": true
+        },
+        "obfs-param": {
+          "kind": "string"
+        },
+        "password": {
+          "kind": "string",
+          "required": true,
+          "secret": true
+        },
+        "port": {
+          "kind": "integer",
+          "required": true,
+          "min": 1,
+          "max": 65535
+        },
+        "protocol": {
+          "kind": "string",
+          "required": true
+        },
+        "protocol-param": {
+          "kind": "string"
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "ssr"
+          ],
+          "required": true
+        },
+        "udp": {
+          "kind": "boolean"
+        }
+      }
+    },
+    "trojan": {
+      "kind": "object",
+      "properties": {
+        "alpn": {
+          "kind": "array",
+          "items": {
+            "kind": "string"
+          }
+        },
+        "certificate": {
+          "kind": "string"
+        },
+        "client-fingerprint": {
+          "kind": "string"
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "ech-opts": {
+          "kind": "object",
+          "properties": {
+            "config": {
+              "kind": "string"
+            },
+            "enable": {
+              "kind": "boolean"
+            },
+            "query-server-name": {
+              "kind": "string"
+            }
+          }
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "grpc-opts": {
+          "kind": "object",
+          "properties": {
+            "grpc-service-name": {
+              "kind": "string",
+              "secret": true
+            },
+            "grpc-user-agent": {
+              "kind": "string"
+            },
+            "max-connections": {
+              "kind": "integer"
+            },
+            "max-streams": {
+              "kind": "integer"
+            },
+            "min-streams": {
+              "kind": "integer"
+            },
+            "ping-interval": {
+              "kind": "integer"
+            }
+          }
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "jls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "required": true,
+              "secret": true
+            },
+            "username": {
+              "kind": "string",
+              "required": true,
+              "secret": true
+            }
+          }
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "network": {
+          "kind": "string"
+        },
+        "password": {
+          "kind": "string",
+          "required": true,
+          "secret": true
+        },
+        "port": {
+          "kind": "integer",
+          "required": true,
+          "min": 1,
+          "max": 65535
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "reality-opts": {
+          "kind": "object",
+          "properties": {
+            "public-key": {
+              "kind": "string",
+              "required": true
+            },
+            "short-id": {
+              "kind": "string",
+              "secret": true
+            },
+            "support-x25519mlkem768": {
+              "kind": "boolean"
+            }
+          }
+        },
+        "restls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "secret": true
+            },
+            "restls-script": {
+              "kind": "string"
+            },
+            "version-hint": {
+              "kind": "string"
+            }
+          }
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "shadow-tls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "secret": true
+            },
+            "version": {
+              "kind": "integer"
+            }
+          }
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "sni": {
+          "kind": "string"
+        },
+        "ss-opts": {
+          "kind": "object",
+          "properties": {
+            "enabled": {
+              "kind": "boolean"
+            },
+            "method": {
+              "kind": "string"
+            },
+            "password": {
+              "kind": "string",
+              "secret": true
+            }
+          }
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "trojan"
+          ],
+          "required": true
+        },
+        "udp": {
+          "kind": "boolean"
+        },
+        "ws-opts": {
+          "kind": "object",
+          "properties": {
+            "early-data-header-name": {
+              "kind": "string"
+            },
+            "headers": {
+              "kind": "map",
+              "values": {
+                "kind": "string"
+              },
+              "secret": true
+            },
+            "max-early-data": {
+              "kind": "integer"
+            },
+            "path": {
+              "kind": "string",
+              "secret": true
+            },
+            "v2ray-http-upgrade": {
+              "kind": "boolean"
+            },
+            "v2ray-http-upgrade-fast-open": {
+              "kind": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "tuic": {
+      "kind": "object",
+      "properties": {
+        "alpn": {
+          "kind": "array",
+          "items": {
+            "kind": "string"
+          }
+        },
+        "bbr-profile": {
+          "kind": "string"
+        },
+        "certificate": {
+          "kind": "string"
+        },
+        "congestion-controller": {
+          "kind": "string"
+        },
+        "cwnd": {
+          "kind": "integer"
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "disable-mtu-discovery": {
+          "kind": "boolean"
+        },
+        "disable-sni": {
+          "kind": "boolean"
+        },
+        "ech-opts": {
+          "kind": "object",
+          "properties": {
+            "config": {
+              "kind": "string"
+            },
+            "enable": {
+              "kind": "boolean"
+            },
+            "query-server-name": {
+              "kind": "string"
+            }
+          }
+        },
+        "fast-open": {
+          "kind": "boolean"
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "heartbeat-interval": {
+          "kind": "integer"
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "max-datagram-frame-size": {
+          "kind": "integer"
+        },
+        "max-open-streams": {
+          "kind": "integer"
+        },
+        "max-udp-relay-packet-size": {
+          "kind": "integer"
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "password": {
+          "kind": "string",
+          "secret": true
+        },
+        "port": {
+          "kind": "integer",
+          "required": true,
+          "min": 1,
+          "max": 65535
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "recv-window": {
+          "kind": "integer"
+        },
+        "recv-window-conn": {
+          "kind": "integer"
+        },
+        "reduce-rtt": {
+          "kind": "boolean"
+        },
+        "request-timeout": {
+          "kind": "integer"
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "sni": {
+          "kind": "string"
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "token": {
+          "kind": "string",
+          "secret": true
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "tuic"
+          ],
+          "required": true
+        },
+        "udp-over-stream": {
+          "kind": "boolean"
+        },
+        "udp-over-stream-version": {
+          "kind": "integer"
+        },
+        "udp-relay-mode": {
+          "kind": "string"
+        },
+        "uuid": {
+          "kind": "string",
+          "secret": true
+        }
+      }
+    },
+    "vless": {
+      "kind": "object",
+      "properties": {
+        "alpn": {
+          "kind": "array",
+          "items": {
+            "kind": "string"
+          }
+        },
+        "certificate": {
+          "kind": "string"
+        },
+        "client-fingerprint": {
+          "kind": "string"
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "ech-opts": {
+          "kind": "object",
+          "properties": {
+            "config": {
+              "kind": "string"
+            },
+            "enable": {
+              "kind": "boolean"
+            },
+            "query-server-name": {
+              "kind": "string"
+            }
+          }
+        },
+        "encryption": {
+          "kind": "string"
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "flow": {
+          "kind": "string"
+        },
+        "grpc-opts": {
+          "kind": "object",
+          "properties": {
+            "grpc-service-name": {
+              "kind": "string",
+              "secret": true
+            },
+            "grpc-user-agent": {
+              "kind": "string"
+            },
+            "max-connections": {
+              "kind": "integer"
+            },
+            "max-streams": {
+              "kind": "integer"
+            },
+            "min-streams": {
+              "kind": "integer"
+            },
+            "ping-interval": {
+              "kind": "integer"
+            }
+          }
+        },
+        "h2-opts": {
+          "kind": "object",
+          "properties": {
+            "host": {
+              "kind": "array",
+              "items": {
+                "kind": "string"
+              }
+            },
+            "path": {
+              "kind": "string",
+              "secret": true
+            }
+          }
+        },
+        "http-opts": {
+          "kind": "object",
+          "properties": {
+            "headers": {
+              "kind": "map",
+              "values": {
+                "kind": "array",
+                "items": {
+                  "kind": "string"
+                }
+              },
+              "secret": true
+            },
+            "method": {
+              "kind": "string"
+            },
+            "path": {
+              "kind": "array",
+              "items": {
+                "kind": "string"
+              },
+              "secret": true
+            }
+          }
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "jls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "required": true,
+              "secret": true
+            },
+            "username": {
+              "kind": "string",
+              "required": true,
+              "secret": true
+            }
+          }
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "network": {
+          "kind": "string"
+        },
+        "packet-addr": {
+          "kind": "boolean"
+        },
+        "packet-encoding": {
+          "kind": "string"
+        },
+        "port": {
+          "kind": "integer",
+          "required": true,
+          "min": 1,
+          "max": 65535
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "reality-opts": {
+          "kind": "object",
+          "properties": {
+            "public-key": {
+              "kind": "string",
+              "required": true
+            },
+            "short-id": {
+              "kind": "string",
+              "secret": true
+            },
+            "support-x25519mlkem768": {
+              "kind": "boolean"
+            }
+          }
+        },
+        "restls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "secret": true
+            },
+            "restls-script": {
+              "kind": "string"
+            },
+            "version-hint": {
+              "kind": "string"
+            }
+          }
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "servername": {
+          "kind": "string"
+        },
+        "shadow-tls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "secret": true
+            },
+            "version": {
+              "kind": "integer"
+            }
+          }
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "tls": {
+          "kind": "boolean"
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "vless"
+          ],
+          "required": true
+        },
+        "udp": {
+          "kind": "boolean"
+        },
+        "uuid": {
+          "kind": "string",
+          "required": true,
+          "secret": true
+        },
+        "ws-headers": {
+          "kind": "map",
+          "values": {
+            "kind": "string",
+            "secret": true
+          },
+          "secret": true
+        },
+        "ws-opts": {
+          "kind": "object",
+          "properties": {
+            "early-data-header-name": {
+              "kind": "string"
+            },
+            "headers": {
+              "kind": "map",
+              "values": {
+                "kind": "string"
+              },
+              "secret": true
+            },
+            "max-early-data": {
+              "kind": "integer"
+            },
+            "path": {
+              "kind": "string",
+              "secret": true
+            },
+            "v2ray-http-upgrade": {
+              "kind": "boolean"
+            },
+            "v2ray-http-upgrade-fast-open": {
+              "kind": "boolean"
+            }
+          }
+        },
+        "xhttp-opts": {
+          "kind": "object",
+          "properties": {
+            "download-settings": {
+              "kind": "object",
+              "properties": {
+                "alpn": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "string"
+                  }
+                },
+                "certificate": {
+                  "kind": "string"
+                },
+                "client-fingerprint": {
+                  "kind": "string"
+                },
+                "ech-opts": {
+                  "kind": "object",
+                  "properties": {
+                    "config": {
+                      "kind": "string"
+                    },
+                    "enable": {
+                      "kind": "boolean"
+                    },
+                    "query-server-name": {
+                      "kind": "string"
+                    }
+                  }
+                },
+                "fingerprint": {
+                  "kind": "string"
+                },
+                "headers": {
+                  "kind": "map",
+                  "values": {
+                    "kind": "string"
+                  },
+                  "secret": true
+                },
+                "host": {
+                  "kind": "string"
+                },
+                "jls-opts": {
+                  "kind": "object",
+                  "properties": {
+                    "password": {
+                      "kind": "string",
+                      "required": true,
+                      "secret": true
+                    },
+                    "username": {
+                      "kind": "string",
+                      "required": true,
+                      "secret": true
+                    }
+                  }
+                },
+                "name-cert-verify": {
+                  "kind": "string"
+                },
+                "path": {
+                  "kind": "string",
+                  "secret": true
+                },
+                "port": {
+                  "kind": "integer"
+                },
+                "private-key": {
+                  "kind": "string",
+                  "secret": true
+                },
+                "reality-opts": {
+                  "kind": "object",
+                  "properties": {
+                    "public-key": {
+                      "kind": "string",
+                      "required": true
+                    },
+                    "short-id": {
+                      "kind": "string",
+                      "secret": true
+                    },
+                    "support-x25519mlkem768": {
+                      "kind": "boolean"
+                    }
+                  }
+                },
+                "restls-opts": {
+                  "kind": "object",
+                  "properties": {
+                    "password": {
+                      "kind": "string",
+                      "secret": true
+                    },
+                    "restls-script": {
+                      "kind": "string"
+                    },
+                    "version-hint": {
+                      "kind": "string"
+                    }
+                  }
+                },
+                "reuse-settings": {
+                  "kind": "object",
+                  "properties": {
+                    "c-max-reuse-times": {
+                      "kind": "string"
+                    },
+                    "h-keep-alive-period": {
+                      "kind": "integer"
+                    },
+                    "h-max-request-times": {
+                      "kind": "string"
+                    },
+                    "h-max-reusable-secs": {
+                      "kind": "string"
+                    },
+                    "max-concurrency": {
+                      "kind": "string"
+                    },
+                    "max-connections": {
+                      "kind": "string"
+                    }
+                  }
+                },
+                "server": {
+                  "kind": "string"
+                },
+                "servername": {
+                  "kind": "string"
+                },
+                "shadow-tls-opts": {
+                  "kind": "object",
+                  "properties": {
+                    "password": {
+                      "kind": "string",
+                      "secret": true
+                    },
+                    "version": {
+                      "kind": "integer"
+                    }
+                  }
+                },
+                "skip-cert-verify": {
+                  "kind": "boolean"
+                },
+                "tls": {
+                  "kind": "boolean"
+                }
+              }
+            },
+            "headers": {
+              "kind": "map",
+              "values": {
+                "kind": "string"
+              },
+              "secret": true
+            },
+            "host": {
+              "kind": "string"
+            },
+            "mode": {
+              "kind": "string"
+            },
+            "no-grpc-header": {
+              "kind": "boolean"
+            },
+            "path": {
+              "kind": "string",
+              "secret": true
+            },
+            "reuse-settings": {
+              "kind": "object",
+              "properties": {
+                "c-max-reuse-times": {
+                  "kind": "string"
+                },
+                "h-keep-alive-period": {
+                  "kind": "integer"
+                },
+                "h-max-request-times": {
+                  "kind": "string"
+                },
+                "h-max-reusable-secs": {
+                  "kind": "string"
+                },
+                "max-concurrency": {
+                  "kind": "string"
+                },
+                "max-connections": {
+                  "kind": "string"
+                }
+              }
+            },
+            "sc-max-each-post-bytes": {
+              "kind": "string"
+            },
+            "sc-min-posts-interval-ms": {
+              "kind": "string"
+            },
+            "seq-key": {
+              "kind": "string"
+            },
+            "seq-placement": {
+              "kind": "string"
+            },
+            "session-key": {
+              "kind": "string"
+            },
+            "session-length": {
+              "kind": "string"
+            },
+            "session-placement": {
+              "kind": "string"
+            },
+            "session-table": {
+              "kind": "string"
+            },
+            "uplink-chunk-size": {
+              "kind": "string"
+            },
+            "uplink-data-key": {
+              "kind": "string"
+            },
+            "uplink-data-placement": {
+              "kind": "string"
+            },
+            "uplink-http-method": {
+              "kind": "string"
+            },
+            "x-padding-bytes": {
+              "kind": "string"
+            },
+            "x-padding-header": {
+              "kind": "string"
+            },
+            "x-padding-key": {
+              "kind": "string"
+            },
+            "x-padding-method": {
+              "kind": "string"
+            },
+            "x-padding-obfs-mode": {
+              "kind": "boolean"
+            },
+            "x-padding-placement": {
+              "kind": "string"
+            }
+          }
+        },
+        "xudp": {
+          "kind": "boolean"
+        }
+      }
+    },
+    "vmess": {
+      "kind": "object",
+      "properties": {
+        "alpn": {
+          "kind": "array",
+          "items": {
+            "kind": "string"
+          }
+        },
+        "alterId": {
+          "kind": "integer",
+          "required": true
+        },
+        "authenticated-length": {
+          "kind": "boolean",
+          "secret": true
+        },
+        "certificate": {
+          "kind": "string"
+        },
+        "cipher": {
+          "kind": "string",
+          "required": true
+        },
+        "client-fingerprint": {
+          "kind": "string"
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "ech-opts": {
+          "kind": "object",
+          "properties": {
+            "config": {
+              "kind": "string"
+            },
+            "enable": {
+              "kind": "boolean"
+            },
+            "query-server-name": {
+              "kind": "string"
+            }
+          }
+        },
+        "fingerprint": {
+          "kind": "string"
+        },
+        "global-padding": {
+          "kind": "boolean"
+        },
+        "grpc-opts": {
+          "kind": "object",
+          "properties": {
+            "grpc-service-name": {
+              "kind": "string",
+              "secret": true
+            },
+            "grpc-user-agent": {
+              "kind": "string"
+            },
+            "max-connections": {
+              "kind": "integer"
+            },
+            "max-streams": {
+              "kind": "integer"
+            },
+            "min-streams": {
+              "kind": "integer"
+            },
+            "ping-interval": {
+              "kind": "integer"
+            }
+          }
+        },
+        "h2-opts": {
+          "kind": "object",
+          "properties": {
+            "host": {
+              "kind": "array",
+              "items": {
+                "kind": "string"
+              }
+            },
+            "path": {
+              "kind": "string",
+              "secret": true
+            }
+          }
+        },
+        "http-opts": {
+          "kind": "object",
+          "properties": {
+            "headers": {
+              "kind": "map",
+              "values": {
+                "kind": "array",
+                "items": {
+                  "kind": "string"
+                }
+              },
+              "secret": true
+            },
+            "method": {
+              "kind": "string"
+            },
+            "path": {
+              "kind": "array",
+              "items": {
+                "kind": "string"
+              },
+              "secret": true
+            }
+          }
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "jls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "required": true,
+              "secret": true
+            },
+            "username": {
+              "kind": "string",
+              "required": true,
+              "secret": true
+            }
+          }
+        },
+        "mekya-opts": {
+          "kind": "object",
+          "properties": {
+            "h2-pool-size": {
+              "kind": "integer"
+            },
+            "kcp": {
+              "kind": "object",
+              "properties": {
+                "congestion": {
+                  "kind": "boolean"
+                },
+                "downlink-capacity": {
+                  "kind": "integer",
+                  "min": 0,
+                  "max": 4294967295
+                },
+                "header": {
+                  "kind": "string"
+                },
+                "mtu": {
+                  "kind": "integer",
+                  "min": 0,
+                  "max": 4294967295
+                },
+                "read-buffer": {
+                  "kind": "integer",
+                  "min": 0,
+                  "max": 4294967295
+                },
+                "seed": {
+                  "kind": "string"
+                },
+                "tti": {
+                  "kind": "integer",
+                  "min": 0,
+                  "max": 4294967295
+                },
+                "uplink-capacity": {
+                  "kind": "integer",
+                  "min": 0,
+                  "max": 4294967295
+                },
+                "write-buffer": {
+                  "kind": "integer",
+                  "min": 0,
+                  "max": 4294967295
+                }
+              }
+            },
+            "max-request-size": {
+              "kind": "integer"
+            },
+            "max-simultaneous-write-connection": {
+              "kind": "integer"
+            },
+            "max-write-delay": {
+              "kind": "integer"
+            },
+            "max-write-duration-ms": {
+              "kind": "integer"
+            },
+            "max-write-size": {
+              "kind": "integer"
+            },
+            "packet-writing-buffer": {
+              "kind": "integer"
+            },
+            "polling-interval-initial": {
+              "kind": "integer"
+            },
+            "url": {
+              "kind": "string"
+            }
+          }
+        },
+        "mkcp-opts": {
+          "kind": "object",
+          "properties": {
+            "congestion": {
+              "kind": "boolean"
+            },
+            "downlink-capacity": {
+              "kind": "integer",
+              "min": 0,
+              "max": 4294967295
+            },
+            "header": {
+              "kind": "string"
+            },
+            "mtu": {
+              "kind": "integer",
+              "min": 0,
+              "max": 4294967295
+            },
+            "read-buffer": {
+              "kind": "integer",
+              "min": 0,
+              "max": 4294967295
+            },
+            "seed": {
+              "kind": "string"
+            },
+            "tti": {
+              "kind": "integer",
+              "min": 0,
+              "max": 4294967295
+            },
+            "uplink-capacity": {
+              "kind": "integer",
+              "min": 0,
+              "max": 4294967295
+            },
+            "write-buffer": {
+              "kind": "integer",
+              "min": 0,
+              "max": 4294967295
+            }
+          }
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "name-cert-verify": {
+          "kind": "string"
+        },
+        "network": {
+          "kind": "string"
+        },
+        "packet-addr": {
+          "kind": "boolean"
+        },
+        "packet-encoding": {
+          "kind": "string"
+        },
+        "port": {
+          "kind": "integer",
+          "required": true,
+          "min": 1,
+          "max": 65535
+        },
+        "private-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "reality-opts": {
+          "kind": "object",
+          "properties": {
+            "public-key": {
+              "kind": "string",
+              "required": true
+            },
+            "short-id": {
+              "kind": "string",
+              "secret": true
+            },
+            "support-x25519mlkem768": {
+              "kind": "boolean"
+            }
+          }
+        },
+        "restls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "secret": true
+            },
+            "restls-script": {
+              "kind": "string"
+            },
+            "version-hint": {
+              "kind": "string"
+            }
+          }
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string",
+          "required": true
+        },
+        "servername": {
+          "kind": "string"
+        },
+        "shadow-tls-opts": {
+          "kind": "object",
+          "properties": {
+            "password": {
+              "kind": "string",
+              "secret": true
+            },
+            "version": {
+              "kind": "integer"
+            }
+          }
+        },
+        "skip-cert-verify": {
+          "kind": "boolean"
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "tls": {
+          "kind": "boolean"
+        },
+        "tlsmirror-opts": {
+          "kind": "object",
+          "properties": {
+            "connection-enrolment": {
+              "kind": "object",
+              "properties": {
+                "primary-egress-outbound": {
+                  "kind": "string"
+                },
+                "primary-ingress-outbound": {
+                  "kind": "string"
+                }
+              }
+            },
+            "defer-instance-derived-write-time": {
+              "kind": "object",
+              "properties": {
+                "base-nanoseconds": {
+                  "kind": "integer",
+                  "min": 0
+                },
+                "uniform-random-multiplier-nanoseconds": {
+                  "kind": "integer",
+                  "min": 0
+                }
+              }
+            },
+            "embedded-traffic-generator": {
+              "kind": "object",
+              "properties": {
+                "steps": {
+                  "kind": "array",
+                  "items": {
+                    "kind": "object",
+                    "properties": {
+                      "connection-ready": {
+                        "kind": "boolean"
+                      },
+                      "connection-recall-exit": {
+                        "kind": "boolean"
+                      },
+                      "h2-do-not-wait-for-download-finish": {
+                        "kind": "boolean"
+                      },
+                      "headers": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "object",
+                          "properties": {
+                            "name": {
+                              "kind": "string"
+                            },
+                            "value": {
+                              "kind": "string"
+                            },
+                            "values": {
+                              "kind": "array",
+                              "items": {
+                                "kind": "string"
+                              }
+                            }
+                          }
+                        },
+                        "secret": true
+                      },
+                      "host": {
+                        "kind": "string"
+                      },
+                      "method": {
+                        "kind": "string"
+                      },
+                      "name": {
+                        "kind": "string"
+                      },
+                      "next-step": {
+                        "kind": "array",
+                        "items": {
+                          "kind": "object",
+                          "properties": {
+                            "goto-location": {
+                              "kind": "integer"
+                            },
+                            "weight": {
+                              "kind": "integer",
+                              "max": 2147483647
+                            }
+                          }
+                        }
+                      },
+                      "path": {
+                        "kind": "string",
+                        "secret": true
+                      },
+                      "wait-time": {
+                        "kind": "object",
+                        "properties": {
+                          "base-nanoseconds": {
+                            "kind": "integer",
+                            "min": 0
+                          },
+                          "uniform-random-multiplier-nanoseconds": {
+                            "kind": "integer",
+                            "min": 0
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "explicit-nonce-ciphersuites": {
+              "kind": "array",
+              "items": {
+                "kind": "integer",
+                "min": 0,
+                "max": 65535
+              }
+            },
+            "primary-key": {
+              "kind": "string",
+              "secret": true
+            },
+            "sequence-watermarking-enabled": {
+              "kind": "boolean"
+            },
+            "transport-layer-padding": {
+              "kind": "object",
+              "properties": {
+                "enabled": {
+                  "kind": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "vmess"
+          ],
+          "required": true
+        },
+        "udp": {
+          "kind": "boolean"
+        },
+        "uuid": {
+          "kind": "string",
+          "required": true,
+          "secret": true
+        },
+        "ws-opts": {
+          "kind": "object",
+          "properties": {
+            "early-data-header-name": {
+              "kind": "string"
+            },
+            "headers": {
+              "kind": "map",
+              "values": {
+                "kind": "string"
+              },
+              "secret": true
+            },
+            "max-early-data": {
+              "kind": "integer"
+            },
+            "path": {
+              "kind": "string",
+              "secret": true
+            },
+            "v2ray-http-upgrade": {
+              "kind": "boolean"
+            },
+            "v2ray-http-upgrade-fast-open": {
+              "kind": "boolean"
+            }
+          }
+        },
+        "xudp": {
+          "kind": "boolean"
+        }
+      }
+    },
+    "wireguard": {
+      "kind": "object",
+      "properties": {
+        "allowed-ips": {
+          "kind": "array",
+          "items": {
+            "kind": "string"
+          }
+        },
+        "amnezia-wg-option": {
+          "kind": "object",
+          "properties": {
+            "content-padding-addition": {
+              "kind": "string"
+            },
+            "disable-cookies": {
+              "kind": "boolean"
+            },
+            "h1": {
+              "kind": "string"
+            },
+            "h2": {
+              "kind": "string"
+            },
+            "h3": {
+              "kind": "string"
+            },
+            "h4": {
+              "kind": "string"
+            },
+            "header-protection-key": {
+              "kind": "string",
+              "secret": true
+            },
+            "i1": {
+              "kind": "string"
+            },
+            "i2": {
+              "kind": "string"
+            },
+            "i3": {
+              "kind": "string"
+            },
+            "i4": {
+              "kind": "string"
+            },
+            "i5": {
+              "kind": "string"
+            },
+            "itime": {
+              "kind": "integer"
+            },
+            "j1": {
+              "kind": "string"
+            },
+            "j2": {
+              "kind": "string"
+            },
+            "j3": {
+              "kind": "string"
+            },
+            "jc": {
+              "kind": "integer"
+            },
+            "jmax": {
+              "kind": "integer"
+            },
+            "jmin": {
+              "kind": "integer"
+            },
+            "keepalive-timeout": {
+              "kind": "string"
+            },
+            "max-handshake-attempts": {
+              "kind": "string"
+            },
+            "random-trailers": {
+              "kind": "boolean"
+            },
+            "reject-after-time": {
+              "kind": "string"
+            },
+            "rekey-after-time": {
+              "kind": "string"
+            },
+            "rekey-timeout": {
+              "kind": "string"
+            },
+            "s1": {
+              "kind": "integer"
+            },
+            "s2": {
+              "kind": "integer"
+            },
+            "s3": {
+              "kind": "integer"
+            },
+            "s4": {
+              "kind": "integer"
+            },
+            "version": {
+              "kind": "integer"
+            }
+          }
+        },
+        "dialer-proxy": {
+          "kind": "string"
+        },
+        "dns": {
+          "kind": "array",
+          "items": {
+            "kind": "string"
+          }
+        },
+        "interface-name": {
+          "kind": "string"
+        },
+        "ip": {
+          "kind": "string"
+        },
+        "ip-stack": {
+          "kind": "object",
+          "properties": {
+            "congestion-controller": {
+              "kind": "string"
+            },
+            "mode": {
+              "kind": "string"
+            }
+          }
+        },
+        "ip-version": {
+          "kind": "string",
+          "enum": [
+            "dual",
+            "ipv4",
+            "ipv6",
+            "ipv4-prefer",
+            "ipv6-prefer"
+          ]
+        },
+        "ipv6": {
+          "kind": "string"
+        },
+        "mptcp": {
+          "kind": "boolean"
+        },
+        "mtu": {
+          "kind": "integer"
+        },
+        "name": {
+          "kind": "string",
+          "required": true
+        },
+        "peers": {
+          "kind": "array",
+          "items": {
+            "kind": "object",
+            "properties": {
+              "allowed-ips": {
+                "kind": "array",
+                "items": {
+                  "kind": "string"
+                }
+              },
+              "port": {
+                "kind": "integer"
+              },
+              "pre-shared-key": {
+                "kind": "string",
+                "secret": true
+              },
+              "public-key": {
+                "kind": "string"
+              },
+              "reserved": {
+                "kind": "array",
+                "items": {
+                  "kind": "integer",
+                  "min": 0,
+                  "max": 255
+                }
+              },
+              "server": {
+                "kind": "string"
+              }
+            }
+          }
+        },
+        "persistent-keepalive": {
+          "kind": "integer"
+        },
+        "port": {
+          "kind": "integer",
+          "min": 1,
+          "max": 65535
+        },
+        "pre-shared-key": {
+          "kind": "string",
+          "secret": true
+        },
+        "private-key": {
+          "kind": "string",
+          "required": true,
+          "secret": true
+        },
+        "public-key": {
+          "kind": "string"
+        },
+        "refresh-server-ip-interval": {
+          "kind": "integer"
+        },
+        "remote-dns-resolve": {
+          "kind": "boolean"
+        },
+        "reserved": {
+          "kind": "array",
+          "items": {
+            "kind": "integer",
+            "min": 0,
+            "max": 255
+          }
+        },
+        "routing-mark": {
+          "kind": "integer"
+        },
+        "server": {
+          "kind": "string"
+        },
+        "tfo": {
+          "kind": "boolean"
+        },
+        "type": {
+          "kind": "string",
+          "enum": [
+            "wireguard"
+          ],
+          "required": true
+        },
+        "udp": {
+          "kind": "boolean"
+        },
+        "workers": {
+          "kind": "integer"
+        }
+      }
+    }
+  },
+  "source_archive_sha256": "ecda5f8c8a8a1d60bc088c2640c85d92c8f002c0686234a26bdf671735afe216",
+  "unresolved": {},
+  "version": "v1.19.33"
+}

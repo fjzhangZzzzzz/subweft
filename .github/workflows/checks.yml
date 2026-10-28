@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2025]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-2025]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     defaults:
@@ -46,8 +46,13 @@ jobs:
           npm ci --prefix web --ignore-scripts --no-audit --no-fund
           npm run format:check --prefix web
           npm run build --prefix web
+      - name: Install Linux validation sandbox
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends bubblewrap util-linux
       - name: Fetch and verify native validator
-        run: python tools/fetch_validator.py
+        run: |
+          python tools/fetch_validator.py
+          python tools/fetch_testdata.py
       - name: Tests, analysis and dependency integrity
         run: |
           go test -tags webui ./...
@@ -55,6 +60,3 @@ jobs:
           go mod verify
       - name: Build application
         run: go build -tags webui -o output/subweft-ci ./cmd/subweft
-      - name: Linux arm64 cross-build (no runtime acceptance)
-        if: runner.os == 'Linux'
-        run: GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags webui -o output/subweft-linux-arm64 ./cmd/subweft

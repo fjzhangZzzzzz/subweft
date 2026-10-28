@@ -1,5 +1,6 @@
 export type Meta = { id: string; revision: number };
 export type Node = {
+  options?: import("./schema-form").ObjectValue;
   name: string;
   type: string;
   server: string;
@@ -29,6 +30,33 @@ export type Node = {
 };
 export type ManualNode = Meta & { node: Node; enabled: boolean };
 export type Source = Meta & {
+  clientProvider?: {
+    enabled: boolean;
+    interval: number;
+    proxy?: string;
+    healthCheck: {
+      enable: boolean;
+      url: string;
+      interval: number;
+      timeout: number;
+      lazy: boolean;
+      expectedStatus?: string;
+    };
+  };
+  extractNodes?: boolean;
+  overrides?: {
+    identity: string;
+    name: string;
+    excluded: boolean;
+    notes: string;
+  }[];
+  fetch?: {
+    timeout: number;
+    retries: number;
+    proxy?: string;
+    userAgent?: string;
+    headers?: Record<string, string>;
+  };
   name: string;
   kind: "http" | "local";
   enabled: boolean;
@@ -40,6 +68,7 @@ export type Source = Meta & {
   lastError: string;
 };
 export type Group = {
+  options?: import("./schema-form").ObjectValue;
   name: string;
   type: string;
   sourceIds: string[];
@@ -55,7 +84,14 @@ export type Group = {
   tolerance: number;
   strategy: string;
 };
+export type Condition = {
+  type: string;
+  value: string;
+  noResolve: boolean;
+  children?: Condition[];
+};
 export type Rule = {
+  conditions?: Condition[];
   type: string;
   value: string;
   target: string;
@@ -63,6 +99,10 @@ export type Rule = {
   enabled: boolean;
 };
 export type Settings = {
+  options?: import("./schema-form").ObjectValue;
+  dns?: import("./schema-form").ObjectValue;
+  nameserverPolicy?: { pattern: string; nameservers: string[] }[];
+  proxyNameserverPolicy?: { pattern: string; nameservers: string[] }[];
   mixedPort: number;
   allowLan: boolean;
   ipv6: boolean;
@@ -71,6 +111,9 @@ export type Settings = {
   nameservers: string[];
 };
 export type Profile = Meta & {
+  autoPublish?: boolean;
+  geoIpId?: string;
+  geoSiteId?: string;
   name: string;
   groups: Group[];
   rules: Rule[];
@@ -91,6 +134,11 @@ export type Release = Meta & {
   validator: string;
 };
 export type State = {
+  publishStatus?: { id: string; attempt: string; error?: string }[];
+  role: "admin" | "user";
+  issuer: string;
+  users: import("./users").User[];
+  resources: import("./resources").Resource[];
   user: string;
   csrf: string;
   sources: Source[];

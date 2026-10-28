@@ -10,7 +10,7 @@ import (
 
 // The initial slice stores self-contained releases and retains the newest 20 per profile.
 func (s *Store) pruneHistory(ctx context.Context, tx *sql.Tx, profileID string) error {
-	rows, err := tx.QueryContext(ctx, `SELECT id,revision,body FROM objects WHERE kind='release' ORDER BY rowid DESC`)
+	rows, err := tx.QueryContext(ctx, `SELECT id,1,body FROM release_index ORDER BY rowid DESC`)
 	if err != nil {
 		return err
 	}
@@ -24,7 +24,7 @@ func (s *Store) pruneHistory(ctx context.Context, tx *sql.Tx, profileID string) 
 			rows.Close()
 			return err
 		}
-		plain, err := s.open(aad("release", id, revision), body)
+		plain, err := s.open(aad("release-index", id, revision), body)
 		if err != nil {
 			rows.Close()
 			return err
@@ -53,5 +53,6 @@ func (s *Store) pruneHistory(ctx context.Context, tx *sql.Tx, profileID string) 
 			return err
 		}
 	}
-	return nil
+	_, err = tx.ExecContext(ctx, `DELETE FROM release_index WHERE NOT EXISTS(SELECT 1 FROM objects WHERE kind='release' AND objects.id=release_index.id)`)
+	return err
 }

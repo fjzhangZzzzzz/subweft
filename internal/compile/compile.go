@@ -5,25 +5,27 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net/netip"
 	"net/url"
 	"regexp"
 	"strings"
 
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
+	"github.com/fjzhangZzzzzz/subweft/internal/fields"
 	"go.yaml.in/yaml/v3"
 )
 
 type Result struct {
-	Config  []byte
-	Members map[string][]string
-	Sources map[string]string
-	Stale   []string
+	Assets    map[string][]byte
+	Resources map[string]string
+	Config    []byte
+	Members   map[string][]string
+	Sources   map[string]string
+	Stale     []string
 }
 
 func Digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
 func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, error) {
-	result := Result{Members: map[string][]string{}, Sources: map[string]string{}, Stale: []string{}}
+	result := Result{Assets: map[string][]byte{}, Resources: map[string]string{}, Members: map[string][]string{}, Sources: map[string]string{}, Stale: []string{}}
 	if e := domain.ValidateProfile(p); e != nil {
 		return result, e
 	}
@@ -88,8 +90,26 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 		}
 		b, _ := json.Marshal(s.Nodes)
 		result.Sources[s.ID] = Digest(b)
-		for _, n := range s.Nodes {
+		effective, e := domain.SourceNodes(s)
+		if e != nil {
+			return result, e
+		}
+		localNames := map[string]string{}
+		for _, n := range effective {
+			localNames[n.Name] = "[" + s.Name + "] " + n.Name
+		}
+		for _, n := range effective {
 			n.Name = "[" + s.Name + "] " + n.Name
+			if dialer, ok := n.Options["dialer-proxy"].(string); ok {
+				if mapped, exists := localNames[dialer]; exists {
+					cloned := map[string]any{}
+					for k, v := range n.Options {
+						cloned[k] = v
+					}
+					cloned["dialer-proxy"] = mapped
+					n.Options = cloned
+				}
+			}
 			if e := addNode(n); e != nil {
 				return result, e
 			}
@@ -150,6 +170,13 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 		if e := visit(name); e != nil {
 			return result, e
 		}
+	}
+	fetchDependencies := map[string][]string{}
+	proxyProviders := map[string]any{}
+	externalNodes := map[string]bool{}
+	nodeMap := map[string]domain.Node{}
+	for _, n := range nodes {
+		nodeMap[n.Name] = n
 	}
 	outputGroups := []map[string]any{}
 	for index, g := range p.Groups {
@@ -215,6 +242,53 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 		}
 		result.Members[g.Name] = members
 		out := map[string]any{"name": g.Name, "type": g.Type, "proxies": members}
+		uses := []string{}
+		providerMembers := map[string]bool{}
+		for _, src := range snap.Sources {
+			if !src.Enabled || src.ClientProvider == nil || !src.ClientProvider.Enabled || !(g.AllSources || ids[src.ID] || intersects(g.Tags, src.Tags)) {
+				continue
+			}
+			subset := []domain.Node{}
+			for _, name := range sourceNodes[src.ID] {
+				if seen[name] {
+					subset = append(subset, nodeMap[name])
+					providerMembers[name] = true
+					externalNodes[name] = true
+				}
+			}
+			if len(subset) == 0 {
+				continue
+			}
+			if proxy := src.ClientProvider.Proxy; proxy != "" && !names[proxy] {
+				return result, domain.Invalid("provider_proxy_missing", field)
+			}
+			id, provider, data, e := providerResource(src, subset, index)
+			if e != nil {
+				return result, e
+			}
+			if proxy := src.ClientProvider.Proxy; proxy != "" {
+				for _, node := range subset {
+					if node.Name == proxy {
+						return result, domain.Invalid("provider_download_cycle", field)
+					}
+				}
+				fetchDependencies[g.Name] = append(fetchDependencies[g.Name], proxy)
+			}
+			uses = append(uses, id)
+			proxyProviders[id] = provider
+			result.Assets[id] = data
+			result.Resources[id] = Digest(data)
+		}
+		if len(uses) > 0 {
+			explicit := []string{}
+			for _, name := range members {
+				if !providerMembers[name] {
+					explicit = append(explicit, name)
+				}
+			}
+			out["proxies"] = explicit
+			out["use"] = uses
+		}
 		if g.Type != "select" {
 			u, e := url.Parse(g.URL)
 			if e != nil || u.Hostname() == "" || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") {
@@ -241,59 +315,67 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 				return result, domain.Invalid("invalid_strategy", field+".strategy")
 			}
 		}
+		if e := fields.Validate("group:"+g.Type, g.Options); g.Options != nil && e != nil {
+			return result, contractError(field+".options", e)
+		}
+		for key, value := range g.Options {
+			out[key] = fields.Normalize(value)
+		}
 		outputGroups = append(outputGroups, out)
 	}
-	rules := []string{}
-	match := false
-	for i, r := range p.Rules {
-		if !r.Enabled {
-			continue
-		}
-		field := fmt.Sprintf("rules.%d", i)
-		if match {
-			return result, domain.Invalid("match_must_be_last", field)
-		}
-		if !names[r.Target] || (!hasGroup(groups, r.Target) && r.Target != "DIRECT" && r.Target != "REJECT") {
-			return result, domain.Invalid("rule_target_missing", field+".target")
-		}
-		if strings.ContainsAny(r.Value, ",\r\n\x00") || len(r.Value) > 512 {
-			return result, domain.Invalid("invalid_rule_value", field+".value")
-		}
-		switch r.Type {
-		case "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD":
-			if r.Value == "" || strings.ContainsAny(r.Value, " /:") {
-				return result, domain.Invalid("invalid_rule_value", field+".value")
-			}
-			if r.NoResolve {
-				return result, domain.Invalid("no_resolve_not_applicable", field+".noResolve")
-			}
-		case "IP-CIDR", "IP-CIDR6":
-			prefix, e := netip.ParsePrefix(r.Value)
-			if e != nil || (r.Type == "IP-CIDR6") != prefix.Addr().Is6() {
-				return result, domain.Invalid("invalid_cidr", field+".value")
-			}
-		case "MATCH":
-			if r.Value != "" || r.NoResolve {
-				return result, domain.Invalid("invalid_match", field)
-			}
-			match = true
-		default:
-			return result, domain.Invalid("unsupported_rule_type", field+".type")
-		}
-		line := r.Type + ","
-		if r.Type != "MATCH" {
-			line += r.Value + ","
-		}
-		line += r.Target
-		if r.NoResolve {
-			line += ",no-resolve"
-		}
-		rules = append(rules, line)
+	if e := validateDependencies(nodes, result.Members, fetchDependencies); e != nil {
+		return result, e
 	}
-	if !match {
-		return result, domain.Invalid("match_required", "rules")
+	resourceMap := map[string]domain.Resource{}
+	for _, r := range snap.Resources {
+		resourceMap[r.ID] = r
 	}
-	config := map[string]any{"mixed-port": p.Settings.MixedPort, "allow-lan": p.Settings.AllowLAN, "ipv6": p.Settings.IPv6, "mode": "rule", "log-level": "info", "proxies": nodes, "proxy-groups": outputGroups, "rules": rules}
+	ruleTargets := map[string]bool{"DIRECT": true, "REJECT": true}
+	for name := range groups {
+		ruleTargets[name] = true
+	}
+	rules, resources, e := renderRules(p, ruleTargets, resourceMap)
+	if e != nil {
+		return result, e
+	}
+	for id, digest := range resources {
+		result.Resources[id] = digest
+	}
+	providers := map[string]any{}
+	for id, digest := range resources {
+		r := resourceMap[id]
+		if r.LastError != "" && !allowStale {
+			return result, domain.Invalid("stale_cache_requires_ack", "allowStale")
+		}
+		_ = digest
+		ext := "yaml"
+		if r.Format == "text" {
+			ext = "txt"
+		}
+		providers[id] = map[string]any{"type": "http", "behavior": r.Behavior, "format": r.Format, "url": ResourceURL(id), "path": "./rules/" + id + "." + ext, "interval": 86400}
+	}
+	config := map[string]any{"mixed-port": p.Settings.MixedPort, "allow-lan": p.Settings.AllowLAN, "ipv6": p.Settings.IPv6, "mode": "rule", "log-level": "info", "proxies": renderedNodes(nodes, externalNodes), "proxy-groups": outputGroups, "rules": rules}
+	if len(proxyProviders) > 0 {
+		config["proxy-providers"] = proxyProviders
+	}
+	if len(providers) > 0 {
+		config["rule-providers"] = providers
+	}
+	geox := map[string]string{}
+	for key, id := range map[string]string{"mmdb": p.GeoIPID, "geosite": p.GeoSiteID} {
+		if id != "" {
+			r, ok := resourceMap[id]
+			if !ok || r.Type != key || !r.Enabled || r.Digest == "" {
+				return result, domain.Invalid("geodata_unavailable", "settings")
+			}
+			result.Resources[id] = r.Digest
+			geox[key] = ResourceURL(id)
+		}
+	}
+	if len(geox) > 0 {
+		config["geox-url"] = geox
+		config["geo-auto-update"] = false
+	}
 	if p.Settings.DNSEnabled {
 		if p.Settings.DNSMode != "fake-ip" && p.Settings.DNSMode != "redir-host" {
 			return result, domain.Invalid("invalid_dns_mode", "settings.dnsMode")
@@ -310,7 +392,41 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 	} else {
 		config["dns"] = map[string]any{"enable": false}
 	}
-	var e error
+	if p.Settings.Options != nil {
+		if e := fields.Validate("config", p.Settings.Options); e != nil {
+			return result, contractError("settings.options", e)
+		}
+		for k, v := range p.Settings.Options {
+			config[k] = fields.Normalize(v)
+		}
+	}
+	dns := config["dns"].(map[string]any)
+	if p.Settings.DNS != nil {
+		if e := fields.Validate("dns", p.Settings.DNS); e != nil {
+			return result, contractError("settings.dns", e)
+		}
+		for k, v := range p.Settings.DNS {
+			dns[k] = fields.Normalize(v)
+		}
+	}
+	for key, policies := range map[string][]domain.DNSPolicy{"nameserver-policy": p.Settings.NameserverPolicy, "proxy-server-nameserver-policy": p.Settings.ProxyNameserverPolicy} {
+		if len(policies) > 0 {
+			ordered := &yaml.Node{Kind: yaml.MappingNode}
+			seen := map[string]bool{}
+			for _, policy := range policies {
+				if policy.Pattern == "" || seen[policy.Pattern] || len(policy.Nameservers) == 0 {
+					return result, domain.Invalid("invalid_dns_policy", "settings."+key)
+				}
+				seen[policy.Pattern] = true
+				k := &yaml.Node{}
+				_ = k.Encode(policy.Pattern)
+				v := &yaml.Node{}
+				_ = v.Encode(policy.Nameservers)
+				ordered.Content = append(ordered.Content, k, v)
+			}
+			dns[key] = ordered
+		}
+	}
 	result.Config, e = yaml.Marshal(config)
 	return result, e
 }
@@ -331,32 +447,45 @@ func Redact(config []byte) []byte {
 		return []byte("preview unavailable\n")
 	}
 	if proxies, ok := v["proxies"].([]any); ok {
-		for _, p := range proxies {
+		for i, p := range proxies {
 			if n, ok := p.(map[string]any); ok {
-				for _, key := range []string{"password", "username", "uuid"} {
-					if _, exists := n[key]; exists {
-						n[key] = "[REDACTED]"
-					}
-				}
-				if ws, ok := n["ws-opts"].(map[string]any); ok {
-					if _, exists := ws["path"]; exists {
-						ws["path"] = "[REDACTED]"
-					}
-					if headers, ok := ws["headers"].(map[string]any); ok {
-						for key := range headers {
-							headers[key] = "[REDACTED]"
-						}
-					}
-				}
-				if reality, ok := n["reality-opts"].(map[string]any); ok {
-					reality["short-id"] = "[REDACTED]"
-				}
-				if grpc, ok := n["grpc-opts"].(map[string]any); ok {
-					grpc["grpc-service-name"] = "[REDACTED]"
-				}
+				kind, _ := n["type"].(string)
+				proxies[i] = fields.Redact(kind, n)
 			}
+		}
+	}
+	for _, k := range []string{"secret", "authentication"} {
+		if _, ok := v[k]; ok {
+			v[k] = "[REDACTED]"
 		}
 	}
 	b, _ := yaml.Marshal(v)
 	return b
+}
+
+func contractError(prefix string, e error) error {
+	if x, ok := e.(*fields.Error); ok {
+		return domain.Invalid(x.Code, prefix+"."+x.Path)
+	}
+	return domain.Invalid("invalid_field_type", prefix)
+}
+
+const ResourcePrefix = "https://subweft.invalid/resources/"
+
+func ResourceURL(id string) string { return ResourcePrefix + id }
+
+func renderedNodes(nodes []domain.Node, external map[string]bool) []domain.Node {
+	needed := map[string]bool{}
+	for _, n := range nodes {
+		if p, ok := n.Options["dialer-proxy"].(string); ok {
+			needed[p] = true
+		}
+	}
+	out := []domain.Node{}
+	for _, n := range nodes {
+		if !external[n.Name] || needed[n.Name] {
+			out = append(out, n)
+		}
+	}
+	return out
 }

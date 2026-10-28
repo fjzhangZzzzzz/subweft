@@ -1,10 +1,11 @@
 package domain
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/fjzhangZzzzzz/subweft/internal/fields"
+	"go.yaml.in/yaml/v3"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -14,6 +15,7 @@ import (
 // Node is the supported field set, not a passthrough for arbitrary core options.
 // JSON uses the product contract; YAML uses the pinned Mihomo field names.
 type Node struct {
+	Options           map[string]any  `json:"options,omitempty" yaml:"-"`
 	Name              string          `json:"name" yaml:"name"`
 	Type              string          `json:"type" yaml:"type"`
 	Server            string          `json:"server" yaml:"server"`
@@ -50,98 +52,162 @@ type GRPCOptions struct {
 	ServiceName string `json:"serviceName" yaml:"grpc-service-name"`
 }
 
-func Protocols() []string { return []string{"ss", "vmess", "vless", "trojan", "http", "socks5"} }
-
-// This same policy applies to imported YAML and management JSON, including
-// explicitly supplied zero/false values that a value-only check would miss.
-func NodeFields(protocol string, yaml bool) map[string]bool {
-	fields := map[string]bool{"name": true, "type": true, "server": true, "port": true}
-	add := func(jsonName, yamlName string) {
-		if yaml {
-			fields[yamlName] = true
-		} else {
-			fields[jsonName] = true
-		}
+func Protocols() []string { return fields.Protocols() }
+func NodeFields(protocol string, yamlNames bool) map[string]bool {
+	out := map[string]bool{}
+	s := fields.Schema(protocol)
+	if s == nil {
+		return out
 	}
-	switch protocol {
-	case "ss":
-		add("cipher", "cipher")
-		add("password", "password")
-		add("udp", "udp")
-	case "vmess", "vless", "trojan":
-		add("udp", "udp")
-		add("network", "network")
-		add("skipCertVerify", "skip-cert-verify")
-		add("alpn", "alpn")
-		add("clientFingerprint", "client-fingerprint")
-		add("wsOpts", "ws-opts")
-		add("grpcOpts", "grpc-opts")
-		if protocol == "trojan" {
-			add("password", "password")
-			add("sni", "sni")
-		} else {
-			add("uuid", "uuid")
-			add("tls", "tls")
-			add("serverName", "servername")
-		}
-		if protocol == "vmess" {
-			add("cipher", "cipher")
-			add("alterId", "alterId")
-		}
-		if protocol == "vless" {
-			add("flow", "flow")
-			add("realityOpts", "reality-opts")
-		}
-	case "http", "socks5":
-		add("username", "username")
-		add("password", "password")
-		add("tls", "tls")
-		add("skipCertVerify", "skip-cert-verify")
-		if protocol == "http" {
-			add("sni", "sni")
-		} else {
-			add("udp", "udp")
-		}
+	for k := range s.Properties {
+		out[k] = true
 	}
-	return fields
+	if !yamlNames {
+		for i := 0; i < reflect.TypeFor[Node]().NumField(); i++ {
+			f := reflect.TypeFor[Node]().Field(i)
+			j := strings.Split(f.Tag.Get("json"), ",")[0]
+			y := strings.Split(f.Tag.Get("yaml"), ",")[0]
+			if y != "-" && out[y] {
+				delete(out, y)
+				out[j] = true
+			}
+		}
+		out["options"] = true
+	}
+	return out
 }
-
+func fieldError(e error) error {
+	if e == nil {
+		return nil
+	}
+	if x, ok := e.(*fields.Error); ok {
+		return Invalid(x.Code, x.Path)
+	}
+	return Invalid("invalid_field_type", "node")
+}
 func (n *Node) UnmarshalJSON(data []byte) error {
-	var raw map[string]json.RawMessage
-	if json.Unmarshal(data, &raw) != nil || raw == nil || hasJSONNull(data) {
+	v, e := fields.DecodeJSON(data)
+	if e != nil {
+		return fieldError(e)
+	}
+	raw, ok := v.(map[string]any)
+	if !ok {
 		return Invalid("invalid_node", "node")
 	}
-	var kind string
-	if json.Unmarshal(raw["type"], &kind) != nil {
-		return Invalid("unsupported_protocol", "type")
+	core := map[string]any{}
+	typ := reflect.TypeFor[Node]()
+	known := map[string]reflect.StructField{}
+	for i := 0; i < typ.NumField(); i++ {
+		f := typ.Field(i)
+		known[strings.Split(f.Tag.Get("json"), ",")[0]] = f
 	}
-	allowed := NodeFields(kind, false)
-	supported := false
-	for _, p := range Protocols() {
-		if p == kind {
-			supported = true
+	for key, v := range raw {
+		if key == "options" {
+			m, ok := v.(map[string]any)
+			if !ok {
+				return Invalid("invalid_field_type", "options")
+			}
+			for k, x := range m {
+				if _, exists := core[k]; exists {
+					return Invalid("duplicate_field", k)
+				}
+				core[k] = x
+			}
+			continue
 		}
-	}
-	if !supported {
-		return Invalid("unsupported_protocol", "type")
-	}
-	for key, value := range raw {
-		if !allowed[key] {
+		f, ok := known[key]
+		if !ok {
 			return Invalid("unsupported_or_invalid_field", "node")
 		}
-		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
-			return Invalid("invalid_field_type", "node")
+		y := strings.Split(f.Tag.Get("yaml"), ",")[0]
+		if _, exists := core[y]; exists {
+			return Invalid("duplicate_field", y)
+		}
+		// Existing JSON names stay readable for development-preview databases.
+		var value any
+		bytes, _ := json.Marshal(v)
+		ptr := reflect.New(f.Type)
+		dec := json.NewDecoder(strings.NewReader(string(bytes)))
+		dec.DisallowUnknownFields()
+		if dec.Decode(ptr.Interface()) != nil {
+			return Invalid("invalid_field_type", key)
+		}
+		value = ptr.Elem().Interface()
+		encoded, _ := yaml.Marshal(value)
+		var converted any
+		if yaml.Unmarshal(encoded, &converted) != nil {
+			return Invalid("invalid_field_type", key)
+		}
+		core[y] = converted
+	}
+	if core["type"] == "vmess" {
+		if _, ok := core["alterId"]; !ok {
+			core["alterId"] = 0
 		}
 	}
-	type plain Node
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	var value plain
-	if decoder.Decode(&value) != nil {
-		return Invalid("invalid_field_type", "node")
+	value, e := nodeFromCore(core, false)
+	if e != nil {
+		return e
 	}
-	*n = Node(value)
+	*n = value
 	return nil
+}
+func NodeFromCore(core map[string]any) (Node, error) { return nodeFromCore(core, true) }
+func nodeFromCore(core map[string]any, complete bool) (Node, error) {
+	n := Node{Options: map[string]any{}}
+	kind, _ := core["type"].(string)
+	if e := fields.ValidateInput(kind, core, complete); e != nil {
+		return n, fieldError(e)
+	}
+	value := reflect.ValueOf(&n).Elem()
+	typ := value.Type()
+	for key, v := range core {
+		found := false
+		for i := 0; i < typ.NumField(); i++ {
+			f := typ.Field(i)
+			y := strings.Split(f.Tag.Get("yaml"), ",")[0]
+			if y != key || y == "-" {
+				continue
+			}
+			part := value.Field(i)
+			if part.Kind() == reflect.Pointer || part.Kind() == reflect.Map || part.Kind() == reflect.Slice {
+				b, _ := yaml.Marshal(fields.Normalize(v))
+				ptr := reflect.New(f.Type)
+				decoder := yaml.NewDecoder(strings.NewReader(string(b)))
+				decoder.KnownFields(true)
+				if decoder.Decode(ptr.Interface()) == nil {
+					part.Set(ptr.Elem())
+					found = true
+				}
+				break
+			}
+			b, _ := json.Marshal(v)
+			if json.Unmarshal(b, part.Addr().Interface()) != nil {
+				return n, Invalid("invalid_field_type", key)
+			}
+			found = true
+			break
+		}
+		if !found {
+			n.Options[key] = fields.Normalize(v)
+		}
+	}
+	return n, nil
+}
+func (n *Node) UnmarshalYAML(value *yaml.Node) error {
+	v, e := fields.YAMLValue(value)
+	if e != nil {
+		return fieldError(e)
+	}
+	m, ok := v.(map[string]any)
+	if !ok {
+		return Invalid("invalid_node", "node")
+	}
+	out, e := NodeFromCore(m)
+	if e == nil {
+		*n = out
+	}
+	return e
 }
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -153,30 +219,41 @@ func ValidateNode(n Node) error {
 	if !ValidName(n.Name) {
 		return Invalid("invalid_name", "name")
 	}
-	if n.Server == "" || len(n.Server) > 253 || strings.ContainsAny(n.Server, " /\r\n\x00") {
+	if n.Type != "wireguard" && (n.Server == "" || len(n.Server) > 253 || strings.ContainsAny(n.Server, " /\r\n\x00")) {
 		return Invalid("invalid_server", "server")
 	}
-	if n.Port < 1 || n.Port > 65535 {
+	if n.Type != "wireguard" && (n.Port < 1 || n.Port > 65535) {
 		return Invalid("invalid_port", "port")
 	}
-	// Reject nonzero unsupported fields even for callers constructing Go values.
-	encoded, _ := json.Marshal(n)
-	var present map[string]json.RawMessage
-	_ = json.Unmarshal(encoded, &present)
-	allowed := NodeFields(n.Type, false)
-	for field, value := range present {
-		if field == "udp" && bytes.Equal(value, []byte("false")) {
-			continue
+	core, e := n.Core()
+	if e != nil {
+		return e
+	}
+	if e = fields.Validate(n.Type, core); e != nil {
+		return fieldError(e)
+	}
+	// Hydrate legacy semantic views while the complete nested fields remain in Options.
+	hydrate := func(key string, dst any) {
+		if v, ok := core[key]; ok {
+			b, _ := yaml.Marshal(v)
+			_ = yaml.Unmarshal(b, dst)
 		}
-		if !allowed[field] {
-			return Invalid("unsupported_or_invalid_field", "node")
-		}
+	}
+	if n.WS == nil {
+		hydrate("ws-opts", &n.WS)
+	}
+	if n.GRPC == nil {
+		hydrate("grpc-opts", &n.GRPC)
+	}
+	if n.Reality == nil {
+		hydrate("reality-opts", &n.Reality)
+	}
+	if n.ALPN == nil {
+		hydrate("alpn", &n.ALPN)
 	}
 	switch n.Type {
 	case "ss":
-		switch n.Cipher {
-		case "aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305":
-		default:
+		if n.Cipher == "" {
 			return Invalid("unsupported_cipher", "cipher")
 		}
 		if n.Password == "" {
@@ -204,13 +281,24 @@ func ValidateNode(n Node) error {
 		if (n.Username == "") != (n.Password == "") {
 			return Invalid("credentials_pair_required", "username")
 		}
+	case "ssr":
+		if n.Password == "" || n.Cipher == "" {
+			return Invalid("invalid_credentials", "password")
+		}
+	case "hysteria", "hysteria2", "snell", "anytls", "wireguard", "tuic":
+		if n.Type == "tuic" {
+			token, _ := core["token"].(string)
+			if token == "" && (!uuidPattern.MatchString(n.UUID) || n.Password == "") {
+				return Invalid("credentials_required", "uuid")
+			}
+		}
 	default:
 		return Invalid("unsupported_protocol", "type")
 	}
 	if len(n.Password) > 2048 || len(n.Username) > 1024 || !safeText(n.Username, 1024) {
 		return Invalid("invalid_credentials", "credentials")
 	}
-	tls := n.TLS || n.Type == "trojan"
+	tls := n.TLS || strings.Contains("|trojan|anytls|hysteria|hysteria2|tuic|", "|"+n.Type+"|")
 	if !tls && (n.SkipCertVerify || n.ServerName != "" || n.SNI != "" || n.ALPN != nil || n.ClientFingerprint != "" || n.Reality != nil) {
 		return Invalid("tls_required", "tls")
 	}
@@ -232,7 +320,7 @@ func ValidateNode(n Node) error {
 	default:
 		return Invalid("unsupported_fingerprint", "clientFingerprint")
 	}
-	if n.Network != "" && n.Network != "tcp" && n.Network != "ws" && n.Network != "grpc" {
+	if n.Network != "" && n.Network != "tcp" && n.Network != "ws" && n.Network != "grpc" && n.Network != "h2" && n.Network != "http" && n.Network != "xhttp" && n.Network != "mkcp" && n.Network != "mekya" && n.Network != "tlsmirror" {
 		return Invalid("unsupported_transport", "network")
 	}
 	if n.WS != nil && n.Network != "ws" || n.GRPC != nil && n.Network != "grpc" {
@@ -266,7 +354,7 @@ func ValidateNode(n Node) error {
 	if n.Reality != nil {
 		key, err := base64.RawURLEncoding.DecodeString(n.Reality.PublicKey)
 		short, shortErr := hex.DecodeString(n.Reality.ShortID)
-		if err != nil || len(key) != 32 || shortErr != nil || len(short) > 8 || n.ServerName == "" || n.ClientFingerprint == "" || n.SkipCertVerify {
+		if err != nil || len(key) != 32 || shortErr != nil || len(short) > 8 || n.ServerName == "" && n.SNI == "" || n.ClientFingerprint == "" || n.SkipCertVerify {
 			return Invalid("invalid_reality", "realityOpts")
 		}
 	}
@@ -318,18 +406,40 @@ func hasJSONNull(data []byte) bool {
 }
 
 // Preserve an explicitly empty ALPN list and required VMess zero values.
-func (n Node) MarshalYAML() (any, error) {
+func (n Node) Core() (map[string]any, error) {
 	out := map[string]any{}
 	value := reflect.ValueOf(n)
-	kind := value.Type()
+	typ := value.Type()
 	for i := 0; i < value.NumField(); i++ {
-		field := kind.Field(i)
-		tag := strings.Split(field.Tag.Get("yaml"), ",")
-		part := value.Field(i)
-		if len(tag) > 1 && tag[1] == "omitempty" && part.IsZero() && !(field.Name == "AlterID" && n.Type == "vmess") {
+		f := typ.Field(i)
+		tag := strings.Split(f.Tag.Get("yaml"), ",")
+		if tag[0] == "-" {
 			continue
 		}
-		out[tag[0]] = part.Interface()
+		part := value.Field(i)
+		if len(tag) > 1 && tag[1] == "omitempty" && part.IsZero() && !(f.Name == "AlterID" && n.Type == "vmess") {
+			continue
+		}
+		if (f.Name == "Server" || f.Name == "Port") && part.IsZero() && n.Type == "wireguard" {
+			continue
+		}
+		if part.Kind() != reflect.Pointer && part.Kind() != reflect.Map && part.Kind() != reflect.Slice && part.Kind() != reflect.Struct {
+			out[tag[0]] = part.Interface()
+			continue
+		}
+		b, _ := yaml.Marshal(part.Interface())
+		var scalar any
+		if e := yaml.Unmarshal(b, &scalar); e != nil {
+			return nil, Invalid("invalid_field_type", tag[0])
+		}
+		out[tag[0]] = scalar
+	}
+	for k, v := range n.Options {
+		if _, ok := out[k]; ok {
+			return nil, Invalid("duplicate_field", k)
+		}
+		out[k] = fields.Normalize(v)
 	}
 	return out, nil
 }
+func (n Node) MarshalYAML() (any, error) { return n.Core() }

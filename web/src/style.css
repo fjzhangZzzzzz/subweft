@@ -1812,3 +1812,60 @@ input[type="checkbox"] {
     grid-column: 2;
   }
 }
+
+.schema-object {
+  display: grid;
+  gap: 16px;
+}
+.schema-field {
+  border: 1px solid var(--border, #ddd);
+  border-radius: 10px;
+  padding: 14px;
+  min-width: 0;
+}
+.schema-field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.schema-field-heading small {
+  font-weight: 400;
+  opacity: 0.65;
+}
+.schema-rows {
+  display: grid;
+  gap: 10px;
+}
+.schema-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+.schema-row > .actions {
+  display: flex;
+  gap: 4px;
+}
+.schema-field .schema-object {
+  border-left: 2px solid var(--border, #ddd);
+  padding-left: 10px;
+}
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+.resource-grid .panel {
+  padding: 20px;
+}
+.wrap {
+  overflow-wrap: anywhere;
+}
+.schema-field summary,
+details > summary {
+  cursor: pointer;
+  padding: 10px 0;
+}

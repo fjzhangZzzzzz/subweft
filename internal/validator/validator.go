@@ -8,13 +8,14 @@ import (
 	"errors"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/fjzhangZzzzzz/subweft/internal/compile"
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
+	"go.yaml.in/yaml/v3"
 )
 
 const Version = "v1.19.33"
@@ -54,7 +55,14 @@ func New(path, sha, workDir string) (*Native, error) {
 	if hex.EncodeToString(h.Sum(nil)) != sha {
 		return nil, errors.New("validator_digest_mismatch")
 	}
+	workDir, e = filepath.Abs(workDir)
+	if e != nil {
+		return nil, e
+	}
 	if e = os.MkdirAll(workDir, 0700); e != nil {
+		return nil, e
+	}
+	if e = checkSandbox(path, workDir); e != nil {
 		return nil, e
 	}
 	return &Native{Path: path, SHA256: sha, WorkDir: workDir, sem: make(chan struct{}, 1)}, nil
@@ -72,6 +80,9 @@ func (l *limitedOutput) Write(b []byte) (int, error) {
 	return length, nil
 }
 func (n *Native) Check(ctx context.Context, config []byte) error {
+	return n.CheckBundle(ctx, config, nil)
+}
+func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[string][]byte) error {
 	select {
 	case n.sem <- struct{}{}:
 		defer func() { <-n.sem }()
@@ -94,17 +105,75 @@ func (n *Native) Check(ctx context.Context, config []byte) error {
 		return domain.Invalid("validation_failed", "publish")
 	}
 	defer os.RemoveAll(dir)
+	var configMap map[string]any
+	if yaml.Unmarshal(config, &configMap) != nil {
+		return domain.Invalid("invalid_config", "publish")
+	}
+	for _, providerKey := range []string{"rule-providers", "proxy-providers"} {
+		if providers, ok := configMap[providerKey].(map[string]any); ok {
+			for _, raw := range providers {
+				provider, ok := raw.(map[string]any)
+				if !ok {
+					return domain.Invalid("invalid_provider", "publish")
+				}
+				remote, _ := provider["url"].(string)
+				id := strings.TrimPrefix(remote, compile.ResourcePrefix)
+				data, ok := assets[id]
+				if !ok || !strings.HasPrefix(remote, compile.ResourcePrefix) {
+					return domain.Invalid("validation_resource_missing", "publish")
+				}
+				filename, _ := provider["path"].(string)
+				target := filepath.Join(dir, filepath.FromSlash(filename))
+				if !strings.HasPrefix(target, dir+string(os.PathSeparator)) {
+					return domain.Invalid("invalid_resource_path", "publish")
+				}
+				if os.MkdirAll(filepath.Dir(target), 0700) != nil || os.WriteFile(target, data, 0600) != nil {
+					return domain.Invalid("validation_failed", "publish")
+				}
+				provider["type"] = "file"
+				delete(provider, "url")
+				delete(provider, "interval")
+			}
+		}
+	}
+
+	if urls, ok := configMap["geox-url"].(map[string]any); ok {
+		for key, raw := range urls {
+			remote, ok := raw.(string)
+			if !ok {
+				return domain.Invalid("invalid_geodata", "publish")
+			}
+			data, ok := assets[strings.TrimPrefix(remote, compile.ResourcePrefix)]
+			if !ok {
+				return domain.Invalid("validation_resource_missing", "publish")
+			}
+			filename := map[string]string{"mmdb": "Country.mmdb", "geoip": "GeoIP.dat", "geosite": "GeoSite.dat"}[key]
+			if filename == "" || os.WriteFile(filepath.Join(dir, filename), data, 0600) != nil {
+				return domain.Invalid("validation_failed", "publish")
+			}
+		}
+		delete(configMap, "geox-url")
+	}
+	config, e = yaml.Marshal(configMap)
+	if e != nil {
+		return domain.Invalid("validation_failed", "publish")
+	}
 	file := filepath.Join(dir, "config.yaml")
 	if e = os.WriteFile(file, config, 0600); e != nil {
 		return domain.Invalid("validation_failed", "publish")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, n.Path, "-t", "-d", dir, "-f", file)
+	cmd, e := sandboxCommand(ctx, n.Path, dir, file)
+	if e != nil {
+		return domain.Invalid("validator_sandbox_unavailable", "publish")
+	}
 	hideWindow(cmd)
 	cmd.Dir = dir
 	// No inherited proxy or user configuration. The compiler emits no remote rule/providers.
-	cmd.Env = []string{"HOME=" + dir, "USERPROFILE=" + dir, "APPDATA=" + dir, "LOCALAPPDATA=" + dir, "PATH=" + filepath.Dir(n.Path), "SystemRoot=" + os.Getenv("SystemRoot")}
+	if runtime.GOOS != "linux" {
+		cmd.Env = []string{"HOME=" + dir, "USERPROFILE=" + dir, "APPDATA=" + dir, "LOCALAPPDATA=" + dir, "PATH=" + filepath.Dir(n.Path), "SystemRoot=" + os.Getenv("SystemRoot")}
+	}
 	var output limitedOutput
 	cmd.Stdout = &output
 	cmd.Stderr = &output

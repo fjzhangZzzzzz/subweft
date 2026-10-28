@@ -22,7 +22,12 @@ const MaxBytes = 2 << 20
 const MaxNodes = 5000
 
 // Every DNS answer is checked, then the chosen IP is dialed directly. TLS still verifies the URL host.
-type Fetcher struct{ Client *http.Client }
+type Fetcher struct {
+	Client    *http.Client
+	Resolve   func(context.Context, string) (string, error)
+	Headers   map[string]string
+	UserAgent string
+}
 
 func NewFetcher(allowed []netip.Prefix) *Fetcher {
 	allowedIP := func(ip netip.Addr) bool {
@@ -43,23 +48,30 @@ func NewFetcher(allowed []netip.Prefix) *Fetcher {
 		return true
 	}
 	transport := &http.Transport{Proxy: nil, TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12}, MaxIdleConns: 4, MaxConnsPerHost: 2, IdleConnTimeout: 30 * time.Second, ResponseHeaderTimeout: 10 * time.Second}
-	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+	resolve := func(ctx context.Context, address string) (string, error) {
 		host, port, e := net.SplitHostPort(address)
 		if e != nil {
-			return nil, errors.New("blocked_destination")
+			return "", errors.New("blocked_destination")
 		}
 		ips, e := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
 		if e != nil || len(ips) == 0 {
-			return nil, errors.New("dns_failed")
+			return "", errors.New("dns_failed")
 		}
 		for _, ip := range ips {
 			if !allowedIP(ip) {
-				return nil, errors.New("blocked_destination")
+				return "", errors.New("blocked_destination")
 			}
 		}
-		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
+		return net.JoinHostPort(ips[0].String(), port), nil
 	}
-	return &Fetcher{Client: &http.Client{Transport: transport, Timeout: 20 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
+	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		resolved, e := resolve(ctx, address)
+		if e != nil {
+			return nil, e
+		}
+		return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, resolved)
+	}
+	return &Fetcher{Resolve: resolve, Client: &http.Client{Transport: transport, Timeout: 20 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 3 {
 			return errors.New("too_many_redirects")
 		}
@@ -86,6 +98,9 @@ func ValidateURL(raw string) error {
 	return nil
 }
 func (f *Fetcher) Fetch(ctx context.Context, raw string) ([]byte, error) {
+	return f.FetchLimit(ctx, raw, MaxBytes)
+}
+func (f *Fetcher) FetchLimit(ctx context.Context, raw string, limit int) ([]byte, error) {
 	if e := ValidateURL(raw); e != nil {
 		return nil, e
 	}
@@ -94,6 +109,12 @@ func (f *Fetcher) Fetch(ctx context.Context, raw string) ([]byte, error) {
 		return nil, domain.Invalid("invalid_url", "url")
 	}
 	req.Header.Set("User-Agent", "Subweft/0.1-dev")
+	if f.UserAgent != "" {
+		req.Header.Set("User-Agent", f.UserAgent)
+	}
+	for key, value := range f.Headers {
+		req.Header.Set(key, value)
+	}
 	resp, e := f.Client.Do(req)
 	if e != nil {
 		return nil, domain.Invalid("fetch_failed", "url")
@@ -102,14 +123,14 @@ func (f *Fetcher) Fetch(ctx context.Context, raw string) ([]byte, error) {
 	if resp.StatusCode != 200 {
 		return nil, domain.Invalid("upstream_status", "url")
 	}
-	if resp.ContentLength > MaxBytes {
+	if resp.ContentLength > int64(limit) {
 		return nil, domain.Invalid("input_too_large", "url")
 	}
-	b, e := io.ReadAll(io.LimitReader(resp.Body, MaxBytes+1))
+	b, e := io.ReadAll(io.LimitReader(resp.Body, int64(limit)+1))
 	if e != nil {
 		return nil, domain.Invalid("fetch_failed", "url")
 	}
-	if len(b) > MaxBytes {
+	if len(b) > limit {
 		return nil, domain.Invalid("input_too_large", "url")
 	}
 	return b, nil

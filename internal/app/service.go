@@ -27,6 +27,9 @@ func New(store *storage.Store, fetcher *source.Fetcher, checker validator.Checke
 }
 
 type SourceInput struct {
+	ClientProvider *domain.ClientProvider `json:"clientProvider,omitempty"`
+	Fetch          domain.FetchOptions    `json:"fetch"`
+	ExtractNodes   bool                   `json:"extractNodes"`
 	domain.Meta
 	Name     string   `json:"name"`
 	Kind     string   `json:"kind"`
@@ -40,7 +43,7 @@ type SourceInput struct {
 func (s *Service) SaveSource(ctx context.Context, in SourceInput) (domain.Source, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	v := domain.Source{Meta: in.Meta, Name: in.Name, Kind: in.Kind, URL: in.URL, Content: in.Content, Enabled: in.Enabled, Tags: in.Tags, Interval: in.Interval}
+	v := domain.Source{ClientProvider: in.ClientProvider, Fetch: in.Fetch, ExtractNodes: in.ExtractNodes, Meta: in.Meta, Name: in.Name, Kind: in.Kind, URL: in.URL, Content: in.Content, Enabled: in.Enabled, Tags: in.Tags, Interval: in.Interval}
 	if in.ID != "" {
 		old, e := storage.Load[domain.Source](ctx, s.Store, "source", in.ID)
 		if e != nil {
@@ -50,6 +53,7 @@ func (s *Service) SaveSource(ctx context.Context, in SourceInput) (domain.Source
 			return v, domain.ErrConflict
 		}
 		v.Nodes = old.Nodes
+		v.Overrides = old.Overrides
 		v.LastSuccess = old.LastSuccess
 		v.LastAttempt = old.LastAttempt
 		v.LastError = old.LastError
@@ -59,12 +63,15 @@ func (s *Service) SaveSource(ctx context.Context, in SourceInput) (domain.Source
 		if v.Content == "" && v.Kind == old.Kind {
 			v.Content = old.Content
 		}
-		if v.Kind != old.Kind || (v.Kind == "http" && v.URL != old.URL) {
+		if v.Kind != old.Kind || v.ExtractNodes != old.ExtractNodes || (v.Kind == "http" && v.URL != old.URL) {
 			v.Nodes = nil
 			v.LastSuccess = time.Time{}
 			v.LastAttempt = time.Time{}
 			v.LastError = "source_changed_refresh_required"
 		}
+	}
+	if e := source.ValidateOptions(v.Fetch); e != nil {
+		return v, e
 	}
 	if e := domain.ValidateSource(v); e != nil {
 		return v, e
@@ -75,7 +82,7 @@ func (s *Service) SaveSource(ctx context.Context, in SourceInput) (domain.Source
 		}
 		v.Content = ""
 	} else {
-		nodes, e := source.Parse([]byte(v.Content))
+		nodes, e := source.ParseInput([]byte(v.Content), v.ExtractNodes)
 		if e != nil {
 			return v, e
 		}
@@ -105,9 +112,9 @@ func (s *Service) Refresh(ctx context.Context, id string) (domain.Source, error)
 	if v.Kind != "http" {
 		return v, domain.Invalid("not_http_source", "source")
 	}
-	b, e := s.Fetcher.Fetch(ctx, v.URL)
+	b, e := s.Fetcher.FetchWith(ctx, v.URL, v.Fetch, source.MaxBytes)
 	if e == nil {
-		v.Nodes, e = source.Parse(b)
+		v.Nodes, e = source.ParseInput(b, v.ExtractNodes)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -214,6 +221,18 @@ func (s *Service) Delete(ctx context.Context, kind, id string, revision int) err
 			}
 		}
 	}
+	if kind == "resource" {
+		for _, p := range snap.Profiles {
+			if p.GeoIPID == id || p.GeoSiteID == id {
+				return domain.Invalid("resource_in_use", "id")
+			}
+			for _, r := range p.Rules {
+				if r.Type == "RULE-SET" && r.Value == id {
+					return domain.Invalid("resource_in_use", "id")
+				}
+			}
+		}
+	}
 	if kind == "profile" {
 		if snap.Active[id] != "" {
 			return domain.Invalid("published_profile_cannot_delete", "id")
@@ -247,10 +266,13 @@ func (s *Service) Publish(ctx context.Context, id string, revision int, allowSta
 	if p.Revision != revision {
 		return domain.Release{}, domain.ErrConflict
 	}
-	if e = s.Validator.Check(ctx, result.Config); e != nil {
+	if e = s.checkResult(ctx, result); e != nil {
 		return domain.Release{}, e
 	}
-	r := domain.Release{ProfileID: p.ID, ProfileRevision: p.Revision, CreatedAt: time.Now().UTC(), Config: result.Config, Digest: compile.Digest(result.Config), Sources: result.Sources, Validator: s.Validator.Identity()}
+	r := domain.Release{Resources: result.Resources, Definition: &p, ProfileID: p.ID, ProfileRevision: p.Revision, CreatedAt: time.Now().UTC(), Config: result.Config, Digest: compile.Digest(result.Config), Sources: result.Sources, Validator: s.Validator.Identity()}
+	if e = s.persistAssets(ctx, result); e != nil {
+		return r, e
+	}
 	e = s.Store.Publish(ctx, gen, &r)
 	return r, e
 }
@@ -308,6 +330,7 @@ func (s *Service) Rotate(ctx context.Context, id string, revision int) (domain.D
 	return d, e
 }
 func (s *Service) Schedule(ctx context.Context) {
+	lastPrune := time.Time{}
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -315,6 +338,10 @@ func (s *Service) Schedule(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if time.Since(lastPrune) > time.Hour {
+				_ = s.Store.PruneAssets(ctx)
+				lastPrune = time.Now()
+			}
 			values, e := storage.List[domain.Source](ctx, s.Store, "source")
 			if e != nil {
 				continue
@@ -328,6 +355,15 @@ func (s *Service) Schedule(ctx context.Context) {
 					return
 				}
 			}
+			resources, e := storage.List[domain.Resource](ctx, s.Store, "resource")
+			if e == nil {
+				for _, v := range resources {
+					if v.Enabled && v.Kind == "http" && time.Since(v.LastAttempt) >= time.Duration(v.Interval)*time.Second {
+						_, _ = s.RefreshResource(ctx, v.ID)
+					}
+				}
+			}
+			s.AutoPublish(ctx)
 		}
 	}
 }
@@ -338,4 +374,43 @@ func CloneProfile(p domain.Profile) domain.Profile {
 	out.Meta = domain.Meta{}
 	out.Name = p.Name + " copy"
 	return out
+}
+
+func (s *Service) checkResult(ctx context.Context, result compile.Result) error {
+	if len(result.Resources) == 0 {
+		return s.Validator.Check(ctx, result.Config)
+	}
+	checker, ok := s.Validator.(interface {
+		CheckBundle(context.Context, []byte, map[string][]byte) error
+	})
+	if !ok {
+		return domain.Invalid("validator_bundle_unsupported", "publish")
+	}
+	assets := map[string][]byte{}
+	total := 0
+	for id, digest := range result.Resources {
+		b, ok := result.Assets[id]
+		var e error
+		if !ok {
+			b, e = s.Store.Asset(ctx, digest)
+		}
+		if e != nil {
+			return e
+		}
+		total += len(b)
+		if total > 128<<20 {
+			return domain.Invalid("resources_too_large", "publish")
+		}
+		assets[id] = b
+	}
+	return checker.CheckBundle(ctx, result.Config, assets)
+}
+
+func (s *Service) persistAssets(ctx context.Context, result compile.Result) error {
+	for _, body := range result.Assets {
+		if _, e := s.Store.PutAsset(ctx, body); e != nil {
+			return e
+		}
+	}
+	return nil
 }

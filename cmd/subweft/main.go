@@ -39,12 +39,20 @@ func run() error {
 	}
 	flags := flag.NewFlagSet(os.Args[1], flag.ContinueOnError)
 	data := flags.String("data-dir", "", "local persistent directory")
+	backupOutput := flags.String("output", "", "new absolute encrypted backup destination")
+	backupInput := flags.String("backup-file", "", "existing encrypted SQLite backup")
 	key := flags.String("key-file", "", "existing 32-byte key outside SQLite")
 	if e := flags.Parse(os.Args[2:]); e != nil {
 		return errors.New("invalid_flags")
 	}
 	if *data == "" || *key == "" {
 		return errors.New("data_dir_and_key_file_required")
+	}
+	if os.Args[1] == "backup" {
+		return storage.BackupDatabase(context.Background(), *data, *backupOutput)
+	}
+	if os.Args[1] == "restore" {
+		return storage.RestoreDatabase(context.Background(), *backupInput, *data, *key)
 	}
 	if os.Args[1] == "init" {
 		if e := storage.Initialize(*data, *key); e != nil {
