@@ -4,7 +4,7 @@
 
 ## 启动
 
-需要已有 Git、Go 1.27、Node.js（含 npm）和 Python 3.10+。开发及 CI 固定 Go 1.27.3、Node 26.12.1；工具不安装或升级系统软件。
+需要已有 Git、Go 1.27、Node.js（含 npm）和 Python 3.10+。本机开发使用 Go 1.27.3；CI 按 go.mod 使用 Go 1.27.0，Node 固定 26.12.1。工具不安装或升级系统软件。
 
 ```sh
 python tools/dev.py
