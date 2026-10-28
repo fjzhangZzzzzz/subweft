@@ -787,7 +787,7 @@ function App() {
           </div>
           <span className="version">
             <span className="dot" />
-            Development preview · 0.1.0
+            {state.build?.version || "Subweft"}
           </span>
         </div>
       </aside>
@@ -2860,6 +2860,7 @@ function SourceNodeList({
   const [page, setPage] = useState(0);
   const [localRevision, setLocalRevision] = useState(source.revision);
   const [localNodes, setLocalNodes] = useState(nodes);
+  const [localOverrides, setLocalOverrides] = useState(source.overrides || []);
   const [overrideEdit, setOverrideEdit] = useState<(typeof nodes)[number]>();
   const [overrideValue, setOverrideValue] = useState({
     identity: "",
@@ -2868,19 +2869,20 @@ function SourceNodeList({
     notes: "",
   });
   const [localError, setLocalError] = useState("");
-  const saveOverride = async (remove = false) => {
+  const saveOverride = async (remove = false, value = overrideValue) => {
     try {
       const saved = await api<Source>(
         `sources/${source.id}/overrides`,
         "POST",
-        { revision: localRevision, override: overrideValue, remove },
+        { revision: localRevision, override: value, remove },
       );
       setLocalRevision(saved.revision);
+      setLocalOverrides(saved.overrides || []);
       onChanged();
       setLocalNodes(
         localNodes.map((n) =>
-          n.identity === overrideValue.identity
-            ? { ...n, override: remove ? undefined : overrideValue }
+          n.identity === value.identity
+            ? { ...n, override: remove ? undefined : value }
             : n,
         ),
       );
@@ -2922,6 +2924,26 @@ function SourceNodeList({
           {localError}
         </p>
       )}
+      {localOverrides
+        .filter(
+          (o) =>
+            localNodes.filter((n) => n.identity === o.identity).length !== 1 ||
+            localNodes.some((n) => n.identity === o.identity && n.ambiguous),
+        )
+        .map((o) => (
+          <div className="alert warning" key={o.identity}>
+            <span>
+              {t(
+                "上游节点缺失或身份歧义，请清除旧覆盖后重新设置。",
+                "Upstream identity missing or ambiguous. Clear this override before reapplying.",
+              )}{" "}
+              {o.name || o.notes}
+            </span>
+            <Button onClick={() => void saveOverride(true, o)}>
+              {t("清除覆盖", "Clear override")}
+            </Button>
+          </div>
+        ))}
       {overrideEdit && (
         <div className="panel">
           <h3>{overrideEdit.name}</h3>

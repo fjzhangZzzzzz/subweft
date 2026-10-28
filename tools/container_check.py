@@ -16,7 +16,10 @@ def main():
     flags=['docker','run','--rm','--read-only','--user','10001:10001','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=subweft','--security-opt','seccomp='+str(ROOT/'deploy/seccomp.json'),'--pids-limit','160','--memory','512m','--tmpfs','/tmp:rw,nosuid,nodev,size=256m,mode=1777','--tmpfs','/run/subweft:rw,nosuid,nodev,noexec,size=192m,uid=10001,gid=10001,mode=0700','--mount','type=bind,source='+str(ROOT)+',target=/workspace,readonly']
     for package in ('validator','app','server'):
         run(*flags,'--workdir','/workspace/internal/'+package,'--entrypoint','/workspace/output/container/'+package+'.test','subweft-check:local','-test.v','-test.timeout=5m')
-    results=out/'results';results.mkdir(exist_ok=True);os.chown(results,10001,10001)
-    run(*flags,'--mount','type=bind,source='+str(results)+',target=/results','--workdir','/workspace','--entrypoint','/usr/bin/python3','subweft-check:local','tools/benchmark.py','--app','output/container/subweft','--fixture','output/container/devfixture','--work-dir','/tmp','--output','/results/benchmark.json')
+    results=out/'results';results.mkdir(exist_ok=True)
+    measured=run(*flags,'--workdir','/workspace','--entrypoint','/usr/bin/python3','subweft-check:local','tools/benchmark.py','--app','output/container/subweft','--fixture','output/container/devfixture','--work-dir','/tmp','--output','/tmp/benchmark.json',capture_output=True,text=True)
+    print(measured.stdout,flush=True)
+    report=json.loads(next(line for line in measured.stdout.splitlines() if line.startswith('{')))
+    (results/'benchmark.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps({'native_container':'passed','architecture':os.uname().machine,'isolation':'nested user/file/network namespaces;96 process hard limit;cap_drop ALL;read-only image;tmpfs validation','tests':['validator','app','server']}))
 if __name__=='__main__':main()

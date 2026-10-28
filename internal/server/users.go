@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/fjzhangZzzzzz/subweft/internal/buildinfo"
 	"net/http"
 	"strings"
 
@@ -95,5 +96,5 @@ func (a *API) userState(w http.ResponseWriter, r *http.Request, session auth.Ses
 			releases = append(releases, releaseMeta(v))
 		}
 	}
-	respond(w, 200, map[string]any{"user": session.Name, "role": "user", "csrf": session.CSRF, "profiles": profiles, "active": active, "devices": devices, "releases": releases, "seen": seen, "sources": []any{}, "nodes": []any{}, "resources": []any{}, "users": []any{}, "validator": a.Service.Validator.Identity(), "capabilities": map[string]any{"protocols": []string{}, "groups": []string{}, "automaticPublish": false}})
+	respond(w, 200, map[string]any{"build": buildinfo.Current(), "user": session.Name, "role": "user", "csrf": session.CSRF, "profiles": profiles, "active": active, "devices": devices, "releases": releases, "seen": seen, "sources": []any{}, "nodes": []any{}, "resources": []any{}, "users": []any{}, "validator": a.Service.Validator.Identity(), "capabilities": map[string]any{"protocols": []string{}, "groups": []string{}, "automaticPublish": false}})
 }

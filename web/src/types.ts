@@ -136,6 +136,7 @@ export type Release = Meta & {
   validator: string;
 };
 export type State = {
+  build?: { version: string; commit: string; dirty: boolean; platform: string };
   publishStatus?: { id: string; attempt: string; error?: string }[];
   role: "admin" | "user";
   issuer: string;
