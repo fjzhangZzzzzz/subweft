@@ -3,7 +3,9 @@
 package validator
 
 import (
+	"encoding/json"
 	"os"
+	"os/exec"
 
 	"golang.org/x/sys/unix"
 )
@@ -25,8 +27,21 @@ func init() {
 		_, _ = os.Stderr.WriteString("validator_child_process_limit_failed\n")
 		os.Exit(126)
 	}
-	args := append([]string{"/validator"}, os.Args[2:]...)
-	_ = unix.Exec("/validator", args, os.Environ())
-	_, _ = os.Stderr.WriteString("validator_child_exec_failed\n")
-	os.Exit(126)
+	cmd := exec.Command("/validator", os.Args[2:]...)
+	cmd.Env = os.Environ()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	usage, _ := json.Marshal(struct {
+		RSS uint64 `json:"rss"`
+	}{processPeakRSS(cmd.ProcessState)})
+	_ = os.WriteFile("/work/validator-usage.json", usage, 0600)
+	if err != nil {
+		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() > 0 {
+			os.Exit(cmd.ProcessState.ExitCode())
+		}
+		_, _ = os.Stderr.WriteString("validator_child_exec_failed\n")
+		os.Exit(126)
+	}
+	os.Exit(0)
 }

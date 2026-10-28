@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -26,11 +27,12 @@ type Checker interface {
 	Identity() string
 }
 type Native struct {
-	Path    string
-	SHA256  string
-	WorkDir string
-	peak    atomic.Uint64
-	sem     chan struct{}
+	Path     string
+	SHA256   string
+	WorkDir  string
+	peak     atomic.Uint64
+	corePeak atomic.Uint64
+	sem      chan struct{}
 }
 
 func New(path, sha, workDir string) (*Native, error) {
@@ -180,6 +182,18 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 	cmd.Stdout = &output
 	cmd.Stderr = &output
 	e = cmd.Run()
+	if b, err := os.ReadFile(filepath.Join(dir, "validator-usage.json")); err == nil {
+		var usage struct {
+			RSS uint64 `json:"rss"`
+		}
+		if json.Unmarshal(b, &usage) == nil {
+			for old := n.corePeak.Load(); usage.RSS > old; old = n.corePeak.Load() {
+				if n.corePeak.CompareAndSwap(old, usage.RSS) {
+					break
+				}
+			}
+		}
+	}
 	if value := processPeakRSS(cmd.ProcessState); value > 0 {
 		for old := n.peak.Load(); value > old; old = n.peak.Load() {
 			if n.peak.CompareAndSwap(old, value) {
@@ -199,11 +213,19 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 	return nil
 }
 
-// PeakRSS reports the OS high-water RSS of the validation job, including waited descendants.
-func (n *Native) PeakRSS() uint64 { return n.peak.Load() }
+// PeakRSS reports the fixed core child RSS collected by the private launcher.
+func (n *Native) PeakRSS() uint64    { return n.corePeak.Load() }
+func (n *Native) JobPeakRSS() uint64 { return n.peak.Load() }
 func PeakRSS(c Checker) uint64 {
 	if v, ok := c.(interface{ PeakRSS() uint64 }); ok {
 		return v.PeakRSS()
+	}
+	return 0
+}
+
+func JobPeakRSS(c Checker) uint64 {
+	if v, ok := c.(interface{ JobPeakRSS() uint64 }); ok {
+		return v.JobPeakRSS()
 	}
 	return 0
 }

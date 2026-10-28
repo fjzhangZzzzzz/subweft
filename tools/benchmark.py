@@ -147,7 +147,7 @@ def main():
             def asset(index):
                 with direct.open(resources[index%len(resources)],timeout=30) as response:return len(response.read())
             with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:asset_bytes=list(pool.map(asset,range(20)))
-            native_peak=call('state').get('validatorPeakRSSBytes',0)
+            metrics=call('state');native_peak=metrics.get('validatorPeakRSSBytes',0);native_job_peak=metrics.get('validatorJobPeakRSSBytes',0)
             stage='actual CLI backup, restore and restart'
             request=urllib.request.Request(base+'/api/v1/backup',data=b'{}',headers={'Content-Type':'application/json','Origin':base,'X-CSRF-Token':csrf})
             with client.open(request,timeout=120) as response:(root/'backup.sqlite').write_bytes(response.read())
@@ -161,13 +161,13 @@ def main():
                 if after!=results[index%len(results)][2]:raise RuntimeError('restored config differs')
             for url in resources:
                 with direct.open(url,timeout=30) as response:response.read()
-            report={'scope':'real app executable; HTTP fetch+publish+immutable providers+300000 domain rules; loopback only','platform':os.name,'sources':10,'nodes':2000,'profiles':5,'devices':20,'rules':300000,'requests':args.requests,'concurrency':10,'failures':0,'response_bytes':results[0][1],'p50_ms':round(latency[len(latency)//2],2),'p95_ms':round(latency[(len(latency)-1)*95//100],2),'app_idle_rss_mib':round(idle/1048576,2),'app_peak_rss_mib':round(max(peaks['app'],memory(service.pid)[1])/1048576,2),'native_job_peak_rss_mib':(round(native_peak/1048576,2) if os.name!='nt' else None),'native_measurement':'Linux wait4 rusage high-water RSS, includes launcher; Windows unmeasured','sample_interval_ms':10,'settle_seconds':args.settle,'resource_downloads':len(asset_bytes),'resource_bytes':sum(asset_bytes),'container_total_peak_mib':None,'driver_excluded':True,'cli_restore_restart_passed':True}
+            report={'scope':'real app executable; HTTP fetch+publish+immutable providers+300000 domain rules; loopback only','platform':os.name,'sources':10,'nodes':2000,'profiles':5,'devices':20,'rules':300000,'requests':args.requests,'concurrency':10,'failures':0,'response_bytes':results[0][1],'p50_ms':round(latency[len(latency)//2],2),'p95_ms':round(latency[(len(latency)-1)*95//100],2),'app_idle_rss_mib':round(idle/1048576,2),'app_peak_rss_mib':round(max(peaks['app'],memory(service.pid)[1])/1048576,2),'native_core_peak_rss_mib':(round(native_peak/1048576,2) if os.name!='nt' else None),'native_job_peak_rss_mib':(round(native_job_peak/1048576,2) if os.name!='nt' else None),'native_measurement':'Linux wait4 for core child and whole job separately; Windows unmeasured','sample_interval_ms':10,'settle_seconds':args.settle,'resource_downloads':len(asset_bytes),'resource_bytes':sum(asset_bytes),'container_total_peak_mib':None,'driver_excluded':True,'cli_restore_restart_passed':True}
             cgroup=Path('/sys/fs/cgroup/memory.peak')
             if cgroup.is_file():report['container_total_peak_mib']=round(int(cgroup.read_text())/1048576,2)
             report['targets_passed']=idle<=64*1048576 and report['p95_ms']<=300
             args.output.parent.mkdir(parents=True,exist_ok=True);args.output.write_text(json.dumps(report,indent=2)+'\n')
             print(json.dumps(report),flush=True)
-            if os.name!='nt' and not report['native_job_peak_rss_mib']:raise RuntimeError('native RSS unmeasured')
+            if os.name!='nt' and not report['native_core_peak_rss_mib']:raise RuntimeError('native RSS unmeasured')
             if not report['targets_passed']:raise RuntimeError('performance target not met')
     except Exception:
         print('benchmark_failed: '+stage,flush=True)

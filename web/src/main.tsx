@@ -992,7 +992,7 @@ function App() {
                   </div>
                   <div className="notice">
                     {t(
-                      "13 种协议、版本化资源与使用者授权；完整验收进行中。",
+                      "13 种协议、版本化资源与使用者授权；已提供完整人工验收流程。",
                       "13 protocols, versioned resources and member access; complete acceptance is in progress.",
                     )}
                   </div>
@@ -1590,6 +1590,16 @@ function App() {
                   <ShieldCheck className="accent" size={26} />
                   <h2>{t("身份与存储", "Identity and storage")}</h2>
                   <dl>
+                    <dt>{t("应用版本", "Application version")}</dt>
+                    <dd>{state.build?.version || "unknown"}</dd>
+                    <dt>{t("源码与平台", "Source and platform")}</dt>
+                    <dd className="mono wrap">
+                      {state.build?.commit.slice(0, 12)} ·{" "}
+                      {state.build?.platform}
+                      {state.build?.dirty
+                        ? t(" · 未提交构建", " · uncommitted build")
+                        : ""}
+                    </dd>
                     <dt>{t("认证", "Authentication")}</dt>
                     <dd>OIDC · PKCE · nonce</dd>
                     <dt>{t("当前角色", "Current role")}</dt>
@@ -1663,7 +1673,7 @@ function App() {
               <div className="notice inline">
                 <TriangleAlert size={18} />
                 {t(
-                  "开发版本：完整迁移、容器及浏览器验收正在推进。真实 Pocket ID、Clash Verge 与生产切换仍须分别验收。",
+                  "候选版本：完整表单、迁移和容器流程已提供。真实 Pocket ID、Clash Verge 与生产切换仍须分别验收。",
                   "Development build: migration, container and browser acceptance are in progress. Real Pocket ID, Clash Verge and production cutover require separate acceptance.",
                 )}
               </div>

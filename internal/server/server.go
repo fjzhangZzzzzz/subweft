@@ -232,7 +232,7 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 			fail(w, e)
 			return
 		}
-		respond(w, 200, map[string]any{"build": buildinfo.Current(), "user": session.Name, "role": session.Role, "issuer": a.Auth.Issuer(), "users": users, "publishStatus": publishStatus, "csrf": session.CSRF, "sources": sources, "nodes": nodes, "profiles": snap.Profiles, "resources": resourceMetas(snap.Resources), "devices": devices, "releases": releases, "active": snap.Active, "seen": seen, "validatorPeakRSSBytes": validator.PeakRSS(s.Validator), "validator": s.Validator.Identity(), "capabilities": map[string]any{"protocols": domain.Protocols(), "groups": []string{"select", "url-test", "fallback", "load-balance"}, "automaticPublish": true}})
+		respond(w, 200, map[string]any{"build": buildinfo.Current(), "user": session.Name, "role": session.Role, "issuer": a.Auth.Issuer(), "users": users, "publishStatus": publishStatus, "csrf": session.CSRF, "sources": sources, "nodes": nodes, "profiles": snap.Profiles, "resources": resourceMetas(snap.Resources), "devices": devices, "releases": releases, "active": snap.Active, "seen": seen, "validatorJobPeakRSSBytes": validator.JobPeakRSS(s.Validator), "validatorPeakRSSBytes": validator.PeakRSS(s.Validator), "validator": s.Validator.Identity(), "capabilities": map[string]any{"protocols": domain.Protocols(), "groups": []string{"select", "url-test", "fallback", "load-balance"}, "automaticPublish": true}})
 		return
 	}
 	switch kind {
