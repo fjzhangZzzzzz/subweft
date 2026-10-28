@@ -18,12 +18,15 @@ func init() {
 		return
 	}
 	if cwd, _ := os.Getwd(); cwd != "/work" {
+		_, _ = os.Stderr.WriteString("validator_child_workdir_failed\n")
 		os.Exit(126)
 	}
 	if unix.Setrlimit(unix.RLIMIT_NPROC, &unix.Rlimit{Cur: 96, Max: 96}) != nil {
+		_, _ = os.Stderr.WriteString("validator_child_process_limit_failed\n")
 		os.Exit(126)
 	}
 	args := append([]string{"/validator"}, os.Args[2:]...)
 	_ = unix.Exec("/validator", args, os.Environ())
+	_, _ = os.Stderr.WriteString("validator_child_exec_failed\n")
 	os.Exit(126)
 }

@@ -38,7 +38,9 @@ func TestSandboxBlocksHostFilesAndLoopback(t *testing.T) {
 	if e != nil {
 		t.Fatal("sandbox dependency unavailable")
 	}
-	if e = cmd.Run(); e != nil {
+	if output, err := cmd.CombinedOutput(); err != nil {
+		// This is our synthetic filesystem/network probe, not validator output or user configuration.
+		t.Logf("synthetic isolation probe: %s", output)
 		t.Fatal("sandbox probe failed")
 	}
 	if _, e = os.Stat(filepath.Join(dir, "probe-passed")); e != nil {
