@@ -1,6 +1,6 @@
 # 当前能力与验收边界
 
-**[v0.1.0-rc.2](https://github.com/fjzhangZzzzzz/subweft/releases/tag/v0.1.0-rc.2) 已发布，供完整人工验收。** 使用[验收入口](human-acceptance.md)体验；[设计](design.md)和[支持矩阵](support-matrix.md)仍是范围依据。候选不是生产部署或替代完成的声明。
+**[v0.1.0-rc.3](https://github.com/fjzhangZzzzzz/subweft/releases/tag/v0.1.0-rc.3) 已发布，供完整人工验收。** 使用[验收入口](human-acceptance.md)体验；[设计](design.md)和[支持矩阵](support-matrix.md)仍是范围依据。候选不是生产部署或替代完成的声明。
 
 ## 已实现
 
@@ -15,15 +15,19 @@
 
 ## 已验证
 
+候选版已按订阅、节点、配置、设备和设置逐页进行 Playwright 窄屏检查；复验覆盖设备链接遮蔽和暂停/恢复、两个订阅加入同一策略组、规则集批量保存以及表单未保存修改保护。测试使用合成身份与数据；未覆盖所有字段组合。
+
 工作台重设计已在真实应用中验证：新建配置明确选择成员、规则短表单后直接应用、组改名同步引用、空组失败保留活动发布、创建设备后直接显示使用链接。新订阅保存后自动获取节点；客户端更新与健康检查设置保存回读通过；配置内创建规则集、返回规则选择并直接应用通过。发布归档浏览器复验无 JavaScript 错误。390×600 长弹窗保持标题与保存操作可见；Esc 和点外部支持关闭，未保存修改有确认。
 
-应用源码 `f358b8d` 已通过[三平台原生 CI](https://github.com/fjzhangZzzzzz/subweft/actions/runs/40663724044)：Windows amd64、Linux amd64、Linux arm64。三个归档均验证逐文件摘要、实际业务与一致性恢复；Linux 同时验证容器隔离。Release 的 VERIFICATION.json 固定源码、CI、摘要和基准。本机验收预览运行发布中的 Windows 归档二进制。
+应用源码 `072b88f` 已通过[三平台原生 CI](https://github.com/fjzhangZzzzzz/subweft/actions/runs/40687927825)：Windows amd64、Linux amd64、Linux arm64。三个归档均验证逐文件摘要、实际业务与一致性恢复；Linux 同时验证容器隔离。Release 的 VERIFICATION.json 固定源码、CI、摘要和基准。本机验收预览运行发布中的 Windows 归档二进制。
 
 测试覆盖 13 协议代表参数及传输、插件字段契约、provider/规则/GEOIP/完整 DNS/逻辑规则组合、过滤/空组/循环、迁移原子性、覆盖歧义、自动更新冻结定义、资源跨方案与撤权、普通使用者越权、错误密钥和一致性备份。Linux 容器保持全部 capability 丢弃、专用 AppArmor/seccomp、只读根、tmpfs 校验、文件/网络 namespace、96 进程硬限制；宿主文件和回环访问探针通过。
 
 浏览器原有主要闭环通过：迁移预览/创建/抓取/发布，来源高级设置及刷新保留覆盖，手工节点创建和编辑，规则新增/复制/批量启停/删除，保存/脱敏预览/发布/回滚，设备复制/暂停/恢复/改绑/轮换，使用者授权及普通身份入口，中英文、主题与 390px 布局。未出现应用 JavaScript 运行异常。所有参数组合或每种协议的真实连接不据此推导通过。
 
 ## 性能
+
+以下为上一候选版的合成基准；本版对应结果和来源见发布资产 VERIFICATION.json。
 
 固定场景：实际应用进程，通过 HTTP/OIDC API 抓取 10 来源、2000 节点及 30 万条合成 domain 规则，发布 5 方案、20 设备；稳定 30 秒后执行 200 次、10 并发缓存下载。配置正文 5793 字节（节点由版本化 provider 分发），另下载 20 次资源、合计约 8.5 MB；随后实际 CLI 恢复并重启，对比全部设备配置及资源。
 
