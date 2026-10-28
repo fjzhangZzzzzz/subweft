@@ -31,7 +31,7 @@ func isolatedCommand(ctx context.Context, binary, dir string, args []string) (*e
 		return nil, errors.New("validator_sandbox_launcher_unavailable")
 	}
 	// The child launcher applies the same hard process-count limit inside the new user namespace.
-	flags := []string{"--as=2147483648", "--cpu=10", "--fsize=134217728", "--nofile=128", "--", "/usr/bin/bwrap", "--unshare-all", "--unshare-user", "--die-with-parent", "--new-session", "--cap-drop", "ALL", "--clearenv", "--setenv", "HOME", "/work", "--setenv", "SUBWEFT_VALIDATOR_CHILD", "1", "--setenv", "GOMEMLIMIT", "128MiB", "--setenv", "GOMAXPROCS", "2", "--ro-bind", binary, "/validator", "--ro-bind", launcher, "/runner", "--bind", dir, "/work", "--tmpfs", "/tmp", "--dev", "/dev", "--proc", "/proc", "--chdir", "/work", "--", "/runner", childMarker}
+	flags := []string{"--as=2147483648", "--cpu=10", "--fsize=134217728", "--nofile=128", "--", "/usr/bin/bwrap", "--unshare-all", "--unshare-user", "--die-with-parent", "--new-session", "--cap-drop", "ALL", "--clearenv", "--setenv", "HOME", "/work", "--setenv", "SUBWEFT_VALIDATOR_CHILD", "1", "--setenv", "GOMEMLIMIT", "128MiB", "--setenv", "GOMAXPROCS", "2", "--ro-bind", binary, "/validator", "--ro-bind", launcher, "/runner", "--bind", dir, "/work", "--tmpfs", "/tmp", "--dev", "/dev", "--dir", "/proc", "--chdir", "/work", "--", "/runner", childMarker}
 	flags = append(flags, args...)
 	cmd := exec.CommandContext(ctx, "/usr/bin/prlimit", flags...)
 	cmd.Env = []string{"PATH=/usr/bin:/bin"}

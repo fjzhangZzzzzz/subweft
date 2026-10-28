@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
+	"github.com/fjzhangZzzzzz/subweft/internal/fields"
 )
 
 type Options = domain.FetchOptions
@@ -34,8 +35,14 @@ func ValidateOptions(o Options) error {
 	if len(o.Headers) > 32 {
 		return domain.Invalid("too_many_headers", "fetch.headers")
 	}
+	seen := map[string]bool{}
 	for key, value := range o.Headers {
-		if key == "" || len(key) > 128 || len(value) > 4096 || strings.ContainsAny(key, "\r\n\x00 :") || strings.ContainsAny(value, "\r\n\x00") || strings.EqualFold(key, "Host") || strings.EqualFold(key, "Connection") || strings.EqualFold(key, "Proxy-Authorization") {
+		canonical := strings.ToLower(key)
+		if seen[canonical] {
+			return domain.Invalid("duplicate_header", "fetch.headers")
+		}
+		seen[canonical] = true
+		if !fields.HeaderToken(key) || len(key) > 128 || len(value) > 4096 || strings.ContainsAny(key, "\r\n\x00 :") || strings.ContainsAny(value, "\r\n\x00") || strings.EqualFold(key, "Host") || strings.EqualFold(key, "Connection") || strings.EqualFold(key, "Proxy-Authorization") {
 			return domain.Invalid("invalid_header", "fetch.headers")
 		}
 		r := http.Request{Header: http.Header{}}

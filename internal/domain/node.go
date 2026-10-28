@@ -154,6 +154,14 @@ func (n *Node) UnmarshalJSON(data []byte) error {
 }
 func NodeFromCore(core map[string]any) (Node, error) { return nodeFromCore(core, true) }
 func nodeFromCore(core map[string]any, complete bool) (Node, error) {
+	if core["type"] == "vmess" {
+		if _, ok := core["alterId"]; !ok {
+			core["alterId"] = 0
+		}
+		if _, ok := core["cipher"]; !ok {
+			core["cipher"] = "auto"
+		}
+	}
 	n := Node{Options: map[string]any{}}
 	kind, _ := core["type"].(string)
 	if e := fields.ValidateInput(kind, core, complete); e != nil {
@@ -222,7 +230,7 @@ func ValidateNode(n Node) error {
 	if n.Type != "wireguard" && (n.Server == "" || len(n.Server) > 253 || strings.ContainsAny(n.Server, " /\r\n\x00")) {
 		return Invalid("invalid_server", "server")
 	}
-	if n.Type != "wireguard" && (n.Port < 1 || n.Port > 65535) {
+	if n.Type != "wireguard" && !(n.Port == 0 && (n.Type == "hysteria" || n.Type == "hysteria2")) && (n.Port < 1 || n.Port > 65535) {
 		return Invalid("invalid_port", "port")
 	}
 	core, e := n.Core()
@@ -420,7 +428,7 @@ func (n Node) Core() (map[string]any, error) {
 		if len(tag) > 1 && tag[1] == "omitempty" && part.IsZero() && !(f.Name == "AlterID" && n.Type == "vmess") {
 			continue
 		}
-		if (f.Name == "Server" || f.Name == "Port") && part.IsZero() && n.Type == "wireguard" {
+		if (f.Name == "Server" || f.Name == "Port") && part.IsZero() && (n.Type == "wireguard" || f.Name == "Port" && (n.Type == "hysteria" || n.Type == "hysteria2")) {
 			continue
 		}
 		if part.Kind() != reflect.Pointer && part.Kind() != reflect.Map && part.Kind() != reflect.Slice && part.Kind() != reflect.Struct {

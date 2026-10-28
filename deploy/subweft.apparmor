@@ -1,0 +1,26 @@
+# Container-specific namespace permission; no host-wide AppArmor changes.
+#include <tunables/global>
+profile subweft flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  file,
+  network,
+  userns,
+  capability sys_admin,
+  capability sys_chroot,
+  capability setuid,
+  capability setgid,
+  capability net_admin,
+  capability mknod,
+  capability chown,
+  capability dac_override,
+  capability fowner,
+  capability setpcap,
+  mount,
+  umount,
+  pivot_root,
+  signal (send,receive) peer=subweft,
+  deny /sys/** wklx,
+  deny @{PROC}/sys/** wklx,
+  deny @{PROC}/sysrq-trigger rwklx,
+  deny @{PROC}/kcore rwklx,
+}

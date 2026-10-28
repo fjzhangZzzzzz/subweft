@@ -20,6 +20,8 @@ import (
 var Catalog []byte
 
 type Field struct {
+	Choices      []string          `json:"choices,omitempty"`
+	Separator    string            `json:"separator,omitempty"`
 	Kind         string            `json:"kind"`
 	Required     bool              `json:"required,omitempty"`
 	Secret       bool              `json:"secret,omitempty"`
@@ -32,15 +34,18 @@ type Field struct {
 	Max          *float64          `json:"max,omitempty"`
 }
 type Registry struct {
-	Version   string            `json:"version"`
-	Protocols map[string]*Field `json:"protocols"`
-	Plugins   map[string]*Field `json:"plugins"`
-	Groups    map[string]*Field `json:"groups"`
-	DNS       *Field            `json:"dns"`
-	Config    *Field            `json:"config"`
+	AdapterNames map[string]string `json:"adapterNames"`
+	Version      string            `json:"version"`
+	Protocols    map[string]*Field `json:"protocols"`
+	Plugins      map[string]*Field `json:"plugins"`
+	Groups       map[string]*Field `json:"groups"`
+	DNS          *Field            `json:"dns"`
+	Config       *Field            `json:"config"`
 }
 
 var registry Registry
+
+func AdapterNames() map[string]string { return registry.AdapterNames }
 
 func init() {
 	if err := json.Unmarshal(Catalog, &registry); err != nil {
@@ -137,6 +142,17 @@ func decode(d *json.Decoder, depth int) (any, error) {
 	return t, nil
 }
 func Validate(kind string, value any) error { return ValidateInput(kind, value, true) }
+func Check(schema *Field, value any) error {
+	b, e := json.Marshal(value)
+	if e != nil {
+		return invalid("invalid_field_type", "")
+	}
+	v, e := DecodeJSON(b)
+	if e != nil {
+		return e
+	}
+	return check(schema, v, "", 0)
+}
 func ValidateInput(kind string, value any, complete bool) error {
 	root := Schema(kind)
 	if root != nil && !complete {
@@ -209,7 +225,15 @@ func check(f *Field, v any, path string, depth int) error {
 				}
 			}
 		}
+		seenHeaders := map[string]bool{}
 		for key, x := range m {
+			if f.Kind == "map" && (strings.HasSuffix(path, "headers") || strings.HasSuffix(path, "ws-headers")) {
+				canonical := strings.ToLower(key)
+				if !HeaderToken(key) || seenHeaders[canonical] {
+					return invalid("invalid_or_duplicate_header", path)
+				}
+				seenHeaders[canonical] = true
+			}
 			if key == "" || len(key) > 2048 || strings.ContainsAny(key, "\r\n\x00") {
 				return invalid("invalid_field_name", path)
 			}
@@ -255,6 +279,9 @@ func check(f *Field, v any, path string, depth int) error {
 			}
 		}
 		// Core accepts paths here; Subweft only accepts inline PEM to keep server files private.
+		if strings.Contains(path, "headers.") && strings.ContainsAny(s, "\r\n") {
+			return invalid("invalid_header", path)
+		}
 		key := path[strings.LastIndex(path, ".")+1:]
 		if (key == "certificate" || key == "private-key" && strings.Contains(s, "-----")) && s != "" && !strings.HasPrefix(s, "-----BEGIN ") {
 			return invalid("inline_pem_required", path)
@@ -431,4 +458,16 @@ func Normalize(v any) any {
 		}
 		return v
 	}
+}
+
+func HeaderToken(s string) bool {
+	if s == "" || len(s) > 128 {
+		return false
+	}
+	for _, c := range s {
+		if c > 127 || !strings.ContainsRune("!#$%&'*+-.^_`|~0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", c) {
+			return false
+		}
+	}
+	return true
 }

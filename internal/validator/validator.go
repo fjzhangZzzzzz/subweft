@@ -147,7 +147,7 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 			if !ok {
 				return domain.Invalid("validation_resource_missing", "publish")
 			}
-			filename := map[string]string{"mmdb": "Country.mmdb", "geoip": "GeoIP.dat", "geosite": "GeoSite.dat"}[key]
+			filename := map[string]string{"mmdb": "Country.mmdb", "geoip": "GeoIP.dat", "geosite": "GeoSite.dat", "asn": "ASN.mmdb"}[key]
 			if filename == "" || os.WriteFile(filepath.Join(dir, filename), data, 0600) != nil {
 				return domain.Invalid("validation_failed", "publish")
 			}

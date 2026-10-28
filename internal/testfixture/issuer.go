@@ -11,6 +11,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,12 +25,14 @@ const Subject = "fixture-admin"
 const ProviderYAML = "proxies:\n  - name: HQ-01\n    type: ss\n    server: 192.0.2.10\n    port: 443\n    cipher: aes-128-gcm\n    password: fixture-proxy-password\n    udp: true\n  - name: QUOTA-01\n    type: ss\n    server: 198.51.100.10\n    port: 443\n    cipher: aes-256-gcm\n    password: fixture-proxy-password\n    udp: true\n"
 
 type authorization struct {
-	Nonce, Challenge string
-	Expires          time.Time
+	Nonce, Challenge, Subject string
+	Expires                   time.Time
 }
 type Issuer struct {
 	URL, Redirect, Subject string
 	BadNonce               bool
+	MemberSubject          string
+	Country                []byte
 	key                    *rsa.PrivateKey
 	mu                     sync.Mutex
 	codes                  map[string]authorization
@@ -59,8 +62,11 @@ func (f *Issuer) Handler() http.Handler {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		tmpl := template.Must(template.New("login").Parse(`<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Subweft local OIDC fixture</title></head><body><h1>Local test identity</h1><p>This loopback fixture is for development only. It does not authenticate a real Pocket ID user.</p><form method="post" action="/approve">{{range $key,$values:=.}}{{range $values}}<input type="hidden" name="{{$key}}" value="{{.}}">{{end}}{{end}}<button type="submit">Continue as test administrator</button></form></body></html>`))
-		_ = tmpl.Execute(w, r.URL.Query())
+		tmpl := template.Must(template.New("login").Parse(`<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Subweft local OIDC fixture</title></head><body><h1>Local test identity</h1><p>This loopback fixture is for development only. It does not authenticate a real Pocket ID user.</p><form method="post" action="/approve">{{range $key,$values:=.Params}}{{range $values}}<input type="hidden" name="{{$key}}" value="{{.}}">{{end}}{{end}}<button type="submit">Continue as test administrator</button>{{if .Member}}<button type="submit" name="account" value="member">Continue as test member</button>{{end}}</form></body></html>`))
+		_ = tmpl.Execute(w, struct {
+			Params url.Values
+			Member bool
+		}{r.URL.Query(), f.MemberSubject != ""})
 	})
 	mux.HandleFunc("POST /approve", func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, 16384)
@@ -75,7 +81,11 @@ func (f *Issuer) Handler() http.Handler {
 				delete(f.codes, key)
 			}
 		}
-		f.codes[code] = authorization{r.FormValue("nonce"), r.FormValue("code_challenge"), time.Now().Add(time.Minute)}
+		subject := f.Subject
+		if r.FormValue("account") == "member" && f.MemberSubject != "" {
+			subject = f.MemberSubject
+		}
+		f.codes[code] = authorization{r.FormValue("nonce"), r.FormValue("code_challenge"), subject, time.Now().Add(time.Minute)}
 		f.mu.Unlock()
 		u, _ := url.Parse(f.Redirect)
 		q := u.Query()
@@ -112,7 +122,11 @@ func (f *Issuer) Handler() http.Handler {
 		if f.BadNonce {
 			nonce = "wrong-nonce"
 		}
-		claims, _ := json.Marshal(map[string]any{"iss": f.URL, "aud": ClientID, "sub": f.Subject, "exp": time.Now().Add(10 * time.Minute).Unix(), "iat": time.Now().Unix(), "nonce": nonce, "name": "Test administrator"})
+		displayName := "Test administrator"
+		if a.Subject != f.Subject {
+			displayName = "Test member"
+		}
+		claims, _ := json.Marshal(map[string]any{"iss": f.URL, "aud": ClientID, "sub": a.Subject, "exp": time.Now().Add(10 * time.Minute).Unix(), "iat": time.Now().Unix(), "nonce": nonce, "name": displayName})
 		signer, e := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: f.key}, (&jose.SignerOptions{}).WithHeader("kid", "fixture-key"))
 		if e != nil {
 			http.Error(w, "fixture_failed", 500)
@@ -133,6 +147,29 @@ func (f *Issuer) Handler() http.Handler {
 	mux.HandleFunc("GET /provider.yaml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/yaml")
 		_, _ = w.Write([]byte(ProviderYAML))
+	})
+	mux.HandleFunc("GET /all.yaml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/yaml")
+		_, _ = w.Write([]byte(ProviderYAML + strings.TrimPrefix(ProtocolProviderYAML, "proxies:\n") + strings.TrimPrefix(RemainingProtocolProviderYAML, "proxies:\n")))
+	})
+	mux.HandleFunc("GET /rules.yaml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/yaml")
+		_, _ = w.Write([]byte("payload:\n  - +.example.invalid\n"))
+	})
+	mux.HandleFunc("GET /country.mmdb", func(w http.ResponseWriter, r *http.Request) {
+		if len(f.Country) == 0 {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write(f.Country)
+	})
+	mux.HandleFunc("GET /migration.yaml", func(w http.ResponseWriter, r *http.Request) {
+		input := strings.ReplaceAll(MigrationConfig, "https://subscriptions.example.invalid/primary?credential=synthetic-primary-secret", f.URL+"/provider.yaml?source=primary")
+		input = strings.ReplaceAll(input, "https://subscriptions.example.invalid/quota?credential=synthetic-quota-secret", f.URL+"/all.yaml?source=quota")
+		input = strings.ReplaceAll(input, "https://rules.example.invalid/public.yaml", f.URL+"/rules.yaml")
+		input += "\ngeox-url:\n  mmdb: " + f.URL + "/country.mmdb\n"
+		w.Header().Set("Content-Type", "text/yaml")
+		_, _ = w.Write([]byte(input))
 	})
 	return mux
 }

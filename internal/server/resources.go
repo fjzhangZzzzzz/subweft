@@ -19,6 +19,15 @@ func resourceMetas(values []domain.Resource) []domain.Resource {
 func (a *API) manageResources(w http.ResponseWriter, r *http.Request, id, action string) bool {
 	ctx := r.Context()
 	s := a.Service
+	if id != "" && action == "edit" && r.Method == "GET" {
+		v, e := storage.Load[domain.Resource](ctx, s.Store, "resource", id)
+		if e != nil {
+			fail(w, e)
+		} else {
+			respond(w, 200, v)
+		}
+		return true
+	}
 	if id != "" && action == "entries" && r.Method == "GET" {
 		values, e := s.ResourceEntries(ctx, id)
 		if e != nil {
@@ -72,6 +81,12 @@ func (a *API) manageResources(w http.ResponseWriter, r *http.Request, id, action
 	return false
 }
 func (a *API) resourceDownload(w http.ResponseWriter, r *http.Request) {
+	select {
+	case a.resourceGate <- struct{}{}:
+		defer func() { <-a.resourceGate }()
+	case <-r.Context().Done():
+		return
+	}
 	data, e := a.Service.Store.ResourceDownload(r.Context(), r.PathValue("token"), r.PathValue("release"), r.PathValue("name"))
 	if e != nil {
 		http.Error(w, "not_found", 404)

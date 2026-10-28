@@ -25,13 +25,15 @@ type Config struct {
 	LocalHTTP     bool
 }
 type Auth struct {
-	mu          sync.Mutex
-	loginWindow time.Time
-	loginCount  int
-	cfg         Config
-	store       *storage.Store
-	oauth       oauth2.Config
-	verifier    *oidc.IDTokenVerifier
+	providerMu          sync.Mutex
+	lastProviderFailure time.Time
+	mu                  sync.Mutex
+	loginWindow         time.Time
+	loginCount          int
+	cfg                 Config
+	store               *storage.Store
+	oauth               oauth2.Config
+	verifier            *oidc.IDTokenVerifier
 }
 type Session struct {
 	Role       string   `json:"role"`
@@ -51,14 +53,31 @@ type attempt struct {
 }
 
 func New(ctx context.Context, cfg Config, store *storage.Store) (*Auth, error) {
+	return &Auth{cfg: cfg, store: store}, nil
+}
+
+// Discovery belongs to login, so an IdP outage never blocks cached device delivery after restart.
+func (a *Auth) ensureProvider(ctx context.Context) error {
+	a.providerMu.Lock()
+	defer a.providerMu.Unlock()
+	if a.verifier != nil {
+		return nil
+	}
+	if !a.lastProviderFailure.IsZero() && time.Since(a.lastProviderFailure) < 5*time.Second {
+		return domain.Invalid("oidc_discovery_failed", "issuer")
+	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	provider, e := oidc.NewProvider(ctx, cfg.Issuer)
+	provider, e := oidc.NewProvider(ctx, a.cfg.Issuer)
 	if e != nil {
-		return nil, domain.Invalid("oidc_discovery_failed", "issuer")
+		a.lastProviderFailure = time.Now()
+		return domain.Invalid("oidc_discovery_failed", "issuer")
 	}
-	return &Auth{cfg: cfg, store: store, oauth: oauth2.Config{ClientID: cfg.ClientID, ClientSecret: cfg.ClientSecret, Endpoint: provider.Endpoint(), RedirectURL: cfg.BaseURL + "/auth/callback", Scopes: []string{oidc.ScopeOpenID, "profile"}}, verifier: provider.Verifier(&oidc.Config{ClientID: cfg.ClientID, SupportedSigningAlgs: []string{"RS256", "ES256"}})}, nil
+	a.oauth = oauth2.Config{ClientID: a.cfg.ClientID, ClientSecret: a.cfg.ClientSecret, Endpoint: provider.Endpoint(), RedirectURL: a.cfg.BaseURL + "/auth/callback", Scopes: []string{oidc.ScopeOpenID, "profile"}}
+	a.verifier = provider.Verifier(&oidc.Config{ClientID: a.cfg.ClientID, SupportedSigningAlgs: []string{"RS256", "ES256"}})
+	return nil
 }
+
 func hash(s string) string { v := sha256.Sum256([]byte(s)); return hex.EncodeToString(v[:]) }
 func (a *Auth) cookieName() string {
 	if a.cfg.LocalHTTP {
@@ -81,6 +100,10 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	if limited {
 		w.Header().Set("Retry-After", "60")
 		http.Error(w, "login_rate_limited", 429)
+		return
+	}
+	if a.ensureProvider(r.Context()) != nil {
+		http.Error(w, "login_temporarily_unavailable", 503)
 		return
 	}
 	if attempts, err := storage.List[attempt](r.Context(), a.store, "login"); err == nil {
@@ -119,6 +142,10 @@ func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
+	if a.ensureProvider(ctx) != nil {
+		fail()
+		return
+	}
 	token, e := a.oauth.Exchange(ctx, r.URL.Query().Get("code"), oauth2.VerifierOption(v.Verifier))
 	if e != nil {
 		fail()

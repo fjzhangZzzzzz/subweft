@@ -1,5 +1,7 @@
 package main
 
+import "sort"
+
 // Review overlays describe product-owned fields and custom YAML scalar types.
 // They must be reviewed when the pinned validator changes.
 func choice(values ...string) *Field { return &Field{Kind: "string", Enum: values} }
@@ -15,11 +17,30 @@ func review(payload map[string]any) {
 	payload["plugins"] = pluginSchemas
 	delete(payload, "pluginTypes")
 	for kind, root := range protocols {
+		// A Go struct's omitempty tag is a serialization hint, not a required-field rule.
+		for _, field := range root.Properties {
+			field.Required = false
+		}
+		for _, key := range []string{"name", "server", "port"} {
+			root.Properties[key].Required = true
+		}
+		if kind == "wireguard" {
+			root.Properties["server"].Required = false
+			root.Properties["port"].Required = false
+		}
+		if kind == "hysteria" || kind == "hysteria2" {
+			root.Properties["port"].Required = false
+		}
 		root.Properties["type"] = &Field{Kind: "string", Required: true, Enum: []string{kind}}
 		root.Properties["ip-version"] = choice("dual", "ipv4", "ipv6", "ipv4-prefer", "ipv6-prefer")
 		if p := root.Properties["port"]; p != nil {
 			p.Min = number(1, 65535).Min
 			p.Max = number(1, 65535).Max
+		}
+	}
+	for kind, keys := range map[string][]string{"ss": {"cipher", "password"}, "ssr": {"cipher", "password", "protocol", "obfs"}, "vmess": {"uuid"}, "vless": {"uuid"}, "trojan": {"password"}, "snell": {"psk"}, "anytls": {"password"}, "wireguard": {"private-key"}} {
+		for _, key := range keys {
+			protocols[kind].Properties[key].Required = true
 		}
 	}
 	protocols["ss"].Properties["plugin"] = choice("obfs", "v2ray-plugin", "gost-plugin", "shadow-tls", "restls", "jls", "kcptun")
@@ -43,9 +64,20 @@ func review(payload map[string]any) {
 	allowed["log-level"] = choice("debug", "info", "warning", "error", "silent")
 	allowed["find-process-mode"] = choice("off", "strict", "always")
 	allowed["hosts"] = &Field{Kind: "map", Values: stringList}
+	for _, key := range []string{"mixed-port", "port", "socks-port", "redir-port", "tproxy-port"} {
+		allowed[key] = number(0, 65535)
+	}
 	payload["config"] = &Field{Kind: "object", Properties: allowed}
+	names := map[string]string{"ss": "Shadowsocks", "ssr": "ShadowsocksR", "http": "Http", "socks5": "Socks5", "vmess": "Vmess", "vless": "Vless", "trojan": "Trojan", "hysteria": "Hysteria", "hysteria2": "Hysteria2", "snell": "Snell", "anytls": "AnyTLS", "tuic": "Tuic", "wireguard": "WireGuard", "select": "Selector", "url-test": "URLTest", "fallback": "Fallback", "load-balance": "LoadBalance", "DIRECT": "Direct", "REJECT": "Reject"}
+	payload["adapterNames"] = names
+	choices := []string{}
+	for _, name := range names {
+		choices = append(choices, name)
+	}
+	sort.Strings(choices)
 	// Membership, filtering and fallbacks are owned by the product compiler.
 	for _, root := range payload["groups"].(map[string]*Field) {
+		root.Properties["exclude-type"] = &Field{Kind: "string", Choices: choices, Separator: "|"}
 		for _, k := range []string{"type", "name", "proxies", "use", "include-all", "include-all-proxies", "include-all-providers", "filter", "exclude-filter", "empty-fallback", "url", "interval", "strategy", "tolerance"} {
 			delete(root.Properties, k)
 		}
@@ -55,7 +87,7 @@ func review(payload map[string]any) {
 		if f == nil {
 			return
 		}
-		if key == "pre-shared-key" || key == "key" || key == "primary-key" || key == "header-protection-key" || key == "client-metadata" || key == "ws-headers" || key == "secret" || key == "authentication" {
+		if key == "certificate" || key == "seed" || key == "protocol-param" || key == "obfs-param" || key == "restls-script" || key == "encryption" || key == "realm-id" || key == "pre-shared-key" || key == "key" || key == "primary-key" || key == "header-protection-key" || key == "client-metadata" || key == "ws-headers" || key == "secret" || key == "authentication" {
 			f.Secret = true
 		}
 		for k, p := range f.Properties {
@@ -71,4 +103,5 @@ func review(payload map[string]any) {
 		mark(root, "")
 	}
 	mark(payload["config"].(*Field), "")
+	protocols["hysteria"].Properties["obfs"].Secret = true
 }

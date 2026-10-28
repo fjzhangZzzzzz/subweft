@@ -4,7 +4,7 @@ import (
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
 )
 
-func validateDependencies(nodes []domain.Node, members map[string][]string, fetch map[string][]string) error {
+func validateDependencies(nodes []domain.Node, members map[string][]string, fetch map[string][]string) (map[string]bool, error) {
 	graph := map[string][]string{}
 	for name, values := range members {
 		graph[name] = append(append([]string{}, values...), fetch[name]...)
@@ -42,10 +42,10 @@ func validateDependencies(nodes []domain.Node, members map[string][]string, fetc
 		visited[name] = true
 		return nil
 	}
-	for name := range graph {
+	for name := range members {
 		if e := walk(name); e != nil {
-			return e
+			return nil, e
 		}
 	}
-	return nil
+	return visited, nil
 }

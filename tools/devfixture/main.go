@@ -27,6 +27,8 @@ func main() {
 	if e != nil {
 		os.Exit(1)
 	}
+	issuer.MemberSubject = "fixture-member"
+	issuer.Country, _ = os.ReadFile("output/tools/GeoIP2-Country-Test.mmdb")
 	fmt.Println("Loopback-only development OIDC and source fixture ready. No real identity or proxy traffic.")
 	server := http.Server{Addr: *listen, Handler: issuer.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second}
 	if server.ListenAndServe() != nil {

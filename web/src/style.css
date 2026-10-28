@@ -1869,3 +1869,37 @@ details > summary {
   cursor: pointer;
   padding: 10px 0;
 }
+
+.schema-object {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.schema-object > .form-grid,
+.schema-field[data-complex="true"] {
+  grid-column: 1/-1;
+}
+.schema-field > .field > label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.schema-field-heading strong {
+  overflow-wrap: anywhere;
+}
+.schema-object input[type="file"] {
+  max-width: 100%;
+  min-width: 0;
+}
+.text-button {
+  border: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+@media (max-width: 600px) {
+  .schema-object {
+    grid-template-columns: 1fr;
+  }
+}

@@ -26,3 +26,7 @@ Mihomo不被Go链接，也不包含在当前公开源码或正式发布包中。
 ## MaxMind 测试样例
 
 原生 GEOIP 测试按 tools/fetch_testdata.py 固定 MaxMind-DB commit 和 SHA256，获取 Apache-2.0 的 GeoIP2-Country-Test.mmdb。来源：https://github.com/maxmind/MaxMind-DB/tree/d1551916cff0712d12ff602c309234471b0402a2 。这是非生产样例，不随应用工件分发，不代表完整地理数据覆盖。
+
+## Container syscall policy
+
+`deploy/seccomp.json` derives from Moby profiles (Apache-2.0), commit `6fe7deb1b9fb7c0397a4593480d7d22b9ee8caef`, `seccomp/default.json` ([upstream](https://github.com/moby/profiles/blob/6fe7deb1b9fb7c0397a4593480d7d22b9ee8caef/seccomp/default.json)). It retains the default deny behavior and adds the documented nested-namespace operations for bubblewrap; see [container installation](docs/container.md). No application image is published with this candidate.

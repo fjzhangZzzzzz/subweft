@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
-import { Button, Field } from "./ui";
+import type { InputHTMLAttributes } from "react";
+import { Button, Field, CheckField } from "./ui";
 import type { T } from "./ui";
 export type Value =
   string | number | boolean | Value[] | { [key: string]: Value };
 export type ObjectValue = { [key: string]: Value };
 export type Schema = {
   kind: string;
+  choices?: string[];
+  separator?: string;
   required?: boolean;
   secret?: boolean;
   enum?: string[];
@@ -74,14 +77,18 @@ export const defaultValue = (s: Schema): Value =>
             : s.kind === "union"
               ? defaultValue(s.alternatives![0])
               : s.enum?.[0] || "";
-function SecretControl({
+export function SecretControl({
   value,
   onChange,
   name,
-}: {
+  id,
+  t,
+  ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & {
   value: string;
   onChange: (v: string) => void;
   name: string;
+  t: T;
 }) {
   const [show, setShow] = useState(false);
   const multiline =
@@ -91,8 +98,11 @@ function SecretControl({
       <div className="secret-control">
         {multiline && show ? (
           <textarea
+            id={id}
             name={name}
             aria-label={name}
+            aria-invalid={props["aria-invalid"]}
+            aria-describedby={props["aria-describedby"]}
             rows={5}
             autoComplete="off"
             spellCheck={false}
@@ -101,6 +111,8 @@ function SecretControl({
           />
         ) : (
           <input
+            {...props}
+            id={id}
             name={name}
             aria-label={name}
             type={show ? "text" : "password"}
@@ -113,7 +125,8 @@ function SecretControl({
         <button
           type="button"
           className="icon-button"
-          aria-label={(show ? "隐藏 " : "显示 ") + name}
+          aria-label={(show ? t("隐藏 ", "Hide ") : t("显示 ", "Show ")) + name}
+          aria-pressed={show}
           onClick={() => setShow(!show)}
         >
           {show ? "◉" : "○"}
@@ -125,8 +138,8 @@ function SecretControl({
           accept=".pem,.crt,.key,.txt"
           aria-label={name + " PEM"}
           onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f && f.size <= 65536) void f.text().then(onChange);
+            const file = e.target.files?.[0];
+            if (file && file.size <= 65536) void file.text().then(onChange);
           }}
         />
       )}
@@ -153,7 +166,11 @@ export function ObjectForm({
   const keys = Object.keys(properties).filter((k) => !exclude.includes(k));
   const shown = keys.filter((k) => properties[k].required || k in value);
   const add = keys.filter(
-    (k) => !shown.includes(k) && k.toLowerCase().includes(search.toLowerCase()),
+    (k) =>
+      !shown.includes(k) &&
+      (k + " " + (labels[k]?.join(" ") || ""))
+        .toLowerCase()
+        .includes(search.toLowerCase()),
   );
   return (
     <div className="schema-object" data-field={path}>
@@ -162,7 +179,14 @@ export function ObjectForm({
         const p = path ? path + "." + key : key;
         const label = labels[key] ? t(...labels[key]) : key;
         return (
-          <div className="schema-field" key={key}>
+          <div
+            className="schema-field"
+            key={key}
+            data-complex={["object", "array", "map", "union", "any"].includes(
+              s.kind,
+            )}
+            data-field={p}
+          >
             <div className="schema-field-heading">
               <strong>
                 {label}{" "}
@@ -235,6 +259,32 @@ export function ValueForm({
   t: T;
   onChange: (v: Value) => void;
 }) {
+  if (s.choices && s.separator) {
+    const selected = String(value).split(s.separator).filter(Boolean);
+    return (
+      <div className="checkbox-grid">
+        {s.choices.map((choice) => (
+          <CheckField
+            key={choice}
+            label={choice}
+            checked={selected.some(
+              (v) => v.toLowerCase() === choice.toLowerCase(),
+            )}
+            onChange={(yes) =>
+              onChange(
+                [
+                  ...selected.filter(
+                    (v) => v.toLowerCase() !== choice.toLowerCase(),
+                  ),
+                  ...(yes ? [choice] : []),
+                ].join(s.separator),
+              )
+            }
+          />
+        ))}
+      </div>
+    );
+  }
   if (s.kind === "object")
     return (
       <ObjectForm
@@ -268,7 +318,10 @@ export function ValueForm({
           </select>
         </Field>
         <ValueForm
-          schema={s.alternatives![index]}
+          schema={{
+            ...s.alternatives![index],
+            secret: s.secret || s.alternatives![index].secret,
+          }}
           value={value}
           onChange={onChange}
           path={path}
@@ -300,7 +353,12 @@ export function ValueForm({
           </select>
         </Field>
         <ValueForm
-          schema={{ kind, items: { kind: "any" }, values: { kind: "any" } }}
+          schema={{
+            kind,
+            secret: s.secret,
+            items: { kind: "any" },
+            values: { kind: "any" },
+          }}
           value={value}
           onChange={onChange}
           path={path}
@@ -316,7 +374,7 @@ export function ValueForm({
         {a.map((v, i) => (
           <div key={i} className="schema-row">
             <ValueForm
-              schema={s.items!}
+              schema={s.secret ? { ...s.items!, secret: true } : s.items!}
               value={v}
               path={path + "." + i}
               t={t}
@@ -388,7 +446,12 @@ export function ValueForm({
           onChange={(e) => onChange(e.target.valueAsNumber || 0)}
         />
       ) : s.secret || path.endsWith("certificate") ? (
-        <SecretControl name={path} value={String(value)} onChange={onChange} />
+        <SecretControl
+          t={t}
+          name={path}
+          value={String(value)}
+          onChange={onChange}
+        />
       ) : (
         <input
           value={String(value)}

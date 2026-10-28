@@ -66,6 +66,8 @@ def main() -> None:
     if args.proxy:
         fetch += ["--proxy", args.proxy]
     run(fetch)
+    run([sys.executable, "tools/fetch_testdata.py"])
+    os.environ["CGO_ENABLED"] = "0"
     if not args.skip_build:
         go = executable("go")
         node = Path(subprocess.check_output([executable("node"), "-p", "process.execPath"], text=True).strip())

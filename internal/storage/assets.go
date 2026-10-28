@@ -41,6 +41,9 @@ func (s *Store) PutAsset(ctx context.Context, data []byte) (string, error) {
 	return id, e
 }
 func (s *Store) Asset(ctx context.Context, id string) ([]byte, error) {
+	return s.assets.get(ctx, id, func() ([]byte, error) { return s.loadAsset(ctx, id) })
+}
+func (s *Store) loadAsset(ctx context.Context, id string) ([]byte, error) {
 	if len(id) != 64 {
 		return nil, domain.ErrNotFound
 	}

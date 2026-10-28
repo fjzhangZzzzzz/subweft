@@ -189,8 +189,11 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 		if len(g.Filter) > 512 || len(g.Exclude) > 512 {
 			return result, domain.Invalid("filter_too_long", field+".filter")
 		}
+		excluded, e := excludedTypes(g.Options["exclude-type"])
+		if e != nil {
+			return result, domain.Field(field, e)
+		}
 		var include, exclude *regexp.Regexp
-		var e error
 		if g.Filter != "" {
 			include, e = regexp.Compile(g.Filter)
 			if e != nil {
@@ -206,6 +209,16 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 		members := []string{}
 		seen := map[string]bool{}
 		add := func(name string, filter bool) {
+			kind := nodeMap[name].Type
+			if child, ok := groups[name]; ok {
+				kind = child.Type
+			}
+			if name == "DIRECT" || name == "REJECT" {
+				kind = name
+			}
+			if excluded[strings.ToLower(typeNames[kind])] {
+				return
+			}
 			if filter && ((include != nil && !include.MatchString(name)) || (exclude != nil && exclude.MatchString(name))) {
 				return
 			}
@@ -239,6 +252,9 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 		}
 		if len(members) == 0 {
 			return result, domain.Invalid("empty_group", field)
+		}
+		if selected, ok := g.Options["default-selected"].(string); ok && selected != "" && !seen[selected] {
+			return result, domain.Invalid("default_member_missing", field+".options.default-selected")
 		}
 		result.Members[g.Name] = members
 		out := map[string]any{"name": g.Name, "type": g.Type, "proxies": members}
@@ -319,11 +335,14 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 			return result, contractError(field+".options", e)
 		}
 		for key, value := range g.Options {
-			out[key] = fields.Normalize(value)
+			if key != "exclude-type" {
+				out[key] = fields.Normalize(value)
+			}
 		}
 		outputGroups = append(outputGroups, out)
 	}
-	if e := validateDependencies(nodes, result.Members, fetchDependencies); e != nil {
+	needed, e := validateDependencies(nodes, result.Members, fetchDependencies)
+	if e != nil {
 		return result, e
 	}
 	resourceMap := map[string]domain.Resource{}
@@ -354,7 +373,7 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 		}
 		providers[id] = map[string]any{"type": "http", "behavior": r.Behavior, "format": r.Format, "url": ResourceURL(id), "path": "./rules/" + id + "." + ext, "interval": 86400}
 	}
-	config := map[string]any{"mixed-port": p.Settings.MixedPort, "allow-lan": p.Settings.AllowLAN, "ipv6": p.Settings.IPv6, "mode": "rule", "log-level": "info", "proxies": renderedNodes(nodes, externalNodes), "proxy-groups": outputGroups, "rules": rules}
+	config := map[string]any{"mixed-port": p.Settings.MixedPort, "allow-lan": p.Settings.AllowLAN, "ipv6": p.Settings.IPv6, "mode": "rule", "log-level": "info", "proxies": renderedNodes(nodes, externalNodes, needed), "proxy-groups": outputGroups, "rules": rules}
 	if len(proxyProviders) > 0 {
 		config["proxy-providers"] = proxyProviders
 	}
@@ -362,15 +381,21 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 		config["rule-providers"] = providers
 	}
 	geox := map[string]string{}
-	for key, id := range map[string]string{"mmdb": p.GeoIPID, "geosite": p.GeoSiteID} {
-		if id != "" {
-			r, ok := resourceMap[id]
-			if !ok || r.Type != key || !r.Enabled || r.Digest == "" {
-				return result, domain.Invalid("geodata_unavailable", "settings")
-			}
-			result.Resources[id] = r.Digest
-			geox[key] = ResourceURL(id)
+	for key, id := range map[string]string{"mmdb": p.GeoIPID, "geosite": p.GeoSiteID, "asn": p.GeoASNID} {
+		if id == "" {
+			continue
 		}
+		r, ok := resourceMap[id]
+		if !ok || !r.Enabled || r.Digest == "" || !(r.Type == key || key == "mmdb" && r.Type == "geoip") {
+			return result, domain.Invalid("geodata_unavailable", "settings")
+		}
+		actual := key
+		if key == "mmdb" && r.Type == "geoip" {
+			actual = "geoip"
+			config["geodata-mode"] = true
+		}
+		result.Resources[id] = r.Digest
+		geox[actual] = ResourceURL(id)
 	}
 	if len(geox) > 0 {
 		config["geox-url"] = geox
@@ -474,16 +499,16 @@ const ResourcePrefix = "https://subweft.invalid/resources/"
 
 func ResourceURL(id string) string { return ResourcePrefix + id }
 
-func renderedNodes(nodes []domain.Node, external map[string]bool) []domain.Node {
+func renderedNodes(nodes []domain.Node, external map[string]bool, used map[string]bool) []domain.Node {
 	needed := map[string]bool{}
 	for _, n := range nodes {
-		if p, ok := n.Options["dialer-proxy"].(string); ok {
+		if p, ok := n.Options["dialer-proxy"].(string); ok && used[n.Name] {
 			needed[p] = true
 		}
 	}
 	out := []domain.Node{}
 	for _, n := range nodes {
-		if !external[n.Name] || needed[n.Name] {
+		if used[n.Name] && (!external[n.Name] || needed[n.Name]) {
 			out = append(out, n)
 		}
 	}

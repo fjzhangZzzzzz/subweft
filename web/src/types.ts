@@ -30,6 +30,7 @@ export type Node = {
 };
 export type ManualNode = Meta & { node: Node; enabled: boolean };
 export type Source = Meta & {
+  url?: string;
   clientProvider?: {
     enabled: boolean;
     interval: number;
@@ -113,6 +114,7 @@ export type Settings = {
 export type Profile = Meta & {
   autoPublish?: boolean;
   geoIpId?: string;
+  geoAsnId?: string;
   geoSiteId?: string;
   name: string;
   groups: Group[];

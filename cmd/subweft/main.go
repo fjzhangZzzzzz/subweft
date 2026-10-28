@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/fjzhangZzzzzz/subweft/internal/buildinfo"
 	"log/slog"
 	"net"
 	"net/http"
@@ -14,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -34,6 +37,9 @@ func main() {
 	}
 }
 func run() error {
+	if len(os.Args) == 2 && os.Args[1] == "version" {
+		return json.NewEncoder(os.Stdout).Encode(buildinfo.Current())
+	}
 	if len(os.Args) < 2 {
 		return errors.New("usage_subweft_init_or_serve")
 	}
@@ -67,6 +73,9 @@ func run() error {
 	if !webui.Available {
 		return errors.New("web_ui_not_built_use_webui_tag")
 	}
+	if os.Getenv("GOMEMLIMIT") == "" {
+		debug.SetMemoryLimit(48 << 20)
+	}
 	base := strings.TrimSuffix(os.Getenv("SUBWEFT_BASE_URL"), "/")
 	issuer := os.Getenv("SUBWEFT_OIDC_ISSUER")
 	listen := os.Getenv("SUBWEFT_LISTEN")
@@ -92,7 +101,19 @@ func run() error {
 	if !supported {
 		return errors.New("unsupported_validator_platform")
 	}
-	checker, e := validator.New(os.Getenv("SUBWEFT_MIHOMO_PATH"), validatorSHA, filepath.Join(*data, "validation"))
+	validationDir := os.Getenv("SUBWEFT_VALIDATION_DIR")
+	if validationDir == "" {
+		if !local {
+			return errors.New("validation_tmpfs_required")
+		}
+		validationDir = filepath.Join(*data, "validation")
+	}
+	if !local {
+		if e = validator.RequireVolatileDirectory(validationDir); e != nil {
+			return e
+		}
+	}
+	checker, e := validator.New(os.Getenv("SUBWEFT_MIHOMO_PATH"), validatorSHA, validationDir)
 	if e != nil {
 		return e
 	}
@@ -118,7 +139,7 @@ func run() error {
 	httpServer := &http.Server{Addr: listen, Handler: api.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	errCh := make(chan error, 1)
 	go func() { errCh <- httpServer.ListenAndServe() }()
-	slog.Info("subweft_started", "version", "0.1.0-dev", "local_http", local)
+	slog.Info("subweft_started", "version", buildinfo.Current().Version, "commit", buildinfo.Current().Commit, "local_http", local)
 	select {
 	case e := <-errCh:
 		if !errors.Is(e, http.ErrServerClosed) {
@@ -147,7 +168,7 @@ func validateURLs(base, issuer, listen string, local bool) error {
 		return nil
 	}
 	host, _, e := net.SplitHostPort(listen)
-	if e != nil || !loopback(host) || !loopback(b.Hostname()) || !loopback(i.Hostname()) || b.Scheme != "http" || i.Scheme != "http" {
+	if e != nil || !loopback(host) || !loopback(b.Hostname()) || (i.Scheme != "https" && (i.Scheme != "http" || !loopback(i.Hostname()))) || b.Scheme != "http" {
 		return errors.New("local_http_requires_loopback_only")
 	}
 	return nil

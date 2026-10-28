@@ -24,6 +24,8 @@ import (
 
 type Field struct {
 	Kind         string            `json:"kind"`
+	Choices      []string          `json:"choices,omitempty"`
+	Separator    string            `json:"separator,omitempty"`
 	Enum         []string          `json:"enum,omitempty"`
 	Alternatives []*Field          `json:"alternatives,omitempty"`
 	Required     bool              `json:"required,omitempty"`

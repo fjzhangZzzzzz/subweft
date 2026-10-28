@@ -9,6 +9,7 @@ import (
 
 	"github.com/fjzhangZzzzzz/subweft/internal/app"
 	"github.com/fjzhangZzzzzz/subweft/internal/auth"
+	"github.com/fjzhangZzzzzz/subweft/internal/buildinfo"
 	"github.com/fjzhangZzzzzz/subweft/internal/compile"
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
 	"github.com/fjzhangZzzzzz/subweft/internal/fields"
@@ -16,20 +17,22 @@ import (
 )
 
 type API struct {
-	Service *app.Service
-	Auth    *auth.Auth
-	BaseURL string
-	UI      http.Handler
+	resourceGate chan struct{}
+	Service      *app.Service
+	Auth         *auth.Auth
+	BaseURL      string
+	UI           http.Handler
 }
 
 func (a *API) Handler() http.Handler {
+	a.resourceGate = make(chan struct{}, 2)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		if a.Service.Store.Ping(r.Context()) != nil {
 			http.Error(w, "unavailable", 503)
 			return
 		}
-		respond(w, 200, map[string]string{"status": "ok", "version": "0.1.0-dev"})
+		respond(w, 200, map[string]any{"status": "ok", "build": buildinfo.Current()})
 	})
 	mux.HandleFunc("GET /auth/login", a.Auth.Login)
 	mux.HandleFunc("GET /auth/callback", a.Auth.Callback)
@@ -75,7 +78,17 @@ func fail(w http.ResponseWriter, e error) {
 	respond(w, status, map[string]any{"error": v})
 }
 func read(w http.ResponseWriter, r *http.Request, v any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, 90<<20)
+	limit := int64(64 << 10)
+	if strings.HasPrefix(r.URL.Path, "/api/v1/resources") {
+		limit = 90 << 20
+	} else if r.URL.Path == "/api/v1/imports/preview" {
+		limit = 40 << 20
+	} else if strings.HasPrefix(r.URL.Path, "/api/v1/profiles") {
+		limit = 16 << 20
+	} else if strings.HasPrefix(r.URL.Path, "/api/v1/sources") || strings.HasPrefix(r.URL.Path, "/api/v1/nodes") {
+		limit = 6 << 20
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if e := decoder.Decode(v); e != nil {
@@ -222,6 +235,10 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch kind {
+	case "imports":
+		if a.manageImport(w, r, id, action) {
+			return
+		}
 	case "users":
 		if a.manageUsers(w, r, id, action) {
 			return
@@ -236,7 +253,7 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 			if e != nil {
 				fail(w, e)
 			} else {
-				respond(w, 200, app.SourceInput{Meta: v.Meta, Name: v.Name, Kind: v.Kind, Enabled: v.Enabled, Tags: v.Tags, Interval: v.Interval, ExtractNodes: v.ExtractNodes, Fetch: v.Fetch})
+				respond(w, 200, app.SourceInput{Meta: v.Meta, Name: v.Name, Kind: v.Kind, Enabled: v.Enabled, Tags: v.Tags, Interval: v.Interval, ExtractNodes: v.ExtractNodes, Fetch: v.Fetch, ClientProvider: v.ClientProvider, URL: v.URL})
 			}
 			return
 		}

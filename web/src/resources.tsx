@@ -1,8 +1,10 @@
+import { SecretControl } from "./schema-form";
 import { useState } from "react";
 import { Button, Field, CheckField } from "./ui";
 import type { T } from "./ui";
 import type { Meta } from "./types";
 export type Resource = Meta & {
+  url?: string;
   name: string;
   kind: string;
   type: string;
@@ -42,12 +44,14 @@ export function ResourcesPanel({
   const open = (v?: Resource) =>
     void onRun(async () => {
       setEntries(
-        v?.type === "ruleset" && v.digest
+        v?.type === "ruleset" && v.kind === "local" && v.digest
           ? await request<string[]>("resources/" + v.id + "/entries")
           : [],
       );
       setEdit(
-        v || {
+        (v
+          ? await request<Resource>("resources/" + v.id + "/edit")
+          : undefined) || {
           id: "",
           revision: 0,
           name: "",
@@ -195,7 +199,7 @@ function ResourceForm({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState(value);
-  const [url, setURL] = useState("");
+  const [url, setURL] = useState(value.url || "");
   const [entries, setEntries] = useState(initialEntries);
   const [upload, setUpload] = useState<string>();
   const [batch, setBatch] = useState("");
@@ -242,7 +246,7 @@ function ResourceForm({
               setUpload(undefined);
             }}
           >
-            {["ruleset", "mmdb", "geoip", "geosite"].map((k) => (
+            {["ruleset", "mmdb", "geoip", "geosite", "asn"].map((k) => (
               <option key={k}>{k}</option>
             ))}
           </select>
@@ -287,12 +291,12 @@ function ResourceForm({
           <Field
             label={t("资源 URL（留空保留）", "Resource URL (blank retains)")}
           >
-            <input
-              type="url"
+            <SecretControl
+              t={t}
+              name={t("资源 URL", "Resource URL")}
               value={url}
               required={!draft.id}
-              onChange={(e) => setURL(e.target.value)}
-              autoComplete="off"
+              onChange={setURL}
             />
           </Field>
           <Field label={t("更新间隔（秒）", "Refresh interval (seconds)")}>

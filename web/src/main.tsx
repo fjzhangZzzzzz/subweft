@@ -1,3 +1,4 @@
+import { ImportWizard } from "./import";
 import { UsersPanel } from "./users";
 import { RulesEditor } from "./rules";
 import { ResourcesPanel } from "./resources";
@@ -10,7 +11,12 @@ import {
   ErrorFieldLink,
 } from "./ui";
 import type { T } from "./ui";
-import { useCatalog, ObjectForm, ValueForm } from "./schema-form";
+import {
+  useCatalog,
+  ObjectForm,
+  ValueForm,
+  SecretControl,
+} from "./schema-form";
 import { NodeForm } from "./node-form";
 import React, { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -135,6 +141,26 @@ function App() {
   const [unsaved, setUnsaved] = useState(false);
   const [toast, setToast] = useState("");
   const [modal, setModal] = useState<ReactNode>(null);
+  const [modalDirty, setModalDirty] = useState(false);
+  const closeModal = () => {
+    if (
+      modalDirty &&
+      !confirm(t("放弃未保存的表单修改？", "Discard unsaved form changes?"))
+    )
+      return;
+    setModal(null);
+  };
+  useEffect(() => setModalDirty(false), [modal]);
+  useEffect(() => {
+    const guard = (e: BeforeUnloadEvent) => {
+      if (unsaved || modalDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [unsaved, modalDirty]);
   const [sourceTab, setSourceTab] = useState("subscriptions");
   const [query, setQuery] = useState("");
   const [selectedProfile, setSelectedProfile] = useState("");
@@ -322,11 +348,37 @@ function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
   useEffect(() => {
-    const onHash = () =>
-      setPage((location.hash.slice(1) as Page) || "overview");
+    const onHash = () => {
+      let next = (location.hash.slice(1) || "overview") as Page;
+      if (
+        ![
+          "overview",
+          "sources",
+          "profiles",
+          "resources",
+          "devices",
+          "users",
+          "system",
+        ].includes(next)
+      )
+        next = "overview";
+      if (state?.role === "user") next = "devices";
+      if (next === page) return;
+      if (
+        (unsaved || modalDirty) &&
+        !confirm(
+          t("离开并放弃未保存修改？", "Leave and discard unsaved changes?"),
+        )
+      ) {
+        history.replaceState(null, "", "#" + page);
+        return;
+      }
+      setUnsaved(false);
+      setPage(next);
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
-  }, []);
+  }, [page, unsaved, modalDirty, state?.role]);
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(""), 4500);
@@ -533,6 +585,7 @@ function App() {
       >(`sources/${source.id}/nodes`);
       setModal(
         <SourceNodeList
+          onChanged={() => void reload()}
           source={source}
           nodes={nodes}
           t={t}
@@ -665,8 +718,8 @@ function App() {
           </a>
           <small>
             {t(
-              "开发预览 · 六种协议的明确字段子集",
-              "Development preview · field subsets for six protocols",
+              "开发预览 · 结构化订阅与策略管理",
+              "Development preview · structured subscriptions and policies",
             )}
           </small>
         </div>
@@ -939,8 +992,8 @@ function App() {
                   </div>
                   <div className="notice">
                     {t(
-                      "已支持六种协议的表单闭环，完整首版能力仍在扩展。",
-                      "Forms cover six protocol subsets. Full initial scope remains in progress.",
+                      "13 种协议、版本化资源与使用者授权；完整验收进行中。",
+                      "13 protocols, versioned resources and member access; complete acceptance is in progress.",
                     )}
                   </div>
                 </section>
@@ -1525,6 +1578,13 @@ function App() {
                   "Understand this instance’s scope and validation status.",
                 )}
               />
+              <ImportWizard
+                t={t}
+                request={api}
+                onRun={run}
+                busy={busy}
+                onDirtyChange={setUnsaved}
+              />
               <div className="settings-grid">
                 <section className="panel padded">
                   <ShieldCheck className="accent" size={26} />
@@ -1547,6 +1607,40 @@ function App() {
                       )}
                     </dd>
                   </dl>
+                  <p className="muted">
+                    {t(
+                      "备份包含加密业务状态与发布资源，不含主密钥。恢复必须另外持有原主密钥。",
+                      "Backups contain encrypted state and resources, without the master key. Restore also requires the original key.",
+                    )}
+                  </p>
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      void run(
+                        async () => {
+                          const response = await fetch("/api/v1/backup", {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              "X-CSRF-Token": csrf,
+                            },
+                            body: "{}",
+                          });
+                          if (!response.ok) throw new APIError("backup_failed");
+                          const blob = await response.blob();
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement("a");
+                          link.href = url;
+                          link.download = "subweft-encrypted.sqlite";
+                          link.click();
+                          setTimeout(() => URL.revokeObjectURL(url), 10000);
+                        },
+                        t("备份已生成", "Backup generated"),
+                      )
+                    }
+                  >
+                    {t("下载一致性备份", "Download consistent backup")}
+                  </Button>{" "}
                 </section>
                 <section className="panel padded">
                   <FileCheck2 className="accent" size={26} />
@@ -1559,8 +1653,8 @@ function App() {
                     <dt>{t("自动发布", "Automatic publishing")}</dt>
                     <dd>
                       {t(
-                        "此闭环版本手动发布；来源更新不自动发布草稿",
-                        "Manual publishing in this slice; source refreshes never publish drafts",
+                        "自动更新最近已发布的定义；保存草稿不会激活",
+                        "Updates use the last published definition; saving drafts never activates them",
                       )}
                     </dd>
                   </dl>
@@ -1569,8 +1663,8 @@ function App() {
               <div className="notice inline">
                 <TriangleAlert size={18} />
                 {t(
-                  "这是开发预览：其余协议、完整 DNS/规则集、普通使用者授权、生产部署和真实 Pocket ID/Clash Verge 验收尚未完成。",
-                  "Development preview: other protocols, full DNS/rulesets, member access, production deployment, and real Pocket ID/Clash Verge acceptance remain pending.",
+                  "开发版本：完整迁移、容器及浏览器验收正在推进。真实 Pocket ID、Clash Verge 与生产切换仍须分别验收。",
+                  "Development build: migration, container and browser acceptance are in progress. Real Pocket ID, Clash Verge and production cutover require separate acceptance.",
                 )}
               </div>
             </>
@@ -1602,13 +1696,16 @@ function App() {
       <dialog
         aria-labelledby="subweft-dialog-title"
         ref={modalRef}
-        onCancel={() => setModal(null)}
+        onCancel={(e) => {
+          e.preventDefault();
+          closeModal();
+        }}
         onClose={() => setModal(null)}
       >
         <button
           className="dialog-close icon-button"
           aria-label={t("关闭对话框", "Close dialog")}
-          onClick={() => setModal(null)}
+          onClick={closeModal}
         >
           <X size={19} />
         </button>
@@ -1630,7 +1727,14 @@ function App() {
             },
           }}
         >
-          <fieldset disabled={busy} className="dialog-content">
+          <fieldset
+            disabled={busy}
+            className="dialog-content"
+            onChangeCapture={(e) => {
+              if ((e.target as HTMLElement).closest("form"))
+                setModalDirty(true);
+            }}
+          >
             {modal}
           </fieldset>
         </FormErrorContext.Provider>
@@ -1765,7 +1869,7 @@ function SourceForm({
 }) {
   const [name, setName] = useState(value?.name || "");
   const [kind, setKind] = useState(value?.kind || "http");
-  const [url, setURL] = useState("");
+  const [url, setURL] = useState(value?.url || "");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState(value?.tags?.join(", ") || "");
   const [interval, setInterval] = useState(value?.interval || 3600);
@@ -1861,12 +1965,12 @@ function SourceForm({
                 )
           }
         >
-          <input
-            type="url"
+          <SecretControl
+            t={t}
+            name={t("订阅地址", "Subscription URL")}
             required={!value || value.kind !== kind}
             value={url}
-            placeholder="https://example.com/subscription"
-            onChange={(e) => setURL(e.target.value)}
+            onChange={setURL}
           />
         </Field>
       ) : (
@@ -2405,13 +2509,15 @@ function ProfileEditor({
                   {v.error}
                 </p>
               ))}
-            {(["geoIpId", "geoSiteId"] as const).map((key) => (
+            {(["geoIpId", "geoSiteId", "geoAsnId"] as const).map((key) => (
               <Field
                 key={key}
                 label={
                   key === "geoIpId"
-                    ? "GEOIP / Country.mmdb"
-                    : "GEOSITE / GeoSite.dat"
+                    ? "GEOIP / Country.mmdb / GeoIP.dat"
+                    : key === "geoAsnId"
+                      ? "ASN / ASN.mmdb"
+                      : "GEOSITE / GeoSite.dat"
                 }
               >
                 <select
@@ -2422,9 +2528,10 @@ function ProfileEditor({
                 >
                   <option value="">{t("不使用", "Unused")}</option>
                   {(state.resources || [])
-                    .filter(
-                      (r) =>
-                        r.type === (key === "geoIpId" ? "mmdb" : "geosite"),
+                    .filter((r) =>
+                      key === "geoIpId"
+                        ? ["mmdb", "geoip"].includes(r.type)
+                        : r.type === (key === "geoAsnId" ? "asn" : "geosite"),
                     )
                     .map((r) => (
                       <option key={r.id} value={r.id}>
@@ -2434,10 +2541,10 @@ function ProfileEditor({
                 </select>
               </Field>
             ))}
-            <Field label={t("混合端口", "Mixed port")}>
+            <Field label={t("混合端口（0 停用）", "Mixed port (0 disables)")}>
               <input
                 type="number"
-                min={1}
+                min={0}
                 max={65535}
                 value={draft.settings.mixedPort}
                 onChange={(e) =>
@@ -2715,11 +2822,13 @@ function ProfileEditor({
   );
 }
 function SourceNodeList({
+  onChanged,
   source,
   nodes,
   t,
   onCopy,
 }: {
+  onChanged: () => void;
   source: Source;
   nodes: Array<
     Pick<Node, "name" | "type" | "server" | "port"> & {
@@ -2767,6 +2876,7 @@ function SourceNodeList({
         { revision: localRevision, override: overrideValue, remove },
       );
       setLocalRevision(saved.revision);
+      onChanged();
       setLocalNodes(
         localNodes.map((n) =>
           n.identity === overrideValue.identity
@@ -2998,6 +3108,7 @@ function GroupForm({
               <button
                 key={tag}
                 className={`tag-button ${g.tags.includes(tag) ? "selected" : ""}`}
+                aria-pressed={g.tags.includes(tag)}
                 onClick={() => set("tags", toggle(g.tags, tag))}
               >
                 {g.tags.includes(tag) && <Check size={12} />}
@@ -3133,8 +3244,38 @@ function GroupForm({
   );
 }
 
+class PageBoundary extends React.Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed) {
+      const zh = document.documentElement.lang.startsWith("zh");
+      return (
+        <main className="center">
+          <h1>{zh ? "页面暂时无法显示" : "The page could not be displayed"}</h1>
+          <p>
+            {zh
+              ? "已保存的数据仍然保留。请重新载入。"
+              : "Saved data is preserved. Reload to continue."}
+          </p>
+          <Button primary onClick={() => location.reload()}>
+            {zh ? "重新载入" : "Reload"}
+          </Button>
+        </main>
+      );
+    }
+    return this.props.children;
+  }
+}
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <PageBoundary>
+      <App />
+    </PageBoundary>
   </React.StrictMode>,
 );

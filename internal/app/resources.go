@@ -39,7 +39,7 @@ func validateResource(v domain.Resource) error {
 		if v.Format != "yaml" && v.Format != "text" {
 			return domain.Invalid("invalid_format", "format")
 		}
-	case "mmdb", "geoip", "geosite":
+	case "mmdb", "geoip", "geosite", "asn":
 	default:
 		return domain.Invalid("invalid_resource_type", "type")
 	}

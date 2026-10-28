@@ -1,4 +1,25 @@
 {
+  "adapterNames": {
+    "DIRECT": "Direct",
+    "REJECT": "Reject",
+    "anytls": "AnyTLS",
+    "fallback": "Fallback",
+    "http": "Http",
+    "hysteria": "Hysteria",
+    "hysteria2": "Hysteria2",
+    "load-balance": "LoadBalance",
+    "select": "Selector",
+    "snell": "Snell",
+    "socks5": "Socks5",
+    "ss": "Shadowsocks",
+    "ssr": "ShadowsocksR",
+    "trojan": "Trojan",
+    "tuic": "Tuic",
+    "url-test": "URLTest",
+    "vless": "Vless",
+    "vmess": "Vmess",
+    "wireguard": "WireGuard"
+  },
   "commit": "3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8",
   "config": {
     "kind": "object",
@@ -109,7 +130,9 @@
         ]
       },
       "mixed-port": {
-        "kind": "integer"
+        "kind": "integer",
+        "min": 0,
+        "max": 65535
       },
       "mode": {
         "kind": "string",
@@ -120,7 +143,9 @@
         ]
       },
       "port": {
-        "kind": "integer"
+        "kind": "integer",
+        "min": 0,
+        "max": 65535
       },
       "profile": {
         "kind": "object",
@@ -134,7 +159,9 @@
         }
       },
       "redir-port": {
-        "kind": "integer"
+        "kind": "integer",
+        "min": 0,
+        "max": 65535
       },
       "routing-mark": {
         "kind": "integer"
@@ -221,13 +248,17 @@
         }
       },
       "socks-port": {
-        "kind": "integer"
+        "kind": "integer",
+        "min": 0,
+        "max": 65535
       },
       "tcp-concurrent": {
         "kind": "boolean"
       },
       "tproxy-port": {
-        "kind": "integer"
+        "kind": "integer",
+        "min": 0,
+        "max": 65535
       },
       "unified-delay": {
         "kind": "boolean"
@@ -414,7 +445,29 @@
           "kind": "boolean"
         },
         "exclude-type": {
-          "kind": "string"
+          "kind": "string",
+          "choices": [
+            "AnyTLS",
+            "Direct",
+            "Fallback",
+            "Http",
+            "Hysteria",
+            "Hysteria2",
+            "LoadBalance",
+            "Reject",
+            "Selector",
+            "Shadowsocks",
+            "ShadowsocksR",
+            "Snell",
+            "Socks5",
+            "Trojan",
+            "Tuic",
+            "URLTest",
+            "Vless",
+            "Vmess",
+            "WireGuard"
+          ],
+          "separator": "|"
         },
         "expected-status": {
           "kind": "string"
@@ -443,7 +496,29 @@
           "kind": "boolean"
         },
         "exclude-type": {
-          "kind": "string"
+          "kind": "string",
+          "choices": [
+            "AnyTLS",
+            "Direct",
+            "Fallback",
+            "Http",
+            "Hysteria",
+            "Hysteria2",
+            "LoadBalance",
+            "Reject",
+            "Selector",
+            "Shadowsocks",
+            "ShadowsocksR",
+            "Snell",
+            "Socks5",
+            "Trojan",
+            "Tuic",
+            "URLTest",
+            "Vless",
+            "Vmess",
+            "WireGuard"
+          ],
+          "separator": "|"
         },
         "expected-status": {
           "kind": "string"
@@ -478,7 +553,29 @@
           "kind": "boolean"
         },
         "exclude-type": {
-          "kind": "string"
+          "kind": "string",
+          "choices": [
+            "AnyTLS",
+            "Direct",
+            "Fallback",
+            "Http",
+            "Hysteria",
+            "Hysteria2",
+            "LoadBalance",
+            "Reject",
+            "Selector",
+            "Shadowsocks",
+            "ShadowsocksR",
+            "Snell",
+            "Socks5",
+            "Trojan",
+            "Tuic",
+            "URLTest",
+            "Vless",
+            "Vmess",
+            "WireGuard"
+          ],
+          "separator": "|"
         },
         "expected-status": {
           "kind": "string"
@@ -507,7 +604,29 @@
           "kind": "boolean"
         },
         "exclude-type": {
-          "kind": "string"
+          "kind": "string",
+          "choices": [
+            "AnyTLS",
+            "Direct",
+            "Fallback",
+            "Http",
+            "Hysteria",
+            "Hysteria2",
+            "LoadBalance",
+            "Reject",
+            "Selector",
+            "Shadowsocks",
+            "ShadowsocksR",
+            "Snell",
+            "Socks5",
+            "Trojan",
+            "Tuic",
+            "URLTest",
+            "Vless",
+            "Vmess",
+            "WireGuard"
+          ],
+          "separator": "|"
         },
         "expected-status": {
           "kind": "string"
@@ -535,7 +654,8 @@
       "kind": "object",
       "properties": {
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "ech-opts": {
           "kind": "object",
@@ -729,7 +849,8 @@
           "secret": true
         },
         "restls-script": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "skip-cert-verify": {
           "kind": "boolean"
@@ -750,7 +871,8 @@
           }
         },
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "fingerprint": {
           "kind": "string"
@@ -782,7 +904,8 @@
       "kind": "object",
       "properties": {
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "ech-opts": {
           "kind": "object",
@@ -855,7 +978,8 @@
           }
         },
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "client-fingerprint": {
           "kind": "string"
@@ -957,7 +1081,8 @@
               "secret": true
             },
             "restls-script": {
-              "kind": "string"
+              "kind": "string",
+              "secret": true
             },
             "version-hint": {
               "kind": "string"
@@ -1008,7 +1133,8 @@
       "kind": "object",
       "properties": {
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "dialer-proxy": {
           "kind": "string"
@@ -1110,7 +1236,8 @@
           "secret": true
         },
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "dialer-proxy": {
           "kind": "string"
@@ -1119,8 +1246,7 @@
           "kind": "boolean"
         },
         "down": {
-          "kind": "string",
-          "required": true
+          "kind": "string"
         },
         "down-speed": {
           "kind": "integer"
@@ -1172,7 +1298,8 @@
           "kind": "string"
         },
         "obfs": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "obfs-protocol": {
           "kind": "string"
@@ -1222,8 +1349,7 @@
           "required": true
         },
         "up": {
-          "kind": "string",
-          "required": true
+          "kind": "string"
         },
         "up-speed": {
           "kind": "integer"
@@ -1243,7 +1369,8 @@
           "kind": "string"
         },
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "cwnd": {
           "kind": "integer"
@@ -1355,7 +1482,8 @@
               }
             },
             "certificate": {
-              "kind": "string"
+              "kind": "string",
+              "secret": true
             },
             "enable": {
               "kind": "boolean"
@@ -1371,7 +1499,8 @@
               "secret": true
             },
             "realm-id": {
-              "kind": "string"
+              "kind": "string",
+              "secret": true
             },
             "server-url": {
               "kind": "string"
@@ -1508,7 +1637,8 @@
       "kind": "object",
       "properties": {
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "dialer-proxy": {
           "kind": "string"
@@ -1710,7 +1840,8 @@
           "required": true
         },
         "obfs-param": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "password": {
           "kind": "string",
@@ -1728,7 +1859,8 @@
           "required": true
         },
         "protocol-param": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "routing-mark": {
           "kind": "integer"
@@ -1762,7 +1894,8 @@
           }
         },
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "client-fingerprint": {
           "kind": "string"
@@ -1891,7 +2024,8 @@
               "secret": true
             },
             "restls-script": {
-              "kind": "string"
+              "kind": "string",
+              "secret": true
             },
             "version-hint": {
               "kind": "string"
@@ -1994,7 +2128,8 @@
           "kind": "string"
         },
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "congestion-controller": {
           "kind": "string"
@@ -2147,7 +2282,8 @@
           }
         },
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "client-fingerprint": {
           "kind": "string"
@@ -2170,7 +2306,8 @@
           }
         },
         "encryption": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "fingerprint": {
           "kind": "string"
@@ -2323,7 +2460,8 @@
               "secret": true
             },
             "restls-script": {
-              "kind": "string"
+              "kind": "string",
+              "secret": true
             },
             "version-hint": {
               "kind": "string"
@@ -2425,7 +2563,8 @@
                   }
                 },
                 "certificate": {
-                  "kind": "string"
+                  "kind": "string",
+                  "secret": true
                 },
                 "client-fingerprint": {
                   "kind": "string"
@@ -2510,7 +2649,8 @@
                       "secret": true
                     },
                     "restls-script": {
-                      "kind": "string"
+                      "kind": "string",
+                      "secret": true
                     },
                     "version-hint": {
                       "kind": "string"
@@ -2680,19 +2820,18 @@
           }
         },
         "alterId": {
-          "kind": "integer",
-          "required": true
+          "kind": "integer"
         },
         "authenticated-length": {
           "kind": "boolean",
           "secret": true
         },
         "certificate": {
-          "kind": "string"
+          "kind": "string",
+          "secret": true
         },
         "cipher": {
-          "kind": "string",
-          "required": true
+          "kind": "string"
         },
         "client-fingerprint": {
           "kind": "string"
@@ -2843,7 +2982,8 @@
                   "max": 4294967295
                 },
                 "seed": {
-                  "kind": "string"
+                  "kind": "string",
+                  "secret": true
                 },
                 "tti": {
                   "kind": "integer",
@@ -2913,7 +3053,8 @@
               "max": 4294967295
             },
             "seed": {
-              "kind": "string"
+              "kind": "string",
+              "secret": true
             },
             "tti": {
               "kind": "integer",
@@ -2985,7 +3126,8 @@
               "secret": true
             },
             "restls-script": {
-              "kind": "string"
+              "kind": "string",
+              "secret": true
             },
             "version-hint": {
               "kind": "string"

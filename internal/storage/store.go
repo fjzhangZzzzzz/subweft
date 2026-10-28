@@ -23,6 +23,7 @@ import (
 )
 
 type Store struct {
+	assets    *assetCache
 	directory string
 	lock      *os.File
 	db        *sql.DB
@@ -101,7 +102,7 @@ func open(dir, keyFile string, create bool) (*Store, error) {
 		return nil, e
 	}
 	db.SetMaxOpenConns(1)
-	s := &Store{directory: dir, db: db, aead: aead, key: k, lock: lock}
+	s := &Store{assets: newAssetCache(), directory: dir, db: db, aead: aead, key: k, lock: lock}
 	fail := func(err error) (*Store, error) { db.Close(); return nil, err }
 	if _, e = db.Exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;`); e != nil {
 		return fail(e)
@@ -312,6 +313,9 @@ func (s *Store) Snapshot(ctx context.Context) (domain.Snapshot, error) {
 	}
 	if snap.Profiles, e = List[domain.Profile](ctx, s, "profile"); e != nil {
 		return snap, e
+	}
+	for i := range snap.Profiles {
+		domain.NormalizeProfile(&snap.Profiles[i])
 	}
 	if snap.Devices, e = List[domain.Device](ctx, s, "device"); e != nil {
 		return snap, e

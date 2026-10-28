@@ -28,11 +28,15 @@ func RuleCondition(c domain.Condition, depth int) (string, error) {
 		}
 		return c.Type + ",(" + strings.Join(parts, ",") + ")", nil
 	}
-	if len(c.Children) > 0 || len(c.Value) > 2048 || strings.ContainsAny(c.Value, ",\r\n\x00()") {
+	if len(c.Children) > 0 || len(c.Value) > 2048 || strings.ContainsAny(c.Value, ",\r\n\x00") {
 		return "", domain.Invalid("invalid_rule_value", "value")
 	}
 	switch c.Type {
-	case "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "GEOSITE", "GEOIP", "IP-ASN", "SRC-IP-ASN", "SRC-GEOIP", "PROCESS-NAME", "PROCESS-PATH", "PROCESS-NAME-WILDCARD", "PROCESS-PATH-WILDCARD", "IN-NAME", "IN-USER", "IN-TYPE", "NETWORK", "DSCP":
+	case "DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD":
+		if c.Value == "" || strings.ContainsAny(c.Value, " /:\t") {
+			return "", domain.Invalid("invalid_rule_value", "value")
+		}
+	case "GEOSITE", "GEOIP", "IP-ASN", "SRC-IP-ASN", "SRC-GEOIP", "PROCESS-NAME", "PROCESS-PATH", "PROCESS-NAME-WILDCARD", "PROCESS-PATH-WILDCARD", "IN-NAME", "IN-USER", "IN-TYPE", "NETWORK", "DSCP":
 		if c.Value == "" {
 			return "", domain.Invalid("invalid_rule_value", "value")
 		}

@@ -110,6 +110,7 @@ type Settings struct {
 	Nameservers           []string       `json:"nameservers"`
 }
 type Profile struct {
+	GeoASNID    string `json:"geoAsnId,omitempty"`
 	AutoPublish bool   `json:"autoPublish"`
 	GeoIPID     string `json:"geoIpId,omitempty"`
 	GeoSiteID   string `json:"geoSiteId,omitempty"`
@@ -192,10 +193,29 @@ func ValidateProfile(p Profile) error {
 	if !ValidName(p.Name) {
 		return Invalid("invalid_name", "name")
 	}
+	count := 0
+	var conditions func([]Condition, int) bool
+	conditions = func(values []Condition, depth int) bool {
+		if depth > 8 || len(values) > 32 {
+			return false
+		}
+		for _, v := range values {
+			count++
+			if count > 10000 || !conditions(v.Children, depth+1) {
+				return false
+			}
+		}
+		return true
+	}
+	for _, r := range p.Rules {
+		if !conditions(r.Conditions, 0) {
+			return Invalid("too_many_conditions", "rules")
+		}
+	}
 	if len(p.Groups) > 100 || len(p.Rules) > 5000 {
 		return Invalid("too_many_items", "profile")
 	}
-	if p.Settings.MixedPort < 1 || p.Settings.MixedPort > 65535 {
+	if p.Settings.MixedPort < 0 || p.Settings.MixedPort > 65535 {
 		return Invalid("invalid_port", "mixedPort")
 	}
 	return nil

@@ -70,6 +70,13 @@ func (s *Service) SaveSource(ctx context.Context, in SourceInput) (domain.Source
 			v.LastError = "source_changed_refresh_required"
 		}
 	}
+	if v.Kind == "http" {
+		var e error
+		v.URL, v.Fetch.Headers, e = source.NormalizeCredentials(v.URL, v.Fetch.Headers)
+		if e != nil {
+			return v, e
+		}
+	}
 	if e := source.ValidateOptions(v.Fetch); e != nil {
 		return v, e
 	}
@@ -154,10 +161,10 @@ func (s *Service) SaveNode(ctx context.Context, v domain.ManualNode) (domain.Man
 			return v, domain.ErrConflict
 		}
 		if v.Node.Type == old.Node.Type {
-			if v.Node.Password == "" && (v.Node.Type != "http" && v.Node.Type != "socks5" || v.Node.Username != "" && v.Node.Username == old.Node.Username) {
+			if v.Node.Type != "tuic" && v.Node.Password == "" && (v.Node.Type != "http" && v.Node.Type != "socks5" || v.Node.Username != "" && v.Node.Username == old.Node.Username) {
 				v.Node.Password = old.Node.Password
 			}
-			if v.Node.UUID == "" {
+			if (v.Node.Type == "vmess" || v.Node.Type == "vless") && v.Node.UUID == "" {
 				v.Node.UUID = old.Node.UUID
 			}
 		}
@@ -184,6 +191,7 @@ func (s *Service) CopyNode(ctx context.Context, sourceID, nodeName, newName stri
 func (s *Service) SaveProfile(ctx context.Context, p domain.Profile) (domain.Profile, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	domain.NormalizeProfile(&p)
 	if e := domain.ValidateProfile(p); e != nil {
 		return p, e
 	}
@@ -223,7 +231,7 @@ func (s *Service) Delete(ctx context.Context, kind, id string, revision int) err
 	}
 	if kind == "resource" {
 		for _, p := range snap.Profiles {
-			if p.GeoIPID == id || p.GeoSiteID == id {
+			if p.GeoIPID == id || p.GeoSiteID == id || p.GeoASNID == id {
 				return domain.Invalid("resource_in_use", "id")
 			}
 			for _, r := range p.Rules {
