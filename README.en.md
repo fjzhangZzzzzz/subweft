@@ -4,7 +4,7 @@
 
 [简体中文](README.md) · [Design](docs/design.md) · [Scope](docs/support-matrix.md) · [Acceptance criteria](docs/acceptance.md)
 
-> Runnable development preview: the first Shadowsocks workflow is implemented. Full initial scope and production replacement are not accepted yet. No formal release artifacts are available.
+> Runnable development preview: field subsets for six protocols and their form workflows are implemented. Full initial scope and production replacement are not accepted yet. No formal release artifacts are available.
 
 Subweft is intended for personal and household use. It brings subscriptions, manual nodes, policy groups, rules, configuration publishing, and device links into a form-based web interface.
 

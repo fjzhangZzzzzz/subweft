@@ -255,3 +255,78 @@ func TestCallbackRejectsMissingState(t *testing.T) {
 		t.Fatal("missing state accepted")
 	}
 }
+
+func TestProtocolEditingKeepsSecretsOutOfListsAndPreviews(t *testing.T) {
+	h := setup(t, testfixture.Subject, false)
+	if h.login(t) != 302 {
+		t.Fatal("login failed")
+	}
+	status, b := h.request(t, "GET", "/api/v1/state", nil, false)
+	if status != 200 {
+		t.Fatal("state failed")
+	}
+	h.csrf = decode[struct {
+		CSRF string `json:"csrf"`
+	}](t, b).CSRF
+	nodes, e := source.Parse([]byte(testfixture.ProtocolProviderYAML))
+	if e != nil {
+		t.Fatal(e)
+	}
+	ids := []string{}
+	for _, node := range nodes {
+		status, b = h.request(t, "POST", "/api/v1/nodes", domain.ManualNode{Node: node, Enabled: true}, true)
+		if status != 200 {
+			t.Fatal("protocol node create failed")
+		}
+		saved := decode[domain.ManualNode](t, b)
+		ids = append(ids, saved.ID)
+		if saved.Node.Password != "" || saved.Node.UUID != "" || saved.Node.WS != nil {
+			t.Fatal("create response exposed credentials")
+		}
+		status, b = h.request(t, "GET", "/api/v1/nodes/"+saved.ID+"/edit", nil, false)
+		if status != 200 {
+			t.Fatal("explicit edit failed")
+		}
+		editable := decode[domain.ManualNode](t, b)
+		if editable.Node.Password != node.Password || editable.Node.UUID != node.UUID {
+			t.Fatal("edit did not recover encrypted credentials")
+		}
+		editable.Node.Name += " edited"
+		status, _ = h.request(t, "PUT", "/api/v1/nodes/"+saved.ID, editable, true)
+		if status != 200 {
+			t.Fatal("protocol node edit failed")
+		}
+	}
+	profile := domain.Profile{Name: "protocols", Groups: []domain.Group{{Name: "Proxy", Type: "select", NodeIDs: ids}}, Rules: []domain.Rule{{Type: "MATCH", Target: "Proxy", Enabled: true}}, Settings: domain.Settings{MixedPort: 7890}}
+	status, b = h.request(t, "POST", "/api/v1/profiles", profile, true)
+	if status != 200 {
+		t.Fatal("profile failed")
+	}
+	profile = decode[domain.Profile](t, b)
+	checkSecrets := func(data []byte) {
+		t.Helper()
+		for _, secret := range []string{"00000000-0000-4000-8000-000000000001", "fixture-http-user", "fixture-socks-password", "fixture-private-header", "fixture-private-path", "fixture-private-service", "fixture-trojan-password", "0123456789abcdef"} {
+			if bytes.Contains(data, []byte(secret)) {
+				t.Fatal("sensitive node parameter was exposed")
+			}
+		}
+	}
+	status, b = h.request(t, "GET", "/api/v1/state", nil, false)
+	if status != 200 {
+		t.Fatal("state failed")
+	}
+	checkSecrets(b)
+	status, b = h.request(t, "POST", "/api/v1/profiles/"+profile.ID+"/preview", map[string]any{"revision": profile.Revision}, true)
+	if status != 200 {
+		t.Fatal("preview failed")
+	}
+	checkSecrets(b)
+	response, e := http.Get(h.server.URL + "/api/v1/nodes/" + ids[0] + "/edit")
+	if e != nil {
+		t.Fatal(e)
+	}
+	response.Body.Close()
+	if response.StatusCode != 401 {
+		t.Fatal("unauthenticated credential edit accepted")
+	}
+}

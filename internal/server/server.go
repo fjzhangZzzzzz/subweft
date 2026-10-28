@@ -77,6 +77,11 @@ func read(w http.ResponseWriter, r *http.Request, v any) bool {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if e := decoder.Decode(v); e != nil {
+		var de *domain.Error
+		if errors.As(e, &de) {
+			fail(w, de)
+			return false
+		}
 		fail(w, domain.Invalid("invalid_json", "request"))
 		return false
 	}
@@ -106,7 +111,7 @@ func sourceMeta(v domain.Source) sourceView {
 }
 func releaseMeta(v domain.Release) domain.Release    { v.Config = nil; return v }
 func deviceMeta(v domain.Device) domain.Device       { v.Token = ""; return v }
-func nodeMeta(v domain.ManualNode) domain.ManualNode { v.Node.Password = ""; return v }
+func nodeMeta(v domain.ManualNode) domain.ManualNode { v.Node = domain.NodeMetadata(v.Node); return v }
 func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 	session, e := a.Auth.Session(r)
 	if e != nil {
@@ -165,7 +170,7 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 			fail(w, e)
 			return
 		}
-		respond(w, 200, map[string]any{"user": session.Name, "csrf": session.CSRF, "sources": sources, "nodes": nodes, "profiles": snap.Profiles, "devices": devices, "releases": releases, "active": snap.Active, "seen": seen, "validator": s.Validator.Identity(), "capabilities": map[string]any{"protocols": []string{"ss"}, "groups": []string{"select", "url-test", "fallback", "load-balance"}, "automaticPublish": false}})
+		respond(w, 200, map[string]any{"user": session.Name, "csrf": session.CSRF, "sources": sources, "nodes": nodes, "profiles": snap.Profiles, "devices": devices, "releases": releases, "active": snap.Active, "seen": seen, "validator": s.Validator.Identity(), "capabilities": map[string]any{"protocols": domain.Protocols(), "groups": []string{"select", "url-test", "fallback", "load-balance"}, "automaticPublish": false}})
 		return
 	}
 	switch kind {
@@ -241,6 +246,15 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case "nodes":
+		if id != "" && action == "edit" && r.Method == "GET" {
+			value, e := storage.Load[domain.ManualNode](ctx, s.Store, "node", id)
+			if e != nil {
+				fail(w, e)
+				return
+			}
+			respond(w, 200, value)
+			return
+		}
 		if action == "" && ((r.Method == "POST" && id == "") || (r.Method == "PUT" && id != "")) {
 			var in domain.ManualNode
 			if !read(w, r, &in) {

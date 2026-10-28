@@ -1755,3 +1755,60 @@ input[type="checkbox"] {
   font-size: 11px;
   color: var(--muted);
 }
+
+.secret-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.secret-control input {
+  padding-right: 44px;
+  width: 100%;
+}
+.secret-control .icon-button {
+  position: absolute;
+  right: 4px;
+  min-height: 32px;
+}
+.node-options {
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+  padding-top: 16px;
+}
+.header-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) 32px;
+  gap: 10px;
+  align-items: end;
+}
+.header-row > button {
+  margin-bottom: 20px;
+}
+.field-error {
+  color: var(--danger);
+}
+.field [aria-invalid="true"] {
+  border-color: var(--danger);
+}
+.error-field-link {
+  margin-left: 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+@media (max-width: 600px) {
+  .header-row {
+    grid-template-columns: minmax(0, 1fr) 32px;
+  }
+  .header-row .field:nth-child(2) {
+    grid-row: 2;
+    grid-column: 1;
+  }
+  .header-row > button {
+    grid-row: 1;
+    grid-column: 2;
+  }
+}

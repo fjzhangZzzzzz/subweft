@@ -1,11 +1,9 @@
 package source
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"errors"
 	"io"
 	"net"
@@ -124,8 +122,14 @@ func Parse(b []byte) ([]domain.Node, error) {
 	if len(b) == 0 {
 		return nil, domain.Invalid("empty_source", "content")
 	}
+	// Decode one bounded Base64 envelope; inner fields still receive full validation.
+	if !bytes.ContainsAny(b, ":") {
+		if decoded, e := decode64(strings.Join(strings.Fields(string(b)), "")); e == nil && len(decoded) > 0 && len(decoded) <= MaxBytes {
+			b = bytes.TrimSpace(decoded)
+		}
+	}
 	var nodes []domain.Node
-	if bytes.HasPrefix(b, []byte("ss://")) {
+	if first, _, _ := strings.Cut(string(b), "\n"); strings.Contains(first, "://") {
 		var e error
 		nodes, e = parseURIs(string(b))
 		if e != nil {
@@ -151,24 +155,8 @@ func Parse(b []byte) ([]domain.Node, error) {
 			return nil, domain.Invalid("yaml_alias_rejected", "content")
 		}
 		for i, node := range mapping.Content[1].Content {
-			if node.Kind != yaml.MappingNode {
-				return nil, domain.Invalid("invalid_node", "nodes."+strconv.Itoa(i))
-			}
-			for k := 0; k < len(node.Content); k += 2 {
-				key, value := node.Content[k].Value, node.Content[k+1]
-				tag := "!!str"
-				switch key {
-				case "port":
-					tag = "!!int"
-				case "udp":
-					tag = "!!bool"
-				case "name", "type", "server", "cipher", "password":
-				default:
-					return nil, domain.Invalid("unsupported_or_invalid_field", "nodes."+strconv.Itoa(i))
-				}
-				if value.Kind != yaml.ScalarNode || value.Tag != tag {
-					return nil, domain.Invalid("invalid_field_type", "nodes."+strconv.Itoa(i)+"."+key)
-				}
+			if e := validateNodeYAML(node); e != nil {
+				return nil, domain.Field("nodes."+strconv.Itoa(i), e)
 			}
 		}
 		var provider struct {
@@ -210,54 +198,4 @@ func hasAlias(n *yaml.Node, depth int) bool {
 		}
 	}
 	return false
-}
-func decode64(s string) ([]byte, error) {
-	for _, enc := range []*base64.Encoding{base64.RawURLEncoding, base64.URLEncoding, base64.RawStdEncoding, base64.StdEncoding} {
-		if b, e := enc.DecodeString(s); e == nil {
-			return b, nil
-		}
-	}
-	return nil, errors.New("invalid_base64")
-}
-func parseURIs(input string) ([]domain.Node, error) {
-	scanner := bufio.NewScanner(strings.NewReader(input))
-	scanner.Buffer(make([]byte, 4096), MaxBytes)
-	nodes := []domain.Node{}
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		u, e := url.Parse(line)
-		if e != nil || u.Scheme != "ss" || u.User == nil || u.RawQuery != "" {
-			return nil, domain.Invalid("unsupported_uri", "content")
-		}
-		var auth string
-		if password, ok := u.User.Password(); ok {
-			auth = u.User.Username() + ":" + password
-		} else {
-			b, e := decode64(u.User.Username())
-			if e != nil {
-				return nil, domain.Invalid("invalid_uri", "content")
-			}
-			auth = string(b)
-		}
-		method, password, ok := strings.Cut(auth, ":")
-		port, e := strconv.Atoi(u.Port())
-		if !ok || e != nil {
-			return nil, domain.Invalid("invalid_uri", "content")
-		}
-		name := u.Fragment
-		if name == "" {
-			name = u.Host
-		}
-		nodes = append(nodes, domain.Node{Name: name, Type: "ss", Server: u.Hostname(), Port: port, Cipher: method, Password: password, UDP: true})
-		if len(nodes) > MaxNodes {
-			return nil, domain.Invalid("invalid_node_count", "content")
-		}
-	}
-	if scanner.Err() != nil {
-		return nil, domain.Invalid("input_too_large", "content")
-	}
-	return nodes, nil
 }

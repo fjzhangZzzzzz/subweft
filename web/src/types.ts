@@ -4,9 +4,28 @@ export type Node = {
   type: string;
   server: string;
   port: number;
-  cipher: string;
-  password: string;
-  udp: boolean;
+  udp?: boolean;
+  cipher?: string;
+  password?: string;
+  username?: string;
+  uuid?: string;
+  alterId?: number;
+  tls?: boolean;
+  skipCertVerify?: boolean;
+  serverName?: string;
+  sni?: string;
+  alpn?: string[];
+  clientFingerprint?: string;
+  network?: string;
+  flow?: string;
+  realityOpts?: { publicKey: string; shortId: string };
+  wsOpts?: {
+    path: string;
+    headers: Record<string, string>;
+    maxEarlyData: number;
+    earlyDataHeaderName: string;
+  };
+  grpcOpts?: { serviceName: string };
 };
 export type ManualNode = Meta & { node: Node; enabled: boolean };
 export type Source = Meta & {

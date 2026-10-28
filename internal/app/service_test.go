@@ -181,3 +181,41 @@ func TestConcurrentEditCannotPublishStaleCandidate(t *testing.T) {
 		t.Fatal("stale publication became active")
 	}
 }
+
+func TestManualCredentialEditsRemainScopedToProtocol(t *testing.T) {
+	ctx := context.Background()
+	svc, _, _, _ := setup(t)
+	original, e := svc.SaveNode(ctx, domain.ManualNode{Node: domain.Node{Name: "manual", Type: "vmess", Server: "192.0.2.1", Port: 443, UUID: "00000000-0000-4000-8000-000000000001", Cipher: "auto"}, Enabled: true})
+	if e != nil {
+		t.Fatal(e)
+	}
+	original.Node.UUID = ""
+	updated, e := svc.SaveNode(ctx, original)
+	if e != nil || updated.Node.UUID == "" {
+		t.Fatal("same-protocol UUID was not retained")
+	}
+	updated.Node = domain.Node{Name: "manual", Type: "trojan", Server: "192.0.2.1", Port: 443}
+	if _, e = svc.SaveNode(ctx, updated); e == nil {
+		t.Fatal("credentials carried into another protocol")
+	}
+	account, e := svc.SaveNode(ctx, domain.ManualNode{Node: domain.Node{Name: "account", Type: "http", Server: "192.0.2.2", Port: 443, Username: "fixture-user", Password: "fixture-password"}, Enabled: true})
+	if e != nil {
+		t.Fatal(e)
+	}
+	account.Node.Password = ""
+	account, e = svc.SaveNode(ctx, account)
+	if e != nil || account.Node.Password != "fixture-password" {
+		t.Fatal("password was not retained")
+	}
+	account.Node.Username = "changed-user"
+	account.Node.Password = ""
+	if _, e = svc.SaveNode(ctx, account); e == nil {
+		t.Fatal("old password silently assigned to a changed account")
+	}
+	account.Node.Username = ""
+	account.Node.Password = ""
+	account, e = svc.SaveNode(ctx, account)
+	if e != nil || account.Node.Password != "" {
+		t.Fatal("optional authentication could not be cleared")
+	}
+}

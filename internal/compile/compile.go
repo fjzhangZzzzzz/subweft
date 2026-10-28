@@ -333,7 +333,27 @@ func Redact(config []byte) []byte {
 	if proxies, ok := v["proxies"].([]any); ok {
 		for _, p := range proxies {
 			if n, ok := p.(map[string]any); ok {
-				n["password"] = "[REDACTED]"
+				for _, key := range []string{"password", "username", "uuid"} {
+					if _, exists := n[key]; exists {
+						n[key] = "[REDACTED]"
+					}
+				}
+				if ws, ok := n["ws-opts"].(map[string]any); ok {
+					if _, exists := ws["path"]; exists {
+						ws["path"] = "[REDACTED]"
+					}
+					if headers, ok := ws["headers"].(map[string]any); ok {
+						for key := range headers {
+							headers[key] = "[REDACTED]"
+						}
+					}
+				}
+				if reality, ok := n["reality-opts"].(map[string]any); ok {
+					reality["short-id"] = "[REDACTED]"
+				}
+				if grpc, ok := n["grpc-opts"].(map[string]any); ok {
+					grpc["grpc-service-name"] = "[REDACTED]"
+				}
 			}
 		}
 	}

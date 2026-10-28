@@ -146,8 +146,13 @@ func (s *Service) SaveNode(ctx context.Context, v domain.ManualNode) (domain.Man
 		if old.Revision != v.Revision {
 			return v, domain.ErrConflict
 		}
-		if v.Node.Password == "" {
-			v.Node.Password = old.Node.Password
+		if v.Node.Type == old.Node.Type {
+			if v.Node.Password == "" && (v.Node.Type != "http" && v.Node.Type != "socks5" || v.Node.Username != "" && v.Node.Username == old.Node.Username) {
+				v.Node.Password = old.Node.Password
+			}
+			if v.Node.UUID == "" {
+				v.Node.UUID = old.Node.UUID
+			}
 		}
 	}
 	if e := domain.ValidateNode(v.Node); e != nil {

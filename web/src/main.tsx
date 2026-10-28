@@ -1,3 +1,13 @@
+import {
+  Button,
+  Field,
+  CheckField,
+  ModalTitle,
+  FormErrorContext,
+  ErrorFieldLink,
+} from "./ui";
+import type { T } from "./ui";
+import { NodeForm } from "./node-form";
 import React, { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
@@ -109,6 +119,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [login, setLogin] = useState(false);
   const [error, setError] = useState("");
+  const [fieldError, setFieldError] = useState({ field: "", message: "" });
   const [busy, setBusy] = useState(false);
   const [unsaved, setUnsaved] = useState(false);
   const [toast, setToast] = useState("");
@@ -121,6 +132,82 @@ function App() {
     if (!(e instanceof APIError))
       return t("请求失败，请重试。", "Request failed. Please retry.");
     const messages: Record<string, [string, string]> = {
+      invalid_name: [
+        "名称不能为空、含逗号或首尾空白。",
+        "Enter a name without commas or surrounding whitespace.",
+      ],
+      invalid_port: [
+        "端口须为 1 至 65535 的整数。",
+        "Use an integer port from 1 to 65535.",
+      ],
+      invalid_server: [
+        "请填写有效的服务器名称或 IP 地址。",
+        "Enter a server hostname or IP address.",
+      ],
+      invalid_field_type: [
+        "字段类型不正确，请检查整数、布尔值和文本格式。",
+        "Check field types: integers, booleans and strings must retain their types.",
+      ],
+      invalid_flow: [
+        "Vision Flow 要求 TLS 和 TCP 传输。",
+        "Vision Flow requires TLS and TCP transport.",
+      ],
+      invalid_websocket: [
+        "WebSocket 路径须以 / 开头；请检查 Early Data 范围。",
+        "Use a WebSocket path beginning with / and check Early Data bounds.",
+      ],
+      invalid_header: [
+        "标头名称须为 HTTP token，值不能含换行。",
+        "Use HTTP token header names and values without line breaks.",
+      ],
+      duplicate_header: [
+        "标头名称不能重复，不区分大小写。",
+        "Header names must be unique, ignoring case.",
+      ],
+      invalid_alpn: [
+        "ALPN 最多 8 项，协议名称不能为空。",
+        "Supply at most 8 nonempty ALPN protocol names.",
+      ],
+      invalid_grpc_service: [
+        "gRPC 服务名过长或含有控制字符。",
+        "The gRPC service name is too long or contains control characters.",
+      ],
+      unsupported_transport: [
+        "当前支持 TCP、WebSocket 和 gRPC。",
+        "Supported transports are TCP, WebSocket and gRPC.",
+      ],
+      unsupported_cipher: [
+        "所选加密方式不在当前协议的支持范围内。",
+        "Select a cipher supported for this protocol.",
+      ],
+      unsupported_fingerprint: [
+        "请选择当前支持的客户端指纹。",
+        "Select a supported client fingerprint.",
+      ],
+      invalid_uuid: [
+        "UUID 格式不正确，请填写标准 UUID。",
+        "Enter a valid standard UUID.",
+      ],
+      credentials_pair_required: [
+        "用户名和密码须同时填写或同时清除。",
+        "Supply both username and password, or clear both.",
+      ],
+      tls_required: [
+        "这些 TLS 参数要求先启用 TLS。",
+        "Enable TLS before setting these options.",
+      ],
+      invalid_reality: [
+        "检查 Reality 公钥、Short ID、SNI 和客户端指纹；须验证证书。",
+        "Check the Reality key, Short ID, SNI and client fingerprint; certificate verification is required.",
+      ],
+      transport_options_mismatch: [
+        "传输参数与所选方式不一致。",
+        "Transport options do not match the selected transport.",
+      ],
+      unsupported_or_invalid_uri: [
+        "代理 URI 含有不支持或无效的字段。请使用字段矩阵中的格式。",
+        "The proxy URI contains unsupported or invalid fields. Check the field matrix.",
+      ],
       conflict: [
         "内容已变化，请刷新后重试。",
         "The revision changed. Reload and retry.",
@@ -135,12 +222,12 @@ function App() {
         "Unsupported or invalid node field.",
       ],
       unsupported_protocol: [
-        "此闭环版本仅支持 Shadowsocks。",
-        "This initial slice supports Shadowsocks only.",
+        "该协议尚未支持，请查看字段矩阵。",
+        "This protocol is not supported yet. See the field matrix.",
       ],
       unsupported_root_field: [
-        "此版本接受仅含 proxies 的 provider YAML，或 ss:// 列表。",
-        "Use provider YAML with only proxies, or an ss:// list.",
+        "请使用仅含 proxies 的 provider YAML，或支持的代理 URI 列表。",
+        "Use provider YAML with only proxies, or a supported proxy URI list.",
       ],
       empty_group: [
         "策略组没有匹配成员，请选择来源或明确的内置出口。",
@@ -271,6 +358,7 @@ function App() {
   ) => {
     setBusy(true);
     setError("");
+    setFieldError({ field: "", message: "" });
     try {
       await work();
       await reload();
@@ -278,6 +366,10 @@ function App() {
       if (close) setModal(null);
     } catch (e) {
       setError(msg(e));
+      setFieldError({
+        field: e instanceof APIError ? e.field : "",
+        message: msg(e),
+      });
       if (!(e instanceof APIError) || e.message !== "conflict") {
         try {
           await reload();
@@ -307,25 +399,39 @@ function App() {
         }
       />,
     );
-  const showNode = (value?: ManualNode) =>
-    setModal(
-      <NodeForm
-        value={value}
-        t={t}
-        onSave={(inValue) =>
-          run(
-            () =>
-              api(
-                value ? `nodes/${value.id}` : "nodes",
-                value ? "PUT" : "POST",
-                inValue,
-              ),
-            t("节点已保存", "Node saved"),
-            true,
-          )
-        }
-      />,
-    );
+  const showNode = async (value?: ManualNode) => {
+    setBusy(true);
+    setError("");
+    setFieldError({ field: "", message: "" });
+    try {
+      const editable = value
+        ? await api<ManualNode>(`nodes/${value.id}/edit`)
+        : undefined;
+      setModal(
+        <NodeForm
+          value={editable}
+          protocols={state?.capabilities.protocols || []}
+          t={t}
+          onSave={(inValue) =>
+            run(
+              () =>
+                api(
+                  value ? `nodes/${value.id}` : "nodes",
+                  value ? "PUT" : "POST",
+                  inValue,
+                ),
+              t("节点已保存", "Node saved"),
+              true,
+            )
+          }
+        />,
+      );
+    } catch (e) {
+      setError(msg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
   const showProfile = () =>
     setModal(
       <NameForm
@@ -521,8 +627,8 @@ function App() {
           </a>
           <small>
             {t(
-              "开发预览 · 此闭环版本仅支持 Shadowsocks",
-              "Development preview · Shadowsocks initial slice",
+              "开发预览 · 六种协议的明确字段子集",
+              "Development preview · field subsets for six protocols",
             )}
           </small>
         </div>
@@ -625,7 +731,7 @@ function App() {
               )}
             </button>
             <span className="pill subtle">
-              {t("首个业务闭环", "Initial vertical slice")}
+              {t("开发预览", "Development preview")}
             </span>
           </div>
         </header>
@@ -789,8 +895,8 @@ function App() {
                   </div>
                   <div className="notice">
                     {t(
-                      "当前仅实现首个 SS 闭环，完整首版能力仍在扩展。",
-                      "The SS vertical slice is implemented. Full initial scope remains in progress.",
+                      "已支持六种协议的表单闭环，完整首版能力仍在扩展。",
+                      "Forms cover six protocol subsets. Full initial scope remains in progress.",
                     )}
                   </div>
                 </section>
@@ -854,8 +960,8 @@ function App() {
                       icon={<Network />}
                       title={t("从第一个来源开始", "Start with a source")}
                       text={t(
-                        "添加订阅地址，或导入 provider YAML / ss:// 列表。",
-                        "Add a subscription URL or import provider YAML / ss:// links.",
+                        "添加订阅地址，或导入 provider YAML、代理 URI / Base64 列表。",
+                        "Add a subscription URL or import provider YAML, proxy URI / Base64 lists.",
                       )}
                       action={
                         <Button onClick={() => showSource()}>
@@ -973,8 +1079,8 @@ function App() {
                     icon={<Server />}
                     title={t("独立维护的手工节点", "Your manual nodes")}
                     text={t(
-                      "通过表单创建 SS 节点，或从订阅节点复制。",
-                      "Create SS nodes with forms, or copy from a subscription.",
+                      "按协议表单创建节点，或从订阅节点复制。",
+                      "Create nodes with protocol forms, or copy from a subscription.",
                     )}
                     action={
                       <Button onClick={() => showNode()}>
@@ -1383,7 +1489,7 @@ function App() {
                     <dt>{t("校验器", "Validator")}</dt>
                     <dd className="mono wrap">{state.validator}</dd>
                     <dt>{t("节点协议", "Node protocols")}</dt>
-                    <dd>Shadowsocks · AEAD</dd>
+                    <dd>{state.capabilities.protocols.join(" · ")}</dd>
                     <dt>{t("自动发布", "Automatic publishing")}</dt>
                     <dd>
                       {t(
@@ -1443,11 +1549,25 @@ function App() {
         {error && (
           <div role="alert" className="alert error modal-error">
             {error}
+            <ErrorFieldLink
+              field={fieldError.field}
+              label={t("定位字段", "Go to field")}
+            />
           </div>
         )}
-        <fieldset disabled={busy} className="dialog-content">
-          {modal}
-        </fieldset>
+        <FormErrorContext.Provider
+          value={{
+            ...fieldError,
+            clear: () => {
+              setFieldError({ field: "", message: "" });
+              setError("");
+            },
+          }}
+        >
+          <fieldset disabled={busy} className="dialog-content">
+            {modal}
+          </fieldset>
+        </FormErrorContext.Provider>
       </dialog>
     </div>
   );
@@ -1465,25 +1585,6 @@ function Brand() {
         Subweft<span className="brand-dot">.</span>
       </span>
     </div>
-  );
-}
-function Button({
-  children,
-  primary = false,
-  danger = false,
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  primary?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      className={`button ${primary ? "primary" : ""} ${danger ? "danger-text" : ""}`}
-      {...props}
-    >
-      {children}
-    </button>
   );
 }
 function IconButton({
@@ -1549,62 +1650,6 @@ function Empty({
     </div>
   );
 }
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  const id = React.useId();
-  const control = React.isValidElement(children)
-    ? React.cloneElement(
-        children as React.ReactElement<Record<string, unknown>>,
-        { id, "aria-describedby": hint ? id + "-hint" : undefined },
-      )
-    : children;
-  return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
-      {control}
-      {hint && <small id={id + "-hint"}>{hint}</small>}
-    </div>
-  );
-}
-function CheckField({
-  label,
-  checked,
-  onChange,
-  disabled = false,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <label className="check-field">
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <span>{label}</span>
-    </label>
-  );
-}
-function ModalTitle({ title }: { title: string }) {
-  return (
-    <div className="modal-title">
-      <span className="eyebrow">SUBWEFT WORKSPACE</span>
-      <h2 id="subweft-dialog-title">{title}</h2>
-    </div>
-  );
-}
-type T = (zh: string, en: string) => string;
 function NameForm({
   title,
   initial = "",
@@ -1685,8 +1730,8 @@ function SourceForm({
       />
       <p className="muted">
         {t(
-          "此版本支持仅含 proxies 的 SS provider YAML，或 ss:// 列表。",
-          "This slice supports SS provider YAML containing only proxies, or ss:// lists.",
+          "支持六种协议的明确字段：仅含 proxies 的 provider YAML，代理 URI 列表，或其单层 Base64 编码。未知字段拒绝导入。",
+          "Use supported fields in provider YAML, proxy URI lists, or one Base64 envelope. Unknown fields are rejected.",
         )}
       </p>
       <Field
@@ -1798,118 +1843,6 @@ function SourceForm({
       <div className="form-footer">
         <Button primary type="submit">
           {t("保存来源", "Save source")}
-        </Button>
-      </div>
-    </form>
-  );
-}
-function NodeForm({
-  value,
-  t,
-  onSave,
-}: {
-  value?: ManualNode;
-  t: T;
-  onSave: (v: unknown) => unknown;
-}) {
-  const [node, setNode] = useState<Node>(
-    value?.node || {
-      name: "",
-      type: "ss",
-      server: "",
-      port: 443,
-      cipher: "aes-128-gcm",
-      password: "",
-      udp: true,
-    },
-  );
-  const [enabled, setEnabled] = useState(value?.enabled ?? true);
-  const change = <K extends keyof Node>(key: K, v: Node[K]) =>
-    setNode({ ...node, [key]: v });
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave({
-          id: value?.id || "",
-          revision: value?.revision || 0,
-          node,
-          enabled,
-        });
-      }}
-    >
-      <ModalTitle
-        title={t("Shadowsocks 手工节点", "Manual Shadowsocks node")}
-      />
-      <Field label={t("名称", "Name")}>
-        <input
-          autoFocus
-          required
-          value={node.name}
-          onChange={(e) => change("name", e.target.value)}
-        />
-      </Field>
-      <div className="form-grid">
-        <Field label={t("服务器", "Server")}>
-          <input
-            required
-            value={node.server}
-            onChange={(e) => change("server", e.target.value)}
-          />
-        </Field>
-        <Field label={t("端口", "Port")}>
-          <input
-            type="number"
-            min={1}
-            max={65535}
-            required
-            value={node.port}
-            onChange={(e) => change("port", Number(e.target.value))}
-          />
-        </Field>
-      </div>
-      <Field label={t("加密方式", "Cipher")}>
-        <select
-          value={node.cipher}
-          onChange={(e) => change("cipher", e.target.value)}
-        >
-          {["aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305"].map((v) => (
-            <option key={v}>{v}</option>
-          ))}
-        </select>
-      </Field>
-      <Field
-        label={t("密码", "Password")}
-        hint={
-          value
-            ? t(
-                "留空保留现有密码。",
-                "Leave blank to retain the existing password.",
-              )
-            : undefined
-        }
-      >
-        <input
-          type="password"
-          autoComplete="new-password"
-          required={!value}
-          value={node.password}
-          onChange={(e) => change("password", e.target.value)}
-        />
-      </Field>
-      <CheckField
-        label="UDP"
-        checked={node.udp}
-        onChange={(v) => change("udp", v)}
-      />
-      <CheckField
-        label={t("启用节点", "Enable node")}
-        checked={enabled}
-        onChange={setEnabled}
-      />
-      <div className="form-footer">
-        <Button primary type="submit">
-          {t("保存节点", "Save node")}
         </Button>
       </div>
     </form>
@@ -2092,7 +2025,7 @@ function ProfileEditor({
         <div>
           <span className="pill subtle">
             {active?.profileRevision === profile.revision
-              ? t("草稿与发布一致", "Draft matches release")
+              ? t("方案修订已发布", "Profile revision published")
               : t("草稿待发布", "Unpublished draft")}
           </span>
           <p className="muted">
@@ -2502,8 +2435,8 @@ function ProfileEditor({
                 <h3>{t("只读预览", "Read-only preview")}</h3>
                 <p>
                   {t(
-                    "密码已遮蔽。实际发布使用完整配置并执行内核校验。",
-                    "Passwords are redacted. Publishing validates the complete configuration.",
+                    "凭据及敏感传输参数已遮蔽。实际发布使用完整配置并执行内核校验。",
+                    "Credentials and sensitive transport values are redacted. Publishing validates the complete configuration.",
                   )}
                 </p>
               </div>
@@ -2594,8 +2527,8 @@ function ProfileEditor({
         />
         <span>
           {t(
-            "来源更新后需重新发布，设备刷新获取新版本",
-            "Publish after source refreshes; devices update on client refresh",
+            "来源或节点修改后需重新发布，设备刷新获取新版本",
+            "Publish after source or node changes; devices update on client refresh",
           )}
         </span>
       </div>

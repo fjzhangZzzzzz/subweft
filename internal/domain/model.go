@@ -24,15 +24,6 @@ type Meta struct {
 	ID       string `json:"id"`
 	Revision int    `json:"revision"`
 }
-type Node struct {
-	Name     string `json:"name" yaml:"name"`
-	Type     string `json:"type" yaml:"type"`
-	Server   string `json:"server" yaml:"server"`
-	Port     int    `json:"port" yaml:"port"`
-	Cipher   string `json:"cipher" yaml:"cipher"`
-	Password string `json:"password" yaml:"password"`
-	UDP      bool   `json:"udp" yaml:"udp"`
-}
 type ManualNode struct {
 	Meta
 	Node    Node `json:"node"`
@@ -129,29 +120,6 @@ func RandomToken() string {
 func NewID() string { return RandomToken()[:22] }
 func ValidName(name string) bool {
 	return name != "" && len(name) <= 160 && name == strings.TrimSpace(name) && !strings.ContainsAny(name, ",\r\n\x00")
-}
-func ValidateNode(n Node) error {
-	if !ValidName(n.Name) {
-		return Invalid("invalid_name", "name")
-	}
-	if n.Type != "ss" {
-		return Invalid("unsupported_protocol", "type")
-	}
-	if n.Server == "" || len(n.Server) > 253 || strings.ContainsAny(n.Server, " /\r\n\x00") {
-		return Invalid("invalid_server", "server")
-	}
-	if n.Port < 1 || n.Port > 65535 {
-		return Invalid("invalid_port", "port")
-	}
-	switch n.Cipher {
-	case "aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305":
-	default:
-		return Invalid("unsupported_cipher", "cipher")
-	}
-	if n.Password == "" || len(n.Password) > 2048 {
-		return Invalid("invalid_password", "password")
-	}
-	return nil
 }
 func ValidateSource(s Source) error {
 	if !ValidName(s.Name) {
