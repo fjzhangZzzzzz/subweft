@@ -1,6 +1,6 @@
 # 开发
 
-当前仓库是已确认的设计基线，没有应用代码、安装命令或可运行镜像。先读[设计](design.md)、[架构](architecture.md)、[支持矩阵](support-matrix.md)和[验收标准](acceptance.md)。
+当前仓库提供首个SS闭环的开发预览；[本地运行](running.md)给出构建和启动方式，[能力状态](status.md)区分当前实现与完整目标。尚无正式镜像。先读[设计](design.md)、[架构](architecture.md)、[支持矩阵](support-matrix.md)和[验收标准](acceptance.md)。
 
 ## 实现顺序
 
@@ -15,14 +15,20 @@
 
 ## 当前可执行检查
 
-需要Git和Python 3.10以上，不需要额外Python依赖：
+需要Git、Python 3.10+、Go 1.27和Node.js（含npm）。Python工具仅使用标准库：
 
 ```sh
+npm ci --prefix web --ignore-scripts
+npm run build --prefix web
+python tools/fetch_validator.py
+go test -tags webui ./...
+go vet ./...
+go mod verify
 python tools/check_docs.py
 git diff --check
 ```
 
-检查器核对Git索引中的文档链接、文本编码、被误跟踪的运行文件和链接文件。它不联网，不是秘密扫描或公开审计的替代品。应用测试在相关模块实现时增加，避免创建只验证未来占位实现的测试。
+检查器核对Git索引中的文档链接、文本编码、被误跟踪的运行文件和链接文件。它不联网，不是秘密扫描或公开审计的替代品。Go测试覆盖领域、加密存储、原生校验与HTTP/OIDC集成。测试身份提供方只在测试和本地开发工具中使用。CI分别运行Linux amd64与Windows，Linux arm64交叉构建不等于原生运行验收。
 
 ## 贡献与工件
 
@@ -36,6 +42,6 @@ git diff --check
 
 - [Mihomo文档](https://wiki.metacubex.one/)：可能超前于固定版本，字段以相应固定源码核对。
 - [Mihomo发行](https://github.com/MetaCubeX/mihomo/releases)：选择并固定版本和架构工件，不能使用运行时latest。
-- [Mihomo v1.19.33](https://github.com/MetaCubeX/mihomo/releases/tag/v1.19.33)：当前设计评估的候选参考，不构成已锁定或通过验证。
+- [Mihomo v1.19.33](https://github.com/MetaCubeX/mihomo/releases/tag/v1.19.33)：当前独立校验器已按commit及双重SHA256锁定；见[锁定文件](../internal/validator/lock.json)。原生测试覆盖有效/无效样本，不表示全部字段或连接验收。
 - [Pocket ID](https://pocket-id.org/)：首个实际OIDC验收目标，不使产品依赖某个私有实例。
 - [Clash Verge Rev URL schemes](https://www.clashverge.dev/guide/url_schemes.html)：导入协议不能推导已完成原配置替换。

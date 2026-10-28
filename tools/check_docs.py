@@ -12,7 +12,7 @@ from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 LINK = re.compile(r"!?\[[^\]\n]*\]\(([^\s)]+)(?:\s+[^)]*)?\)")
-FORBIDDEN_PARTS = {"node_modules", "__pycache__"}
+FORBIDDEN_PARTS = {"node_modules", "__pycache__", ".playwright-cli"}
 RUNTIME_ROOTS = {"data", "state", "cache", "snapshots", "output"}
 FORBIDDEN_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".key", ".pem", ".exe", ".pyc"}
 

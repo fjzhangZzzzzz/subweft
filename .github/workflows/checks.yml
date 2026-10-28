@@ -19,3 +19,42 @@ jobs:
         run: python3 tools/check_docs.py
       - name: Whitespace
         run: git show --format= --check HEAD
+
+  application:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '26.12.1'
+      - name: Build embedded interface
+        run: |
+          npm ci --prefix web --ignore-scripts --no-audit --no-fund
+          npm run format:check --prefix web
+          npm run build --prefix web
+      - name: Fetch and verify native validator
+        run: python tools/fetch_validator.py
+      - name: Tests, analysis and dependency integrity
+        run: |
+          go test -tags webui ./...
+          go vet ./...
+          go mod verify
+      - name: Build application
+        run: go build -tags webui -o output/subweft-ci ./cmd/subweft
+      - name: Linux arm64 cross-build (no runtime acceptance)
+        if: runner.os == 'Linux'
+        run: GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags webui -o output/subweft-linux-arm64 ./cmd/subweft

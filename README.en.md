@@ -4,7 +4,7 @@
 
 [简体中文](README.md) · [Design](docs/design.md) · [Scope](docs/support-matrix.md) · [Acceptance criteria](docs/acceptance.md)
 
-> This repository contains an approved design baseline, not a runnable application. There are no release artifacts. The features below are planned and are not suitable for production use yet.
+> Runnable development preview: the first Shadowsocks workflow is implemented. Full initial scope and production replacement are not accepted yet. No formal release artifacts are available.
 
 Subweft is intended for personal and household use. It brings subscriptions, manual nodes, policy groups, rules, configuration publishing, and device links into a form-based web interface.
 
@@ -18,13 +18,13 @@ Subweft is intended for personal and household use. It brings subscriptions, man
 - Native standard OIDC, with Pocket ID as the first integration to be accepted.
 - A single Go service with SQLite and an embedded React UI; Nginx provides HTTPS reverse proxying.
 
-The [support matrix](docs/support-matrix.md) defines the initial scope. Form coverage, parser acceptance, native Mihomo validation, and actual connectivity are separate claims.
+See [implemented fields](docs/fields.md), [current status](docs/status.md), and the full target [support matrix](docs/support-matrix.md). Form coverage, parser acceptance, native Mihomo validation, and actual connectivity are separate claims.
 
 The service keeps upstream credentials server-side. Revoking a device prevents future downloads; it cannot revoke proxy credentials already downloaded. Configuration changes are applied when the client refreshes its subscription.
 
 ## Deployment and status
 
-The initial production targets are Linux amd64 and arm64. Windows is intended for development and local evaluation. Initial client acceptance is limited to a local Clash Verge installation. No installation command, image, or client workflow has been verified yet.
+The initial production targets are Linux amd64 and arm64. Windows is intended for development and local evaluation. Initial client acceptance is limited to a local Clash Verge installation. A local development launcher is available. Production images and real client workflows remain unverified.
 
 Subweft does not run a traffic-serving proxy core. It invokes a pinned Mihomo executable for configuration validation. The deployer owns installation, TLS, host operations, and system recovery. The application database owns business state.
 
@@ -32,13 +32,14 @@ This is a new public project with no imported legacy Git history, URL compatibil
 
 ## Development
 
-See [development](docs/development.md). The checks available at this stage are:
+With Go 1.27, Node.js with npm, Python 3.10+, and Git installed:
 
 ```sh
-python tools/check_docs.py
-git diff --check
+python tools/dev.py
 ```
+
+Open `http://127.0.0.1:18880` and use the local test identity. Use synthetic data only. See [running locally](docs/running.md) and [development](docs/development.md).
 
 ## License
 
-Original repository content is licensed under [Apache-2.0](LICENSE). Mihomo and other dependencies retain their own licenses; distributing them requires a separate license review.
+Original repository content is licensed under [Apache-2.0](LICENSE). Mihomo and other dependencies retain their own licenses; see [third-party notices](THIRD_PARTY.md). Distributing them requires a separate license review.

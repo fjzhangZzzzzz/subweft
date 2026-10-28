@@ -21,7 +21,9 @@
 /bin/
 /web/node_modules/
 /web/dist/
+/internal/webui/dist/
 /coverage/
+/.playwright-cli/
 *.exe
 *.test
 __pycache__/
