@@ -87,7 +87,10 @@ func run() error {
 		return e
 	}
 	clientID := os.Getenv("SUBWEFT_OIDC_CLIENT_ID")
-	secret := os.Getenv("SUBWEFT_OIDC_CLIENT_SECRET")
+	secret, secretErr := configuredSecret("SUBWEFT_OIDC_CLIENT_SECRET")
+	if secretErr != nil {
+		return secretErr
+	}
 	adminRaw := os.Getenv("SUBWEFT_ADMIN_SUBJECTS")
 	if clientID == "" || secret == "" || adminRaw == "" {
 		return errors.New("oidc_credentials_and_admin_subjects_required")
@@ -174,3 +177,27 @@ func validateURLs(base, issuer, listen string, local bool) error {
 	return nil
 }
 func loopback(host string) bool { ip := net.ParseIP(host); return ip != nil && ip.IsLoopback() }
+
+func configuredSecret(name string) (string, error) {
+	value := os.Getenv(name)
+	file := os.Getenv(name + "_FILE")
+	if file == "" {
+		return value, nil
+	}
+	if value != "" {
+		return "", errors.New("conflicting_secret_inputs")
+	}
+	info, e := os.Lstat(file)
+	if e != nil || !info.Mode().IsRegular() || info.Size() > 16384 {
+		return "", errors.New("secret_file_unavailable")
+	}
+	b, e := os.ReadFile(file)
+	if e != nil {
+		return "", errors.New("secret_file_unavailable")
+	}
+	value = strings.TrimRight(string(b), "\r\n")
+	if value == "" {
+		return "", errors.New("secret_file_empty")
+	}
+	return value, nil
+}

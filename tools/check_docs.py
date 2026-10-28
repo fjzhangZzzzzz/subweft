@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LINK = re.compile(r"!?\[[^\]\n]*\]\(([^\s)]+)(?:\s+[^)]*)?\)")
 FORBIDDEN_PARTS = {"node_modules", "__pycache__", ".playwright-cli"}
 RUNTIME_ROOTS = {"data", "state", "cache", "snapshots", "output"}
+FORBIDDEN_NAMES = {"runtime.env", "compose.env", "oidc-client-secret"}
 FORBIDDEN_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".key", ".pem", ".exe", ".pyc"}
 
 
@@ -41,6 +42,8 @@ def main() -> int:
             errors.append(f"{name}: runtime or local-tooling directory is tracked")
         if file.suffix.lower() in FORBIDDEN_SUFFIXES or re.search(r"\.(?:db|sqlite3?)-(?:wal|shm|journal)$", name):
             errors.append(f"{name}: runtime or generated file is tracked")
+        if file.name in FORBIDDEN_NAMES:
+            errors.append(f"{name}: deployment secrets or environment are tracked")
         if file.name.startswith(".env") and file.name != ".env.example":
             errors.append(f"{name}: runtime environment file is tracked")
         if file.suffix.lower() not in {".md", ".py", ".yml", ".yaml", ".json", ".toml"} and file.name not in {"LICENSE", ".gitignore", ".gitattributes"}:

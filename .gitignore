@@ -31,3 +31,8 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+
+# Local deployment inputs (examples remain tracked)
+runtime.env
+compose.env
+oidc-client-secret

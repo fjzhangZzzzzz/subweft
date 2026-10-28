@@ -467,24 +467,33 @@ func intersects(a, b []string) bool {
 }
 func hasGroup(g map[string]domain.Group, name string) bool { _, ok := g[name]; return ok }
 func Redact(config []byte) []byte {
-	var v map[string]any
-	if yaml.Unmarshal(config, &v) != nil {
+	var root yaml.Node
+	if yaml.Unmarshal(config, &root) != nil || len(root.Content) != 1 || root.Content[0].Kind != yaml.MappingNode {
 		return []byte("preview unavailable\n")
 	}
-	if proxies, ok := v["proxies"].([]any); ok {
-		for i, p := range proxies {
-			if n, ok := p.(map[string]any); ok {
-				kind, _ := n["type"].(string)
-				proxies[i] = fields.Redact(kind, n)
+	mapping := root.Content[0]
+	for i := 0; i < len(mapping.Content); i += 2 {
+		key, value := mapping.Content[i].Value, mapping.Content[i+1]
+		switch key {
+		case "proxies":
+			for _, node := range value.Content {
+				var v map[string]any
+				if node.Decode(&v) != nil {
+					return []byte("preview unavailable\n")
+				}
+				kind, _ := v["type"].(string)
+				if node.Encode(fields.Redact(kind, v)) != nil {
+					return []byte("preview unavailable\n")
+				}
 			}
+		case "secret", "authentication":
+			_ = value.Encode("[REDACTED]")
 		}
 	}
-	for _, k := range []string{"secret", "authentication"} {
-		if _, ok := v[k]; ok {
-			v[k] = "[REDACTED]"
-		}
+	b, e := yaml.Marshal(&root)
+	if e != nil {
+		return []byte("preview unavailable\n")
 	}
-	b, _ := yaml.Marshal(v)
 	return b
 }
 

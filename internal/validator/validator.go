@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/fjzhangZzzzzz/subweft/internal/compile"
@@ -28,6 +29,7 @@ type Native struct {
 	Path    string
 	SHA256  string
 	WorkDir string
+	peak    atomic.Uint64
 	sem     chan struct{}
 }
 
@@ -177,7 +179,15 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 	var output limitedOutput
 	cmd.Stdout = &output
 	cmd.Stderr = &output
-	if e = cmd.Run(); e != nil {
+	e = cmd.Run()
+	if value := processPeakRSS(cmd.ProcessState); value > 0 {
+		for old := n.peak.Load(); value > old; old = n.peak.Load() {
+			if n.peak.CompareAndSwap(old, value) {
+				break
+			}
+		}
+	}
+	if e != nil {
 		if ctx.Err() != nil {
 			return domain.Invalid("validation_timeout", "publish")
 		}
@@ -187,4 +197,13 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 		return domain.Invalid("validator_output_unrecognized", "publish")
 	}
 	return nil
+}
+
+// PeakRSS reports the OS high-water RSS of the validation job, including waited descendants.
+func (n *Native) PeakRSS() uint64 { return n.peak.Load() }
+func PeakRSS(c Checker) uint64 {
+	if v, ok := c.(interface{ PeakRSS() uint64 }); ok {
+		return v.PeakRSS()
+	}
+	return 0
 }

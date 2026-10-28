@@ -41,3 +41,11 @@ func TestDeviceURLRewriteNeverTouchesCredentials(t *testing.T) {
 		t.Fatal("resource URL rewrite changed user data")
 	}
 }
+
+func TestRedactedPreviewKeepsOrderedDNSPolicy(t *testing.T) {
+	input := []byte("dns:\n  nameserver-policy:\n    +.first.invalid: [1.1.1.1]\n    '*.invalid': [8.8.8.8]\nproxies:\n  - {name: test, type: ss, password: fixture-preview-password}\n")
+	preview := string(compile.Redact(input))
+	if strings.Contains(preview, "fixture-preview-password") || strings.Index(preview, "+.first.invalid") > strings.Index(preview, "*.invalid") {
+		t.Fatal("redaction leaked a secret or reordered policy")
+	}
+}

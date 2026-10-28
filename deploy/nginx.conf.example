@@ -1,0 +1,19 @@
+# Place inside an existing HTTPS server with certificates managed by the deployer.
+# Do not use $request, $request_uri, args or Referer in subscription access logs.
+# No OIDC/auth_request/basic-auth here: the application owns all authorization.
+location / {
+    proxy_pass http://127.0.0.1:18880;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Connection "";
+    client_max_body_size 90m;
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 120s;
+    proxy_send_timeout 120s;
+    # Paths include device tokens or OIDC codes. Application status replaces URL logs.
+    access_log off;
+    # Nginx errors may contain the request URI too. Use existing upstream/health monitoring.
+    error_log /dev/null crit;
+}

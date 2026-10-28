@@ -3113,10 +3113,19 @@ function GroupForm({
             <CheckField
               key={s.id}
               label={`${s.name} (${s.nodeCount})${s.enabled ? "" : " · disabled"}`}
-              checked={g.sourceIds.includes(s.id)}
+              checked={g.allSources ? s.enabled : g.sourceIds.includes(s.id)}
+              disabled={g.allSources}
               onChange={() => set("sourceIds", toggle(g.sourceIds, s.id))}
             />
           ))}
+          {g.allSources && (
+            <p className="muted">
+              {t(
+                "自动包含现在和以后启用的来源。关闭此选项后可逐个选择来源或标签；手工节点可另外添加。",
+                "Includes current and future enabled sources. Turn this off to choose sources or tags; manual nodes remain independent.",
+              )}
+            </p>
+          )}
           {state.sources.length === 0 && (
             <span className="muted">
               {t("尚无来源，请先添加。", "Add a source first.")}
@@ -3129,6 +3138,7 @@ function GroupForm({
             {tags.map((tag) => (
               <button
                 key={tag}
+                disabled={g.allSources}
                 className={`tag-button ${g.tags.includes(tag) ? "selected" : ""}`}
                 aria-pressed={g.tags.includes(tag)}
                 onClick={() => set("tags", toggle(g.tags, tag))}

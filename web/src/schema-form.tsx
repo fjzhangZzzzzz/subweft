@@ -45,6 +45,15 @@ export function useCatalog() {
 }
 const labels: Record<string, [string, string]> = {
   name: ["名称", "Name"],
+  timeout: ["超时", "Timeout"],
+  retries: ["重试次数", "Retries"],
+  headers: ["请求标头", "Headers"],
+  proxy: ["请求代理", "Request proxy"],
+  userAgent: ["用户代理", "User agent"],
+  pattern: ["匹配模式", "Pattern"],
+  nameservers: ["解析器", "Nameservers"],
+  sni: ["TLS 服务器名称", "TLS server name"],
+  interval: ["间隔", "Interval"],
   server: ["服务器", "Server"],
   port: ["端口", "Port"],
   password: ["密码", "Password"],
@@ -191,7 +200,7 @@ export function ObjectForm({
               <strong>
                 {label}{" "}
                 <small>
-                  {key}
+                  {labels[key] ? key : ""}
                   {s.required ? " *" : ""}
                 </small>
               </strong>
@@ -217,32 +226,34 @@ export function ObjectForm({
           </div>
         );
       })}
-      <div className="form-grid">
-        <Field label={t("查找高级字段", "Find advanced field")}>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("输入字段名筛选", "Filter by field name")}
-          />
-        </Field>
-        <Field label={t("添加字段", "Add field")}>
-          <select
-            value=""
-            onChange={(e) => {
-              const k = e.target.value;
-              if (k) onChange({ ...value, [k]: defaultValue(properties[k]) });
-            }}
-          >
-            <option value="">{t("选择参数…", "Select a parameter…")}</option>
-            {add.map((k) => (
-              <option key={k} value={k}>
-                {labels[k] ? t(...labels[k]) + " · " : ""}
-                {k}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
+      {keys.some((k) => !shown.includes(k)) && (
+        <div className="form-grid">
+          <Field label={t("查找高级字段", "Find advanced field")}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("输入字段名筛选", "Filter by field name")}
+            />
+          </Field>
+          <Field label={t("添加字段", "Add field")}>
+            <select
+              value=""
+              onChange={(e) => {
+                const k = e.target.value;
+                if (k) onChange({ ...value, [k]: defaultValue(properties[k]) });
+              }}
+            >
+              <option value="">{t("选择参数…", "Select a parameter…")}</option>
+              {add.map((k) => (
+                <option key={k} value={k}>
+                  {labels[k] ? t(...labels[k]) + " · " : ""}
+                  {k}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      )}
     </div>
   );
 }

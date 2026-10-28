@@ -15,3 +15,12 @@ func TestLocalHTTPIsStrictlyLoopback(t *testing.T) {
 		}
 	}
 }
+
+func TestLocalCallbackAllowsHTTPSIdentityOnly(t *testing.T) {
+	if validateURLs("http://127.0.0.1:18880", "https://id.example.com", "127.0.0.1:18880", true) != nil {
+		t.Fatal("HTTPS identity must work with a loopback callback")
+	}
+	if validateURLs("http://127.0.0.1:18880", "http://id.example.com", "127.0.0.1:18880", true) == nil {
+		t.Fatal("remote HTTP identity accepted")
+	}
+}

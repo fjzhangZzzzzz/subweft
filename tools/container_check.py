@@ -13,6 +13,8 @@ def main():
         run('go','test','-c','-o',str(out/(package+'.test')),'./internal/'+package,env=env)
     (out/'ca-certificates.crt').write_bytes(Path('/etc/ssl/certs/ca-certificates.crt').read_bytes())
     run('docker','build','--provenance=false','--target','acceptance','-f','deploy/Dockerfile','-t','subweft-check:local','.')
+    compose_env={**os.environ,'SUBWEFT_IMAGE':'subweft-check:local','SUBWEFT_ENV_FILE':str(ROOT/'deploy/runtime.env.example'),'SUBWEFT_DATA_DIR':str(out),'SUBWEFT_KEY_FILE':str(ROOT/'deploy/runtime.env.example'),'SUBWEFT_OIDC_SECRET_FILE':str(ROOT/'deploy/runtime.env.example'),'SUBWEFT_MIHOMO_FILE':str(ROOT/'output/tools/mihomo')}
+    run('docker','compose','-f','deploy/compose.yml','config','--quiet',env=compose_env)
     flags=['docker','run','--rm','--read-only','--user','10001:10001','--cap-drop','ALL','--security-opt','no-new-privileges=true','--security-opt','apparmor=subweft','--security-opt','seccomp='+str(ROOT/'deploy/seccomp.json'),'--pids-limit','160','--memory','512m','--tmpfs','/tmp:rw,nosuid,nodev,size=256m,mode=1777','--tmpfs','/run/subweft:rw,nosuid,nodev,noexec,size=192m,uid=10001,gid=10001,mode=0700','--mount','type=bind,source='+str(ROOT)+',target=/workspace,readonly']
     for package in ('validator','app','server'):
         run(*flags,'--workdir','/workspace/internal/'+package,'--entrypoint','/workspace/output/container/'+package+'.test','subweft-check:local','-test.v','-test.timeout=5m')

@@ -1903,3 +1903,13 @@ details > summary {
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 850px) {
+  .identity {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .identity > .icon-button {
+    display: inline-flex;
+  }
+}

@@ -1,79 +1,67 @@
-# 本地运行开发预览
+# 本地运行
 
-当前可运行六种协议的字段子集的业务闭环，尚未完成完整首版、真实Pocket ID/Clash Verge和生产部署验收。使用虚构来源测试。详情见[字段矩阵](fields.md)和[能力状态](status.md)。
+完整操作路径见[人工验收入口](human-acceptance.md)。本地工具仅用于独立开发/验收，不修改生产配置。真实登录、客户端使用及生产切换状态见[能力状态](status.md)。
 
-## 一键本地启动
+## 启动
 
-需要已有Git、Go 1.27、Node.js（含npm）和Python 3.10以上。本次开发环境实际使用Go 1.27.3、Node 26.12.1；工具不会安装或升级系统软件。
+需要已有 Git、Go 1.27、Node.js（含 npm）和 Python 3.10+。开发及 CI 固定 Go 1.27.3、Node 26.12.1；工具不安装或升级系统软件。
 
 ```sh
 python tools/dev.py
 ```
 
-工具下载并校验锁定Mihomo、按package-lock安装前端依赖、构建内嵌UI和两个程序、初始化独立加密状态，然后仅在环回地址启动：
+打开 `http://127.0.0.1:18880`，以测试身份继续。独立测试 OIDC 与来源位于 `http://127.0.0.1:18881`。`/provider.yaml` 提供两条 SS 节点，`/all.yaml` 包含 13 协议代表节点，`/migration.yaml` 提供原模板语义的完整迁移样例；全部为虚构凭据和文档 IP，没有实际代理连接。
 
-- 应用：`http://127.0.0.1:18880`
-- 测试OIDC发行者与虚构订阅：`http://127.0.0.1:18881`
+工具校验并取得锁定 Mihomo 和测试地理数据，按 package-lock 安装依赖，构建内嵌 UI、静态 Go 应用及测试发行者，初始化独立加密状态后仅在环回 IP 监听。测试发行者不链接到产品程序。
 
-打开应用，选择统一身份登录，再点击测试身份页的继续按钮。添加HTTP来源时可使用 `http://127.0.0.1:18881/provider.yaml`。这个测试源只包含文档IP和虚构SS密码，不提供实际代理连接。
-
-来源更新 → 创建方案 → 表单调整策略组及规则 → 保存草稿 → 预览 → 校验并发布 → 新建设备 → 获取链接。来源刷新不自动发布草稿；客户端刷新主订阅后获得新发布。Clash导入按钮存在，但不能据此宣称已完成真实客户端导入和替换验收。
-
-本地脚本固定仅允许环回HTTP，同时仍完整执行OIDC。测试发行者不进入产品可执行程序；不可作为真实身份提供方。Ctrl+C停止两个子进程。状态位于 `output/dev/state`，独立密钥位于 `output/dev/master.key`；再次运行保留它们，缺失其中任意一个时拒绝自动重建。
-
-已构建后可用 `python tools/dev.py --skip-build`。下载需要代理时可显式添加 `--proxy`，只影响本次校验器下载，不修改系统代理；Go/npm依赖下载沿用用户自己的环境。
+Ctrl+C 停止两个子进程。状态位于 `output/dev/state`，独立密钥位于 `output/dev/master.key`；再次运行保留数据，缺少其中一个时拒绝自动重建。已构建可使用 `python tools/dev.py --skip-build`。下载需代理可显式添加 `--proxy`；Go/npm 依赖沿用自己的环境，不修改系统代理。
 
 ## 手工构建与检查
 
 ```sh
-npm ci --prefix web --ignore-scripts
+npm ci --prefix web --ignore-scripts --no-audit --no-fund
+npm run format:check --prefix web
 npm run build --prefix web
 python tools/fetch_validator.py
-go test ./...
+python tools/fetch_testdata.py
+go test -tags webui ./...
 go vet ./...
-go build -tags webui -o output/subweft ./cmd/subweft
+go mod verify
 ```
 
-Windows输出程序建议使用 `.exe` 后缀。未使用webui标签构建的服务拒绝启动，避免把缺少前端的构建误当成完整实例。前端生成文件不进入Git，必须先构建前端再构建带webui标签的程序。
+构建服务前设置 `CGO_ENABLED=0`，然后执行 `go build -tags webui -o output/bin/subweft ./cmd/subweft`；Windows 输出使用 `.exe`。Linux 的私有校验启动器必须是静态程序。未使用 webui 标签的服务拒绝启动；Go 构建前必须先生成前端。
 
-## 接入真实OIDC的配置边界
+`subweft version` 输出版本、Git commit、dirty 状态及平台。候选包由[打包工具](../tools/package.py)从干净已提交源码重建前端和三个平台程序，携带 BUILD.json、依赖许可和 SHA256SUMS；不携带 Mihomo、测试发行者、私有数据或密钥。候选工件与正式发布分别记录。
 
-初始化命令显式要求数据目录和密钥文件；serve不会重建缺失数据库或密钥。
+## 运行参数
 
-```sh
-output/subweft init --data-dir output/local-state --key-file output/local-master.key
-output/subweft serve --data-dir output/local-state --key-file output/local-master.key
-```
-
-serve需要从受限运行环境提供：
+初始化显式执行 `subweft init --data-dir <目录> --key-file <独立密钥文件>`。之后 `serve` 不创建丢失的数据库或密钥。
 
 | 环境键 | 含义 |
 |---|---|
-| SUBWEFT_BASE_URL | 明确的应用HTTPS基址，无路径 |
-| SUBWEFT_LISTEN | 监听地址，默认127.0.0.1:8080 |
-| SUBWEFT_OIDC_ISSUER | 精确issuer，默认要求HTTPS |
-| SUBWEFT_OIDC_CLIENT_ID | OIDC客户端ID |
-| SUBWEFT_OIDC_CLIENT_SECRET | 受限客户端密钥 |
-| SUBWEFT_ADMIN_SUBJECTS | 明确准入的管理员sub，逗号分隔 |
-| SUBWEFT_MIHOMO_PATH | 与锁定摘要相符的程序绝对路径 |
-| SUBWEFT_FETCH_ALLOW_CIDRS | 可选的明确来源目标允许列表，默认不开放私网 |
+| SUBWEFT_BASE_URL | 明确的应用 HTTPS 基址，无路径 |
+| SUBWEFT_LISTEN | 监听地址，默认 127.0.0.1:8080 |
+| SUBWEFT_OIDC_ISSUER | 发现文档中的精确 issuer，默认要求 HTTPS |
+| SUBWEFT_OIDC_CLIENT_ID | OIDC client ID |
+| SUBWEFT_OIDC_CLIENT_SECRET_FILE | 独立受限 secret 文件，与直接 secret 环境值互斥 |
+| SUBWEFT_ADMIN_SUBJECTS | 引导管理员精确 sub，逗号分隔 |
+| SUBWEFT_MIHOMO_PATH | 锁定摘要相符的程序绝对路径 |
+| SUBWEFT_VALIDATION_DIR | 生产必须为 tmpfs 内的校验目录 |
+| SUBWEFT_FETCH_ALLOW_CIDRS | 可选的精确来源目标例外，默认拒绝私网 |
+| SUBWEFT_LOCAL_HTTP | 仅用于明确环回 IP 的 HTTP 应用和监听；issuer 可为环回 HTTP 或真实 HTTPS |
 
-回调是基址加 `/auth/callback`。非本地模式只接受HTTPS基址和issuer；`SUBWEFT_LOCAL_HTTP=true`要求应用、issuer及监听均为明确环回IP。不要把机密放在命令参数、聊天、Git或截图中。
+生产安装、Secret 挂载、Nginx、升级与恢复使用[容器说明](container.md)。认证发现采用延迟连接，IdP 离线不阻止服务重启及已有设备下载；登录仍失败关闭。校验器或命名空间不可用时不降级发布。
 
-本轮不提供生产Compose、Nginx入口、证书或Pocket ID客户端注册。现有基础设施保持原状；正式接入与切换需要完成对应验收。
+## Linux 开发隔离与完整性能复现
 
-## 性能基准
+Linux 需发行版 bubblewrap、util-linux/prlimit，以及允许 bwrap 建立非特权 user/file/network namespace 的 AppArmor profile。Ubuntu 24.04 可核对发行版 apparmor-profiles 中的 bwrap-userns-restrict；CI 只在临时 runner 加载它。参考[上游 profile](https://gitlab.com/apparmor/apparmor/-/blob/master/profiles/apparmor/profiles/extras/bwrap-userns-restrict)。不要全局关闭 userns 限制或共享宿主网络。Windows 仅验收开发功能，不具备 Linux 命名空间隔离。
+
+构建应用与 devfixture 后执行：
 
 ```sh
-go run ./tools/bench -validator /absolute/path/to/mihomo -requests 200
+python tools/benchmark.py
 ```
 
-工具使用虚构的10个来源、2000个SS节点、5份方案、20台设备和10并发，在原生校验后测量真实授权下载接口。只输出汇总，不输出Token或配置正文。它使用临时加密数据库，结束后清理自己的临时数据。
+工具独立启动真实应用进程，通过实际 OIDC/HTTP API 抓取 10 个来源、2000 节点和 30 万条规则，发布 5 个方案、登记 20 台设备；测量 30 秒稳定后的应用 RSS、200 次/10 并发缓存配置下载以及版本化资源，最后下载一致性备份，用实际 CLI 恢复到新目录并重启，对比全部设备配置。只输出汇总，不输出 token 或配置正文，清理自己的合成数据和进程。
 
-该基准未包含大型公共规则集、外网传输或实际代理连接，Go heap不等于RSS；不能把其结果当作完整首版性能验收。
-
-## Linux 校验前置条件
-
-Linux 需安装发行版 bubblewrap、util-linux（prlimit），并允许该程序建立非特权用户/文件/网络命名空间。服务启动时验证隔离可用；不满足时拒绝校验器，不降级运行。Windows 仅用于可信合成数据的本地开发，不能据此验收 Linux 隔离。
-
-Ubuntu 24.04 的 AppArmor 可能允许建立 user namespace，但拒绝其中的 loopback 配置，表现为 validator_sandbox_namespace_denied。应先核对现有 bwrap profile，必要时采用发行版 apparmor-profiles 提供的 bwrap-userns-restrict；它允许 bwrap 建立隔离，并为其子程序移除 capabilities。不要关闭宿主全局 userns 限制或使用共享网络作为降级。CI 在临时 runner 上加载发行版 profile；生产主机须由部署方核对现有策略后单独配置。参考：[AppArmor 上游 profile](https://gitlab.com/apparmor/apparmor/-/blob/master/profiles/apparmor/profiles/extras/bwrap-userns-restrict)。
+Linux 使用 wait4 的操作系统高水位记录校验任务（含启动器）RSS；Windows 该项明确未测。容器测试另记录 cgroup 总峰值，包含应用、测试驱动、测试发行者和子进程。外网延迟及实际代理连接不在该性能数字内。

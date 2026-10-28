@@ -1,0 +1,46 @@
+name: subweft
+services:
+  subweft:
+    image: ${SUBWEFT_IMAGE:?set an immutable locally built image ID or pinned digest}
+    user: "10001:10001"
+    init: true
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:subweft
+      - seccomp:./seccomp.json
+    pids_limit: 160
+    mem_limit: 512m
+    cpus: 2
+    ports:
+      - "127.0.0.1:18880:8080"
+    env_file:
+      - ${SUBWEFT_ENV_FILE:-./runtime.env}
+    environment:
+      SUBWEFT_LISTEN: 0.0.0.0:8080
+      SUBWEFT_MIHOMO_PATH: /opt/subweft/mihomo
+      SUBWEFT_VALIDATION_DIR: /run/subweft/validation
+      SUBWEFT_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc-client-secret
+    volumes:
+      - type: bind
+        source: ${SUBWEFT_DATA_DIR:?set absolute data directory}
+        target: /var/lib/subweft
+      - type: bind
+        source: ${SUBWEFT_MIHOMO_FILE:?set absolute verified Mihomo executable}
+        target: /opt/subweft/mihomo
+        read_only: true
+    tmpfs:
+      - /run/subweft:rw,nosuid,nodev,noexec,size=256m,uid=10001,gid=10001,mode=0700
+      - /tmp:rw,nosuid,nodev,noexec,size=16m,uid=10001,gid=10001,mode=0700
+    secrets:
+      - source: master-key
+        target: master.key
+      - source: oidc-client-secret
+        target: oidc-client-secret
+secrets:
+  master-key:
+    file: ${SUBWEFT_KEY_FILE:?set absolute separate master key file}
+  oidc-client-secret:
+    file: ${SUBWEFT_OIDC_SECRET_FILE:?set absolute OIDC client secret file}
