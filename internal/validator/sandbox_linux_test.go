@@ -5,6 +5,7 @@ package validator
 import (
 	"context"
 	"encoding/json"
+	"golang.org/x/sys/unix"
 	"net"
 	"os"
 	"path/filepath"
@@ -48,6 +49,10 @@ func TestSandboxChild(t *testing.T) {
 	cwd, _ := os.Getwd()
 	if cwd != "/work" {
 		t.Skip("subprocess helper")
+	}
+	var limit unix.Rlimit
+	if unix.Getrlimit(unix.RLIMIT_NPROC, &limit) != nil || limit.Cur != 96 || limit.Max != 96 {
+		t.Fatal("sandbox process-count limit not applied")
 	}
 	b, e := os.ReadFile("/work/probe.json")
 	if e != nil {

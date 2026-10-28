@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 // Only the private validation directory and the locked static core are visible.
@@ -25,7 +26,12 @@ func isolatedCommand(ctx context.Context, binary, dir string, args []string) (*e
 			return nil, errors.New("validator_sandbox_unavailable")
 		}
 	}
-	flags := []string{"--as=2147483648", "--cpu=10", "--fsize=134217728", "--nofile=128", "--nproc=96", "--", "/usr/bin/bwrap", "--unshare-all", "--unshare-user", "--die-with-parent", "--new-session", "--cap-drop", "ALL", "--clearenv", "--setenv", "HOME", "/work", "--setenv", "GOMEMLIMIT", "128MiB", "--setenv", "GOMAXPROCS", "2", "--ro-bind", binary, "/validator", "--bind", dir, "/work", "--tmpfs", "/tmp", "--dev", "/dev", "--proc", "/proc", "--chdir", "/work", "--", "/validator"}
+	launcher, err := os.Executable()
+	if err != nil {
+		return nil, errors.New("validator_sandbox_launcher_unavailable")
+	}
+	// The child launcher applies the same hard process-count limit inside the new user namespace.
+	flags := []string{"--as=2147483648", "--cpu=10", "--fsize=134217728", "--nofile=128", "--", "/usr/bin/bwrap", "--unshare-all", "--unshare-user", "--die-with-parent", "--new-session", "--cap-drop", "ALL", "--clearenv", "--setenv", "HOME", "/work", "--setenv", "SUBWEFT_VALIDATOR_CHILD", "1", "--setenv", "GOMEMLIMIT", "128MiB", "--setenv", "GOMAXPROCS", "2", "--ro-bind", binary, "/validator", "--ro-bind", launcher, "/runner", "--bind", dir, "/work", "--tmpfs", "/tmp", "--dev", "/dev", "--proc", "/proc", "--chdir", "/work", "--", "/runner", childMarker}
 	flags = append(flags, args...)
 	cmd := exec.CommandContext(ctx, "/usr/bin/prlimit", flags...)
 	cmd.Env = []string{"PATH=/usr/bin:/bin"}
@@ -41,8 +47,23 @@ func checkSandbox(binary, dir string) error {
 	}
 	cmd.Stdout = nil
 	cmd.Stderr = nil
-	if cmd.Run() != nil {
-		return errors.New("validator_sandbox_unavailable")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		reason := strings.ToLower(string(output))
+		switch {
+		case strings.Contains(reason, "namespace"), strings.Contains(reason, "uid map"), strings.Contains(reason, "gid map"):
+			return errors.New("validator_sandbox_namespace_denied")
+		case strings.Contains(reason, "no such file"), strings.Contains(reason, "not found"):
+			return errors.New("validator_sandbox_static_executable_required")
+		case strings.Contains(reason, "memory"), strings.Contains(reason, "reserve"):
+			return errors.New("validator_sandbox_memory_limit")
+		case strings.Contains(reason, "resource temporarily unavailable"):
+			return errors.New("validator_sandbox_process_limit")
+		case strings.Contains(reason, "mount"):
+			return errors.New("validator_sandbox_mount_denied")
+		default:
+			return errors.New("validator_sandbox_preflight_failed")
+		}
 	}
 	return nil
 }
