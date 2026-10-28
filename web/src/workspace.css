@@ -594,3 +594,113 @@ details[open] > summary {
 body:has(dialog[open]) {
   overflow: hidden;
 }
+
+/* Keep device actions in the row so a scrolling table never clips them. */
+.action-menu[open] > div {
+  position: static;
+  box-shadow: none;
+  margin-top: 4px;
+}
+.action-menu {
+  margin: 0;
+}
+.row-actions:has(.action-menu[open]) {
+  align-items: flex-start;
+}
+.embedded-source-nodes .node-list {
+  max-height: none;
+  overflow: visible;
+}
+@media (max-width: 760px) {
+  .sidebar .nav-item {
+    flex-direction: column;
+    gap: 0;
+    min-height: 52px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  .sidebar .nav-item span {
+    display: block;
+  }
+  .responsive-cards,
+  .responsive-cards tbody,
+  .responsive-cards tr {
+    display: block;
+    width: 100%;
+  }
+  .responsive-cards thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .responsive-cards tr {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .responsive-cards tr:last-child {
+    border-bottom: 0;
+  }
+  .responsive-cards td,
+  .compact-table.responsive-cards td,
+  .compact-table.responsive-cards td:last-child {
+    display: flex;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding: 5px 0;
+    border: 0;
+    white-space: normal;
+    align-items: flex-start;
+    gap: 10px;
+    overflow-wrap: anywhere;
+  }
+  .responsive-cards td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    min-width: 72px;
+    flex: 0 0 72px;
+    font-size: 12px;
+  }
+  .responsive-cards td:last-child .actions,
+  .responsive-cards .row-actions {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .responsive-cards .table-name {
+    min-width: 0;
+  }
+  .responsive-cards .table-name strong {
+    overflow-wrap: anywhere;
+  }
+  .responsive-cards .action-menu[open] > div {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .responsive-cards .action-menu[open] {
+    width: 100%;
+  }
+  .responsive-cards td:nth-child(4) .check-field span {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+  .compact-table.responsive-cards td:nth-child(2) {
+    min-width: 0;
+  }
+  .embedded-source-nodes .node-list {
+    overflow: visible;
+    max-height: none;
+  }
+  .embedded-source-nodes .node-list > div {
+    flex-wrap: wrap;
+  }
+}

@@ -2,7 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import type { ManualNode, Node } from "./types";
 import { Button, Field, CheckField, ModalTitle } from "./ui";
 import type { T } from "./ui";
-import { useCatalog, ObjectForm, defaultValue } from "./schema-form";
+import {
+  useCatalog,
+  ObjectForm,
+  defaultValue,
+  fieldLabel,
+} from "./schema-form";
 import type { Schema, Value, ObjectValue } from "./schema-form";
 const keys: Record<string, string> = {
   skipCertVerify: "skip-cert-verify",
@@ -235,7 +240,7 @@ export function NodeForm({
       />
       <p className="muted">
         {t(
-          "所有参数均为固定内核版本的结构化字段。更换协议会清除原凭据与高级参数。",
+          "按协议填写连接信息。更换协议会清除原凭据与高级设置。",
           "All parameters are structured fields for the pinned core version. Changing protocol clears credentials and advanced options.",
         )}
       </p>
@@ -263,7 +268,7 @@ export function NodeForm({
                       ?.focus()
                   }
                 >
-                  {path}
+                  {fieldLabel(path, t)}
                 </button>
               </li>
             ))}

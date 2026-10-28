@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button, Field, CheckField, EditorDialog } from "./ui";
 import type { T } from "./ui";
 import type { Rule, Condition } from "./types";
@@ -175,6 +175,7 @@ export function RulesEditor({
   resources,
   t,
   onManageResources,
+  onDirtyChange,
 }: {
   rules: Rule[];
   onChange: (v: Rule[]) => void;
@@ -182,6 +183,7 @@ export function RulesEditor({
   resources: Resource[];
   t: T;
   onManageResources?: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -195,6 +197,13 @@ export function RulesEditor({
   const [batch, setBatch] = useState("");
   const [batchType, setBatchType] = useState("DOMAIN-SUFFIX");
   const [batchTarget, setBatchTarget] = useState(targets[0] || "DIRECT");
+  const dialogDirty =
+    (!!edit && JSON.stringify(edit.value) !== JSON.stringify(edit.original)) ||
+    (batchOpen && !!batch.trim());
+  useEffect(() => {
+    onDirtyChange(dialogDirty);
+    return () => onDirtyChange(false);
+  }, [dialogDirty, onDirtyChange]);
   const update = (i: number, r: Rule) =>
     onChange(rules.map((v, j) => (i === j ? r : v)));
   const add = (items: Rule[]) => {
@@ -334,7 +343,7 @@ export function RulesEditor({
         )}
       </div>
       <div className="table-scroll">
-        <table className="compact-table">
+        <table className="compact-table responsive-cards">
           <thead>
             <tr>
               <th>{t("顺序", "Order")}</th>
@@ -347,7 +356,7 @@ export function RulesEditor({
           <tbody>
             {filtered.slice(current * 50, current * 50 + 50).map(({ r, i }) => (
               <tr key={i} className={r.enabled ? "" : "muted"}>
-                <td>
+                <td data-label={t("顺序", "Order")}>
                   <CheckField
                     label={String(i + 1)}
                     checked={selected.includes(i)}
@@ -358,7 +367,7 @@ export function RulesEditor({
                     }
                   />
                 </td>
-                <td>
+                <td data-label={t("匹配条件", "Match")}>
                   <strong>{ruleLabel(r.type, t)}</strong>
                   <small className="cell-detail">
                     {r.type === "RULE-SET"
@@ -371,21 +380,21 @@ export function RulesEditor({
                         : r.value}
                   </small>
                 </td>
-                <td>
+                <td data-label={t("去向", "Destination")}>
                   {r.target === "DIRECT"
                     ? t("直连", "DIRECT")
                     : r.target === "REJECT"
                       ? t("拒绝", "REJECT")
                       : r.target}
                 </td>
-                <td>
+                <td data-label={t("启用", "Enabled")}>
                   <CheckField
                     label={t("启用规则", "Enable rule") + " " + (i + 1)}
                     checked={r.enabled}
                     onChange={(enabled) => update(i, { ...r, enabled })}
                   />
                 </td>
-                <td>
+                <td data-label={t("操作", "Actions")}>
                   <div className="actions">
                     <Button onClick={() => open(i, r)}>
                       {t("编辑", "Edit")}
@@ -641,7 +650,10 @@ export function RulesEditor({
           title={t("批量添加规则", "Add rules in batch")}
           t={t}
           dirty={!!batch.trim()}
-          onClose={() => setBatchOpen(false)}
+          onClose={() => {
+            setBatchOpen(false);
+            setBatch("");
+          }}
           footer={
             <Button
               primary

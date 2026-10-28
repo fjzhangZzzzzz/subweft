@@ -418,6 +418,7 @@ function App() {
     }
   }, [error]);
   const navigate = (next: Page) => {
+    if (next === page) return;
     if (
       unsaved &&
       !confirm(
@@ -605,6 +606,7 @@ function App() {
       >(`sources/${source.id}/nodes`);
       setModal(
         <SourceNodeList
+          onDirtyChange={setModalDirty}
           onChanged={() => void reload()}
           source={source}
           nodes={nodes}
@@ -642,44 +644,12 @@ function App() {
     try {
       const { url } = await api<{ url: string }>(`devices/${device.id}/link`);
       setModal(
-        <div>
-          <ModalTitle title={t("设备订阅链接", "Device subscription link")} />
-          <p className="muted">
-            {t(
-              "此链接包含设备凭据，请仅提供给这台设备。普通发布和切换配置不会改变链接。",
-              "This link contains a device credential. Publishing and profile switching preserve it.",
-            )}
-          </p>
-          <Field label={device.name}>
-            <input readOnly value={url} onFocus={(e) => e.target.select()} />
-          </Field>
-          <div className="actions">
-            <Button
-              primary
-              onClick={() => {
-                void navigator.clipboard
-                  .writeText(url)
-                  .then(() => setToast(t("链接已复制", "Link copied")));
-              }}
-            >
-              <Clipboard size={15} />
-              {t("复制链接", "Copy link")}
-            </Button>
-            <a
-              className="button"
-              href={`clash://install-config?url=${encodeURIComponent(url)}`}
-            >
-              <ExternalLink size={15} />
-              {t("导入 Clash Verge", "Import into Clash Verge")}
-            </a>
-          </div>
-          <p className="hint">
-            {t(
-              "导入可能新增配置，不能保证覆盖已有配置。请在客户端确认。",
-              "Import may create a new profile. Check the result in your client.",
-            )}
-          </p>
-        </div>,
+        <DeviceLink
+          device={device}
+          url={url}
+          t={t}
+          onCopied={() => setToast(t("链接已复制", "Link copied"))}
+        />,
       );
     } catch (e) {
       setError(msg(e));
@@ -1102,7 +1072,18 @@ function App() {
                     <Field label={t("节点来源", "Node source")}>
                       <select
                         value={nodeSource}
-                        onChange={(e) => setNodeSource(e.target.value)}
+                        onChange={(e) => {
+                          if (
+                            !unsaved ||
+                            confirm(
+                              t(
+                                "放弃未保存的节点修改？",
+                                "Discard unsaved node changes?",
+                              ),
+                            )
+                          )
+                            setNodeSource(e.target.value);
+                        }}
                       >
                         <option value="">
                           {t("手工节点", "Manual nodes")}
@@ -1115,19 +1096,26 @@ function App() {
                       </select>
                     </Field>
                   )}
-                  <div className="search">
-                    <Search size={15} />
-                    <input
-                      aria-label={t("搜索订阅", "Search sources")}
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder={t("搜索名称…", "Search names…")}
-                    />
-                  </div>
+                  {!(page === "nodes" && nodeSource) && (
+                    <div className="search">
+                      <Search size={15} />
+                      <input
+                        aria-label={
+                          page === "nodes"
+                            ? t("搜索节点", "Search nodes")
+                            : t("搜索订阅", "Search subscriptions")
+                        }
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder={t("搜索名称…", "Search names…")}
+                      />
+                    </div>
+                  )}
                 </div>
                 <section className="panel table-panel">
                   {page === "nodes" && nodeSource ? (
                     <SubscriptionNodes
+                      onDirtyChange={setUnsaved}
                       key={nodeSource}
                       source={state.sources.find((s) => s.id === nodeSource)!}
                       t={t}
@@ -1171,7 +1159,7 @@ function App() {
                         }
                       />
                     ) : (
-                      <table>
+                      <table className="responsive-cards">
                         <thead>
                           <tr>
                             <th>{t("名称与标签", "Name & tags")}</th>
@@ -1186,7 +1174,7 @@ function App() {
                             .filter((v) => filter(v.name))
                             .map((v) => (
                               <tr key={v.id}>
-                                <td>
+                                <td data-label={t("订阅", "Subscription")}>
                                   <div className="table-name">
                                     <span className="item-icon">
                                       <Network size={17} />
@@ -1206,7 +1194,7 @@ function App() {
                                     </div>
                                   </div>
                                 </td>
-                                <td>
+                                <td data-label={t("节点", "Nodes")}>
                                   <button
                                     className="link-button"
                                     onClick={() => void showNodes(v)}
@@ -1214,7 +1202,7 @@ function App() {
                                     {v.nodeCount} {t("个节点", "nodes")}
                                   </button>
                                 </td>
-                                <td>
+                                <td data-label={t("状态", "Status")}>
                                   <span
                                     className={`pill ${!v.enabled ? "subtle" : v.lastError ? "warning" : v.nodeCount ? "success" : "subtle"}`}
                                   >
@@ -1230,8 +1218,13 @@ function App() {
                                           : t("等待更新", "Awaiting refresh")}
                                   </span>
                                 </td>
-                                <td className="muted">{time(v.lastSuccess)}</td>
-                                <td>
+                                <td
+                                  data-label={t("最近成功", "Last success")}
+                                  className="muted"
+                                >
+                                  {time(v.lastSuccess)}
+                                </td>
+                                <td data-label={t("操作", "Actions")}>
                                   <div className="row-actions">
                                     {v.kind === "http" && (
                                       <Button
@@ -1290,7 +1283,7 @@ function App() {
                       }
                     />
                   ) : (
-                    <table>
+                    <table className="responsive-cards">
                       <thead>
                         <tr>
                           <th>{t("节点", "Node")}</th>
@@ -1304,23 +1297,23 @@ function App() {
                           .filter((v) => filter(v.node.name))
                           .map((v) => (
                             <tr key={v.id}>
-                              <td>
+                              <td data-label={t("节点", "Node")}>
                                 <strong>{v.node.name}</strong>
                                 <small>
                                   {v.node.server}:{v.node.port}
                                 </small>
                               </td>
-                              <td>
+                              <td data-label={t("协议", "Protocol")}>
                                 <span className="pill">
                                   {v.node.type.toUpperCase()}
                                 </span>
                               </td>
-                              <td>
+                              <td data-label={t("状态", "Status")}>
                                 {v.enabled
                                   ? t("启用", "Enabled")
                                   : t("停用", "Disabled")}
                               </td>
-                              <td>
+                              <td data-label={t("操作", "Actions")}>
                                 <div className="row-actions">
                                   <Button onClick={() => showNode(v)}>
                                     <Pencil size={14} />
@@ -1387,6 +1380,7 @@ function App() {
                         }
                         key={p.id}
                         onClick={() => {
+                          if (activeProfile?.id === p.id) return;
                           if (
                             !unsaved ||
                             confirm(
@@ -1476,7 +1470,7 @@ function App() {
                     }
                   />
                 ) : (
-                  <table>
+                  <table className="responsive-cards">
                     <thead>
                       <tr>
                         <th>{t("设备", "Device")}</th>
@@ -1489,7 +1483,7 @@ function App() {
                     <tbody>
                       {state.devices.map((d) => (
                         <tr key={d.id}>
-                          <td>
+                          <td data-label={t("设备", "Device")}>
                             <div className="table-name">
                               <span className="item-icon">
                                 <Monitor size={17} />
@@ -1504,13 +1498,13 @@ function App() {
                               </div>
                             </div>
                           </td>
-                          <td>
+                          <td data-label={t("绑定配置", "Profile")}>
                             {
                               state.profiles.find((p) => p.id === d.profileId)
                                 ?.name
                             }
                           </td>
-                          <td>
+                          <td data-label={t("授权状态", "Authorization")}>
                             <span
                               className={`pill ${d.state === "active" ? (d.expiresAt && Date.parse(d.expiresAt) <= Date.now() ? "warning" : "success") : d.state === "paused" ? "warning" : "subtle"}`}
                             >
@@ -1524,8 +1518,13 @@ function App() {
                                   : t("已吊销", "Revoked")}
                             </span>
                           </td>
-                          <td className="muted">{time(state.seen[d.id])}</td>
-                          <td>
+                          <td
+                            data-label={t("最近下载", "Last download")}
+                            className="muted"
+                          >
+                            {time(state.seen[d.id])}
+                          </td>
+                          <td data-label={t("操作", "Actions")}>
                             <div className="row-actions">
                               <Button
                                 disabled={d.state === "revoked"}
@@ -1674,31 +1673,36 @@ function App() {
                   <dl>
                     <dt>{t("应用版本", "Application version")}</dt>
                     <dd>{state.build?.version || "unknown"}</dd>
-                    <dt>{t("源码与平台", "Source and platform")}</dt>
-                    <dd className="mono wrap">
-                      {state.build?.commit.slice(0, 12)} ·{" "}
-                      {state.build?.platform}
-                      {state.build?.dirty
-                        ? t(" · 未提交构建", " · uncommitted build")
-                        : ""}
-                    </dd>
-                    <dt>{t("认证", "Authentication")}</dt>
-                    <dd>OIDC · PKCE · nonce</dd>
-                    <dt>{t("当前角色", "Current role")}</dt>
-                    <dd>
-                      {t(
-                        "管理员（明确 sub 准入）",
-                        "Administrator (explicit sub allowlist)",
-                      )}
-                    </dd>
-                    <dt>{t("业务状态", "Business state")}</dt>
-                    <dd>
-                      {t(
-                        "SQLite · 加密对象与发布快照",
-                        "SQLite · encrypted records and snapshots",
-                      )}
-                    </dd>
                   </dl>
+                  <details>
+                    <summary>{t("技术详情", "Technical details")}</summary>
+                    <dl>
+                      <dt>{t("源码与平台", "Source and platform")}</dt>
+                      <dd className="mono wrap">
+                        {state.build?.commit.slice(0, 12)} ·{" "}
+                        {state.build?.platform}
+                        {state.build?.dirty
+                          ? t(" · 未提交构建", " · uncommitted build")
+                          : ""}
+                      </dd>
+                      <dt>{t("认证", "Authentication")}</dt>
+                      <dd>OIDC · PKCE · nonce</dd>
+                      <dt>{t("当前角色", "Current role")}</dt>
+                      <dd>
+                        {t(
+                          "管理员（明确 sub 准入）",
+                          "Administrator (explicit sub allowlist)",
+                        )}
+                      </dd>
+                      <dt>{t("业务状态", "Business state")}</dt>
+                      <dd>
+                        {t(
+                          "SQLite · 加密对象与发布快照",
+                          "SQLite · encrypted records and snapshots",
+                        )}
+                      </dd>
+                    </dl>
+                  </details>
                   <p className="muted">
                     {t(
                       "备份包含加密业务状态与发布资源，不含主密钥。恢复必须另外持有原主密钥。",
@@ -1737,19 +1741,23 @@ function App() {
                 <section className="panel padded">
                   <FileCheck2 className="accent" size={26} />
                   <h2>{t("校验与能力", "Validation and scope")}</h2>
-                  <dl>
-                    <dt>{t("校验器", "Validator")}</dt>
-                    <dd className="mono wrap">{state.validator}</dd>
-                    <dt>{t("节点协议", "Node protocols")}</dt>
-                    <dd>{state.capabilities.protocols.join(" · ")}</dd>
-                    <dt>{t("自动发布", "Automatic publishing")}</dt>
-                    <dd>
-                      {t(
-                        "自动更新最近已发布的定义；保存草稿不会激活",
-                        "Updates use the last published definition; saving drafts never activates them",
-                      )}
-                    </dd>
-                  </dl>
+                  <dl></dl>
+                  <details>
+                    <summary>{t("技术详情", "Technical details")}</summary>
+                    <dl>
+                      <dt>{t("校验器", "Validator")}</dt>
+                      <dd className="mono wrap">{state.validator}</dd>
+                      <dt>{t("节点协议", "Node protocols")}</dt>
+                      <dd>{state.capabilities.protocols.join(" · ")}</dd>
+                      <dt>{t("自动发布", "Automatic publishing")}</dt>
+                      <dd>
+                        {t(
+                          "自动更新最近已发布的定义；保存草稿不会激活",
+                          "Updates use the last published definition; saving drafts never activates them",
+                        )}
+                      </dd>
+                    </dl>
+                  </details>
                 </section>
               </div>
               <div className="notice inline">
@@ -2131,8 +2139,8 @@ function SourceForm({
       </div>
       <CheckField
         label={t(
-          "从完整 Clash 配置中仅提取 proxies",
-          "Extract only proxies from a complete Clash configuration",
+          "从完整配置中只提取节点",
+          "Extract only nodes from a complete configuration",
         )}
         checked={extractNodes}
         onChange={setExtract}
@@ -2464,6 +2472,7 @@ function ProfileEditor({
   const [replacement, setReplacement] = useState("DIRECT");
   const [manageRulesets, setManageRulesets] = useState(false);
   const [resourcesDirty, setResourcesDirty] = useState(false);
+  const [rulesDirty, setRulesDirty] = useState(false);
   const [allowStale, setAllowStale] = useState(false);
   const [preview, setPreview] = useState<{
     config: string;
@@ -2475,6 +2484,12 @@ function ProfileEditor({
   }, [profile.id, profile.revision]);
   useEffect(() => setPreview(null), [profile.id]);
   const dirty = JSON.stringify(draft) !== JSON.stringify(profile);
+  const pendingChanges =
+    dirty ||
+    resourcesDirty ||
+    rulesDirty ||
+    (!!groupEdit &&
+      JSON.stringify(groupEdit.value) !== JSON.stringify(groupEdit.original));
   const releases = state.releases
     .filter((r) => r.profileId === profile.id)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -2495,19 +2510,19 @@ function ProfileEditor({
     });
   };
   useEffect(() => {
-    onDirtyChange(dirty);
+    onDirtyChange(pendingChanges);
     return () => onDirtyChange(false);
-  }, [dirty, onDirtyChange]);
+  }, [pendingChanges, onDirtyChange]);
   useEffect(() => {
     const guard = (event: BeforeUnloadEvent) => {
-      if (dirty) {
+      if (pendingChanges) {
         event.preventDefault();
         event.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", guard);
     return () => window.removeEventListener("beforeunload", guard);
-  }, [dirty]);
+  }, [pendingChanges]);
   const saveIfDirty = async () =>
     dirty
       ? await api<Profile>(`profiles/${profile.id}`, "PUT", draft)
@@ -2675,7 +2690,7 @@ function ProfileEditor({
               </Button>
             </div>
             <div className="table-scroll">
-              <table className="compact-table">
+              <table className="compact-table responsive-cards">
                 <thead>
                   <tr>
                     <th>{t("名称", "Name")}</th>
@@ -2687,10 +2702,10 @@ function ProfileEditor({
                 <tbody>
                   {draft.groups.map((g, i) => (
                     <tr key={i}>
-                      <td>
+                      <td data-label={t("名称", "Name")}>
                         <strong>{g.name}</strong>
                       </td>
-                      <td>
+                      <td data-label={t("选择策略", "Strategy")}>
                         {(
                           {
                             select: t("手动选择", "Manual select"),
@@ -2700,7 +2715,7 @@ function ProfileEditor({
                           } as Record<string, string>
                         )[g.type] || g.type}
                       </td>
-                      <td>
+                      <td data-label={t("组内成员", "Members")}>
                         {g.allSources
                           ? t(
                               "全部订阅（含以后新增）",
@@ -2722,7 +2737,7 @@ function ProfileEditor({
                           </small>
                         )}
                       </td>
-                      <td>
+                      <td data-label={t("操作", "Actions")}>
                         <div className="actions">
                           <Button onClick={() => editGroup(i, g)}>
                             {t("编辑", "Edit")}
@@ -2883,6 +2898,7 @@ function ProfileEditor({
             onChange={(rules) => setDraft({ ...draft, rules })}
             targets={options}
             resources={state.resources || []}
+            onDirtyChange={setRulesDirty}
             onManageResources={() => setManageRulesets(true)}
             t={t}
           />
@@ -3240,7 +3256,11 @@ function SourceNodeList({
   nodes,
   t,
   onCopy,
+  embedded = false,
+  onDirtyChange,
 }: {
+  embedded?: boolean;
+  onDirtyChange: (dirty: boolean) => void;
   onChanged: () => void;
   source: Source;
   nodes: Array<
@@ -3282,6 +3302,25 @@ function SourceNodeList({
     notes: "",
   });
   const [localError, setLocalError] = useState("");
+  const overrideOriginal = overrideEdit?.override || {
+    identity: overrideEdit?.identity || "",
+    name: "",
+    excluded: false,
+    notes: "",
+  };
+  const overrideDirty =
+    !!overrideEdit &&
+    (overrideValue.identity !== overrideOriginal.identity ||
+      overrideValue.name !== overrideOriginal.name ||
+      overrideValue.excluded !== overrideOriginal.excluded ||
+      overrideValue.notes !== overrideOriginal.notes);
+  useEffect(() => {
+    onDirtyChange(overrideDirty);
+    return () => onDirtyChange(false);
+  }, [overrideDirty, onDirtyChange]);
+  const discardOverride = () =>
+    !overrideDirty ||
+    confirm(t("放弃未保存的节点修改？", "Discard unsaved node changes?"));
   const saveOverride = async (remove = false, value = overrideValue) => {
     try {
       const saved = await api<Source>(
@@ -3315,8 +3354,12 @@ function SourceNodeList({
   );
   const pages = Math.max(1, Math.ceil(filtered.length / 50));
   return (
-    <div>
-      <ModalTitle title={source.name + " · " + t("节点", "Nodes")} />
+    <div className={embedded ? "embedded-source-nodes" : undefined}>
+      {embedded ? (
+        <h2>{source.name + " · " + t("节点", "Nodes")}</h2>
+      ) : (
+        <ModalTitle title={source.name + " · " + t("节点", "Nodes")} />
+      )}
       <p className="muted">
         {t(
           "仅展示非机密字段。需要修改协议参数时，可复制为手工节点。",
@@ -3352,7 +3395,11 @@ function SourceNodeList({
               )}{" "}
               {o.name || o.notes}
             </span>
-            <Button onClick={() => void saveOverride(true, o)}>
+            <Button
+              onClick={() => {
+                if (discardOverride()) void saveOverride(true, o);
+              }}
+            >
               {t("清除覆盖", "Clear override")}
             </Button>
           </div>
@@ -3392,10 +3439,18 @@ function SourceNodeList({
             <Button onClick={() => void saveOverride()}>
               {t("保存覆盖", "Save override")}
             </Button>
-            <Button onClick={() => void saveOverride(true)}>
+            <Button
+              onClick={() => {
+                if (discardOverride()) void saveOverride(true);
+              }}
+            >
               {t("清除覆盖", "Clear override")}
             </Button>
-            <Button onClick={() => setOverrideEdit(undefined)}>
+            <Button
+              onClick={() => {
+                if (discardOverride()) setOverrideEdit(undefined);
+              }}
+            >
               {t("取消", "Cancel")}
             </Button>
           </div>
@@ -3416,6 +3471,7 @@ function SourceNodeList({
             <Button
               disabled={node.ambiguous || !node.identity}
               onClick={() => {
+                if (!discardOverride()) return;
                 setOverrideEdit(node);
                 setOverrideValue(
                   node.override?.identity
@@ -3433,7 +3489,14 @@ function SourceNodeList({
                 ? t("身份歧义，禁止覆盖", "Ambiguous identity")
                 : t("本地覆盖", "Local override")}
             </Button>
-            <Button onClick={() => onCopy(node)}>
+            <Button
+              onClick={() => {
+                if (discardOverride()) {
+                  setOverrideEdit(undefined);
+                  onCopy(node);
+                }
+              }}
+            >
               <Copy size={14} />
               {t("复制", "Copy")}
             </Button>
@@ -3868,6 +3931,7 @@ function NewProfileForm({
 }
 
 function SubscriptionNodes({
+  onDirtyChange,
   source,
   t,
   onChanged,
@@ -3875,6 +3939,7 @@ function SubscriptionNodes({
 }: {
   source: Source;
   t: T;
+  onDirtyChange: (dirty: boolean) => void;
   onChanged: () => void;
   onCopy: (name: string) => void;
 }) {
@@ -3909,6 +3974,8 @@ function SubscriptionNodes({
         </p>
       ) : nodes ? (
         <SourceNodeList
+          onDirtyChange={onDirtyChange}
+          embedded
           source={source}
           nodes={nodes}
           t={t}
@@ -3918,6 +3985,74 @@ function SubscriptionNodes({
       ) : (
         <p>{t("正在加载节点…", "Loading nodes…")}</p>
       )}
+    </div>
+  );
+}
+
+function DeviceLink({
+  device,
+  url,
+  t,
+  onCopied,
+}: {
+  device: Device;
+  url: string;
+  t: T;
+  onCopied: () => void;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div>
+      <ModalTitle title={t("设备订阅链接", "Device subscription link")} />
+      <p className="muted">
+        {t(
+          "此链接包含设备凭据，请仅提供给这台设备。普通发布和切换配置不会改变链接。",
+          "This link contains a device credential. Publishing and profile switching preserve it.",
+        )}
+      </p>
+      <div className="field">
+        <label htmlFor="device-link-value">{device.name}</label>
+        <div className="secret-control">
+          <input
+            id="device-link-value"
+            type={visible ? "text" : "password"}
+            readOnly
+            value={url}
+            onFocus={(e) => e.target.select()}
+          />
+          <Button
+            aria-label={
+              visible ? t("隐藏链接", "Hide link") : t("显示链接", "Show link")
+            }
+            aria-pressed={visible}
+            onClick={() => setVisible(!visible)}
+          >
+            {visible ? t("隐藏", "Hide") : t("显示", "Show")}
+          </Button>
+        </div>
+      </div>
+      <div className="actions">
+        <Button
+          primary
+          onClick={() => void navigator.clipboard.writeText(url).then(onCopied)}
+        >
+          <Clipboard size={15} />
+          {t("复制链接", "Copy link")}
+        </Button>
+        <a
+          className="button"
+          href={`clash://install-config?url=${encodeURIComponent(url)}`}
+        >
+          <ExternalLink size={15} />
+          {t("导入 Clash Verge", "Import into Clash Verge")}
+        </a>
+      </div>
+      <p className="hint">
+        {t(
+          "导入可能新增配置，不能保证覆盖已有配置。请在客户端确认。",
+          "Import may create a new profile. Check the result in your client.",
+        )}
+      </p>
     </div>
   );
 }

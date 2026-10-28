@@ -46,9 +46,9 @@ export function ImportWizard({
   const [created, setCreated] = useState("");
   const [fileError, setFileError] = useState("");
   useEffect(() => {
-    onDirtyChange(open && !created && !!content);
+    onDirtyChange(!created && !!content);
     return () => onDirtyChange(false);
-  }, [open, created, content, onDirtyChange]);
+  }, [created, content, onDirtyChange]);
   const readFiles = async (
     list: FileList | null,
     set: (v: ImportFile[]) => void,

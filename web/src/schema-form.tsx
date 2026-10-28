@@ -86,6 +86,10 @@ const labels: Record<string, [string, string]> = {
   "dialer-proxy": ["前置代理或组", "Dialer proxy"],
   tls: ["启用 TLS", "Enable TLS"],
 };
+export const fieldLabel = (path: string, t: T) => {
+  const key = path.split(".").at(-1) || path;
+  return labels[key] ? t(...labels[key]) : key;
+};
 export const defaultValue = (s: Schema): Value =>
   s.kind === "object"
     ? Object.fromEntries(
@@ -127,7 +131,7 @@ export function SecretControl({
           <textarea
             id={id}
             name={name}
-            aria-label={name}
+            aria-label={fieldLabel(name, t)}
             aria-invalid={props["aria-invalid"]}
             aria-describedby={props["aria-describedby"]}
             rows={5}
@@ -141,7 +145,7 @@ export function SecretControl({
             {...props}
             id={id}
             name={name}
-            aria-label={name}
+            aria-label={fieldLabel(name, t)}
             type={show ? "text" : "password"}
             autoComplete="new-password"
             spellCheck={false}
@@ -152,7 +156,10 @@ export function SecretControl({
         <button
           type="button"
           className="icon-button"
-          aria-label={(show ? t("隐藏 ", "Hide ") : t("显示 ", "Show ")) + name}
+          aria-label={
+            (show ? t("隐藏 ", "Hide ") : t("显示 ", "Show ")) +
+            fieldLabel(name, t)
+          }
           aria-pressed={show}
           onClick={() => setShow(!show)}
         >
@@ -163,7 +170,7 @@ export function SecretControl({
         <input
           type="file"
           accept=".pem,.crt,.key,.txt"
-          aria-label={name + " PEM"}
+          aria-label={fieldLabel(name, t) + " PEM"}
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file && file.size <= 65536) void file.text().then(onChange);

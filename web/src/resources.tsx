@@ -1,6 +1,6 @@
 import { ruleTypes, ruleLabel } from "./rules";
 import { SecretControl } from "./schema-form";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Field, CheckField } from "./ui";
 import type { T } from "./ui";
 import type { Meta } from "./types";
@@ -68,7 +68,6 @@ export function ResourcesPanel({
           lastSuccess: "",
         },
       );
-      onDirtyChange(true);
     });
   if (edit)
     return (
@@ -76,6 +75,7 @@ export function ResourcesPanel({
         key={edit.id}
         value={edit}
         initialEntries={entries || []}
+        onDirtyChange={onDirtyChange}
         t={t}
         busy={busy}
         onCancel={() => {
@@ -196,6 +196,7 @@ export function ResourcesPanel({
 function ResourceForm({
   value,
   initialEntries,
+  onDirtyChange,
   t,
   busy,
   onSave,
@@ -203,6 +204,7 @@ function ResourceForm({
 }: {
   value: Resource;
   initialEntries: string[];
+  onDirtyChange: (dirty: boolean) => void;
   t: T;
   busy: boolean;
   onSave: (v: unknown) => void;
@@ -216,6 +218,23 @@ function ResourceForm({
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [fileError, setFileError] = useState("");
+  const dirty =
+    JSON.stringify(draft) !== JSON.stringify(value) ||
+    url !== (value.url || "") ||
+    JSON.stringify(entries) !== JSON.stringify(initialEntries) ||
+    !!upload ||
+    !!batch.trim();
+  useEffect(() => {
+    onDirtyChange(dirty);
+    return () => onDirtyChange(false);
+  }, [dirty, onDirtyChange]);
+  const cancel = () => {
+    if (
+      !dirty ||
+      confirm(t("放弃未保存的表单修改？", "Discard unsaved form changes?"))
+    )
+      onCancel();
+  };
   const set = (k: string, v: unknown) => setDraft({ ...draft, [k]: v });
   const filtered = entries
     .map((v, i) => ({ v, i }))
@@ -225,12 +244,33 @@ function ResourceForm({
       className="panel settings-form"
       onSubmit={(e) => {
         e.preventDefault();
+        const isLocalRuleset =
+          draft.kind === "local" && draft.type === "ruleset";
+        if (
+          (batch.trim() ||
+            JSON.stringify(entries) !== JSON.stringify(initialEntries)) &&
+          !isLocalRuleset &&
+          !confirm(
+            t(
+              "修改的条目不会保存到当前类型，仍要继续？",
+              "Edited entries cannot be saved for this type. Continue?",
+            ),
+          )
+        )
+          return;
         const { digest, count, lastError, lastSuccess, ...definition } = draft;
         onSave({
           ...definition,
           url,
-          entries:
-            draft.kind === "local" && draft.type === "ruleset" ? entries : null,
+          entries: isLocalRuleset
+            ? [
+                ...entries,
+                ...batch
+                  .split(/\r?\n/)
+                  .map((v) => v.trim())
+                  .filter(Boolean),
+              ]
+            : null,
           ...(upload ? { data: upload } : {}),
         });
       }}
@@ -289,7 +329,17 @@ function ResourceForm({
               onChange={(e) => set("behavior", e.target.value)}
             >
               {["domain", "ipcidr", "classical"].map((k) => (
-                <option key={k}>{k}</option>
+                <option key={k} value={k}>
+                  {
+                    (
+                      {
+                        domain: t("域名", "Domains"),
+                        ipcidr: t("IP 地址段", "IP ranges"),
+                        classical: t("混合规则", "Mixed rules"),
+                      } as Record<string, string>
+                    )[k]
+                  }
+                </option>
               ))}
             </select>
           </Field>
@@ -298,8 +348,8 @@ function ResourceForm({
               value={draft.format}
               onChange={(e) => set("format", e.target.value)}
             >
-              <option>yaml</option>
-              <option>text</option>
+              <option value="yaml">YAML</option>
+              <option value="text">{t("纯文本", "Plain text")}</option>
             </select>
           </Field>
         </div>
@@ -492,7 +542,7 @@ function ResourceForm({
         onChange={(v) => set("enabled", v)}
       />
       <div className="form-footer">
-        <Button onClick={onCancel}>{t("取消", "Cancel")}</Button>
+        <Button onClick={cancel}>{t("取消", "Cancel")}</Button>
         <Button primary type="submit" disabled={busy}>
           {t("保存", "Save resource")}
         </Button>

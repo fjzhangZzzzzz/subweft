@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button, Field, CheckField } from "./ui";
 import type { T } from "./ui";
 import type { Meta, Profile } from "./types";
@@ -32,20 +32,25 @@ export function UsersPanel({
 }) {
   const [edit, setEdit] = useState<User>();
   const [query, setQuery] = useState("");
+  const [original, setOriginal] = useState<User>();
+  const dirty = !!edit && JSON.stringify(edit) !== JSON.stringify(original);
+  useEffect(() => {
+    onDirtyChange(dirty);
+    return () => onDirtyChange(false);
+  }, [dirty, onDirtyChange]);
   const open = (value?: User) => {
-    setEdit(
-      value || {
-        id: "",
-        revision: 0,
-        issuer,
-        subject: "",
-        name: "",
-        role: "user",
-        enabled: true,
-        profileIds: [],
-      },
-    );
-    onDirtyChange(true);
+    const initial = value || {
+      id: "",
+      revision: 0,
+      issuer,
+      subject: "",
+      name: "",
+      role: "user",
+      enabled: true,
+      profileIds: [],
+    };
+    setOriginal(initial);
+    setEdit(initial);
   };
   return (
     <section>
@@ -55,14 +60,16 @@ export function UsersPanel({
           <h1>{t("使用者与授权", "Users & grants")}</h1>
           <p>
             {t(
-              "使用 OIDC issuer 与 sub 识别身份。不会因为首次登录自动授予权限。",
+              "使用身份提供方的用户标识授权，首次登录不会自动获得权限。",
               "Identities use OIDC issuer and sub; first login never grants access.",
             )}
           </p>
         </div>
-        <Button primary onClick={() => open()}>
-          {t("添加使用者", "Add user")}
-        </Button>
+        {!edit && (
+          <Button primary onClick={() => open()}>
+            {t("添加使用者", "Add user")}
+          </Button>
+        )}
       </div>
       {edit ? (
         <form
@@ -90,10 +97,12 @@ export function UsersPanel({
               onChange={(e) => setEdit({ ...edit, name: e.target.value })}
             />
           </Field>
-          <Field label="OIDC issuer">
+          <Field
+            label={t("身份提供方地址（Issuer）", "Identity provider (issuer)")}
+          >
             <input value={edit.issuer} readOnly />
           </Field>
-          <Field label="OIDC sub">
+          <Field label={t("用户标识（Sub）", "User identifier (sub)")}>
             <input
               required
               value={edit.subject}
@@ -101,6 +110,12 @@ export function UsersPanel({
               onChange={(e) => setEdit({ ...edit, subject: e.target.value })}
             />
           </Field>
+          <p className="muted">
+            {t(
+              "请填写身份提供方中该用户的稳定标识，不要使用昵称或邮箱。",
+              "Enter the user’s stable identifier from your identity provider, not a display name or email.",
+            )}
+          </p>
           <Field label={t("角色", "Role")}>
             <select
               value={edit.role}
@@ -138,8 +153,18 @@ export function UsersPanel({
           <div className="form-footer">
             <Button
               onClick={() => {
-                setEdit(undefined);
-                onDirtyChange(false);
+                if (
+                  !dirty ||
+                  confirm(
+                    t(
+                      "放弃未保存的表单修改？",
+                      "Discard unsaved form changes?",
+                    ),
+                  )
+                ) {
+                  setEdit(undefined);
+                  onDirtyChange(false);
+                }
               }}
             >
               {t("取消", "Cancel")}
@@ -165,7 +190,10 @@ export function UsersPanel({
                 <article className="panel" key={v.id}>
                   <h3>{v.name}</h3>
                   <p>
-                    {v.role} ·{" "}
+                    {v.role === "admin"
+                      ? t("管理员", "Administrator")
+                      : t("使用者", "User")}{" "}
+                    ·{" "}
                     {v.enabled
                       ? t("已启用", "Enabled")
                       : t("已停用", "Disabled")}
