@@ -305,11 +305,13 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 					if e != nil {
 						return result, e
 					}
-					route := provider["proxy"].(string)
-					if !names[route] {
+					route, _ := provider["proxy"].(string)
+					if route != "" && !names[route] {
 						return result, domain.Invalid("provider_proxy_missing", "sourceUpdates."+id)
 					}
-					fetchDependencies[g.Name] = append(fetchDependencies[g.Name], route)
+					if route != "" {
+						fetchDependencies[g.Name] = append(fetchDependencies[g.Name], route)
+					}
 					proxyProviders[id] = provider
 				}
 			}
@@ -395,21 +397,23 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 			result.Resources[id] = digest
 		}
 		route := p.RuleUpdates[id]
-		if route == "" {
-			route = "DIRECT"
-		}
-		if !names[route] {
+		if route != "" && !names[route] {
 			return result, domain.Invalid("provider_proxy_missing", "ruleUpdates."+id)
 		}
 		// Validate reachability of a rule update route without introducing a traffic dependency.
-		routeNeeded, e := validateDependencies(nodes, mapWithRoot(result.Members, route), fetchDependencies)
-		if e != nil {
-			return result, e
+		if route != "" {
+			routeNeeded, e := validateDependencies(nodes, mapWithRoot(result.Members, route), fetchDependencies)
+			if e != nil {
+				return result, e
+			}
+			for name := range routeNeeded {
+				needed[name] = true
+			}
 		}
-		for name := range routeNeeded {
-			needed[name] = true
+		provider := map[string]any{"type": "http", "behavior": r.Behavior, "format": r.Format, "url": address, "interval": r.Interval}
+		if route != "" {
+			provider["proxy"] = route
 		}
-		provider := map[string]any{"type": "http", "behavior": r.Behavior, "format": r.Format, "url": address, "interval": r.Interval, "proxy": route}
 		if r.Kind == "http" {
 			provider["header"] = deviceHeaders("", r.Headers)
 		}
@@ -425,6 +429,9 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 		config["rule-providers"] = providers
 	}
 	geox := map[string]string{}
+	if p.GeoDataMode {
+		config["geodata-mode"] = true
+	}
 	for key, id := range map[string]string{"mmdb": p.GeoIPID, "geosite": p.GeoSiteID, "asn": p.GeoASNID} {
 		if id == "" {
 			continue
@@ -434,6 +441,9 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 			return result, domain.Invalid("geodata_unavailable", "settings")
 		}
 		actual := key
+		if key == "mmdb" && r.Type == "mmdb" && p.GeoDataMode {
+			return result, domain.Invalid("geodata_unavailable", "settings")
+		}
 		if key == "mmdb" && r.Type == "geoip" {
 			actual = "geoip"
 			config["geodata-mode"] = true
@@ -450,14 +460,12 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 	}
 	if len(geox) > 0 {
 		config["geox-url"] = geox
-		config["geo-auto-update"] = true
-		config["geo-update-interval"] = 24
-		if p.GeoAutoUpdate != nil {
-			config["geo-auto-update"] = *p.GeoAutoUpdate
-		}
-		if p.GeoUpdateInterval != 0 {
-			config["geo-update-interval"] = p.GeoUpdateInterval
-		}
+	}
+	if p.GeoAutoUpdate != nil {
+		config["geo-auto-update"] = *p.GeoAutoUpdate
+	}
+	if p.GeoUpdateInterval != 0 {
+		config["geo-update-interval"] = p.GeoUpdateInterval
 	}
 	if p.Settings.DNSEnabled {
 		if p.Settings.DNSMode != "fake-ip" && p.Settings.DNSMode != "redir-host" {

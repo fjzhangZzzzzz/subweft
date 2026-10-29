@@ -359,7 +359,7 @@ func Parse(in Input) (Plan, error) {
 		}
 		p.Rules = append(p.Rules, r)
 	}
-	special := map[string]bool{"proxy-providers": true, "proxy-groups": true, "proxies": true, "rule-providers": true, "rules": true, "dns": true, "geox-url": true, "geodata-mode": true}
+	special := map[string]bool{"proxy-providers": true, "proxy-groups": true, "proxies": true, "rule-providers": true, "rules": true, "dns": true, "geox-url": true, "geodata-mode": true, "geo-auto-update": true, "geo-update-interval": true}
 	for k, v := range root {
 		if special[k] {
 			continue
@@ -413,6 +413,20 @@ func Parse(in Input) (Plan, error) {
 			return plan, e
 		}
 	}
+	if raw, present := root["geo-auto-update"]; present {
+		v, ok := raw.(bool)
+		if !ok {
+			return plan, domain.Invalid("invalid_field_type", "geo-auto-update")
+		}
+		p.GeoAutoUpdate = &v
+	}
+	if raw, present := root["geo-update-interval"]; present {
+		n := integer(raw, -1)
+		if n < 1 || n > 168 {
+			return plan, domain.Invalid("invalid_field_type", "geo-update-interval")
+		}
+		p.GeoUpdateInterval = n
+	}
 	urls := object(root["geox-url"])
 	if e := known(urls, "mmdb", "geoip", "geosite", "asn"); e != nil {
 		return plan, e
@@ -423,9 +437,11 @@ func Parse(in Input) (Plan, error) {
 		}
 	}
 	if value, exists := root["geodata-mode"]; exists {
-		if _, ok := value.(bool); !ok {
+		v, ok := value.(bool)
+		if !ok {
 			return plan, domain.Invalid("invalid_field_type", "geodata-mode")
 		}
+		p.GeoDataMode = v
 	}
 	needsCountry := false
 	needsSite := false
@@ -454,6 +470,10 @@ func Parse(in Input) (Plan, error) {
 	}
 	for kind, needed := range map[string]bool{"mmdb": needsCountry && countryKind == "mmdb", "geoip": needsCountry && countryKind == "geoip", "geosite": needsSite, "asn": needsASN} {
 		if !needed && urls[kind] == nil {
+			continue
+		}
+		// Omitted URL means the device's own core default, not a synthetic resource.
+		if urls[kind] == nil {
 			continue
 		}
 		address := text(urls[kind])

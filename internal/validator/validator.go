@@ -114,7 +114,13 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 	if yaml.Unmarshal(config, &configMap) != nil {
 		return domain.Invalid("invalid_config", "publish")
 	}
-	remoteGeo := map[string]bool{}
+	// Absent geographic URLs are supplied by Mihomo itself, hence remain remote.
+	remoteGeo := map[string]bool{"geosite": true, "asn": true}
+	if configMap["geodata-mode"] == true {
+		remoteGeo["geoip"] = true
+	} else {
+		remoteGeo["mmdb"] = true
+	}
 	if urls, ok := configMap["geox-url"].(map[string]any); ok {
 		for key, raw := range urls {
 			remote, ok := raw.(string)
@@ -128,6 +134,7 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 				remoteGeo[key] = true
 				continue
 			}
+			delete(remoteGeo, key)
 			data, ok := assets[strings.TrimPrefix(remote, compile.ResourcePrefix)]
 			if !ok {
 				return domain.Invalid("validation_resource_missing", "publish")

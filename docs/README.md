@@ -25,3 +25,4 @@
 - [任务工作台决策](adr/0006-task-oriented-workspace.md)：日常表单、配置归属、一键应用与公开边界。
 
 - [统一设备更新](adr/0007-device-managed-updates.md)：远程定义、出站依赖、缓存与迁移边界。
+- [内核默认行为](adr/0008-core-defaults.md)：未指定出站与地理数据的默认行为及迁移约束。

@@ -94,8 +94,8 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 	host, portText, _ := net.SplitHostPort(strings.TrimPrefix(proxy.URL, "http://"))
 	var port int
 	fmt.Sscanf(portText, "%d", &port)
-	p := domain.Profile{Meta: domain.Meta{ID: "device-profile"}, Name: "device", Groups: []domain.Group{{Name: "Proxy", Type: "select", SourceIDs: []string{"direct", "proxied"}}}, SourceUpdates: map[string]string{"proxied": "Bootstrap"}, RuleUpdates: map[string]string{"rules": "Bootstrap"}, Rules: []domain.Rule{{Type: "RULE-SET", Value: "rules", Target: "DIRECT", Enabled: true}, {Type: "MATCH", Target: "DIRECT", Enabled: true}}}
-	snap := domain.Snapshot{Sources: []domain.Source{{Meta: domain.Meta{ID: "direct"}, Name: "direct", Kind: "http", URL: origin.URL + "/direct", Enabled: true, Interval: 3600}, {Meta: domain.Meta{ID: "proxied"}, Name: "proxied", Kind: "http", URL: origin.URL + "/proxied", Enabled: true, Interval: 3600}}, Nodes: []domain.ManualNode{{Meta: domain.Meta{ID: "bootstrap"}, Enabled: true, Node: domain.Node{Name: "Bootstrap", Type: "http", Server: host, Port: port}}}, Resources: []domain.Resource{{Meta: domain.Meta{ID: "rules"}, Name: "rules", Kind: "http", Type: "ruleset", URL: origin.URL + "/rules", Behavior: "domain", Format: "yaml", Interval: 86400, Enabled: true}}}
+	p := domain.Profile{Meta: domain.Meta{ID: "device-profile"}, Name: "device", Groups: []domain.Group{{Name: "Proxy", Type: "select", SourceIDs: []string{"direct", "proxied", "follow"}}, {Name: "Route", Type: "select", NodeIDs: []string{"bootstrap"}}}, SourceUpdates: map[string]string{"direct": "DIRECT", "proxied": "Bootstrap"}, RuleUpdates: map[string]string{"rules": "Bootstrap"}, Rules: []domain.Rule{{Type: "IP-CIDR", Value: "127.0.0.1/32", Target: "Route", Enabled: true}, {Type: "RULE-SET", Value: "rules", Target: "DIRECT", Enabled: true}, {Type: "MATCH", Target: "DIRECT", Enabled: true}}}
+	snap := domain.Snapshot{Sources: []domain.Source{{Meta: domain.Meta{ID: "direct"}, Name: "direct", Kind: "http", URL: origin.URL + "/direct", Enabled: true, Interval: 3600}, {Meta: domain.Meta{ID: "proxied"}, Name: "proxied", Kind: "http", URL: origin.URL + "/proxied", Enabled: true, Interval: 3600}, {Meta: domain.Meta{ID: "follow"}, Name: "follow", Kind: "http", URL: origin.URL + "/follow", Enabled: true, Interval: 3600}}, Nodes: []domain.ManualNode{{Meta: domain.Meta{ID: "bootstrap"}, Enabled: true, Node: domain.Node{Name: "Bootstrap", Type: "http", Server: host, Port: port}}}, Resources: []domain.Resource{{Meta: domain.Meta{ID: "rules"}, Name: "rules", Kind: "http", Type: "ruleset", URL: origin.URL + "/rules", Behavior: "domain", Format: "yaml", Interval: 86400, Enabled: true}}}
 	dir := t.TempDir()
 	client := &http.Client{Timeout: time.Second, Transport: &http.Transport{Proxy: nil}}
 	start := func() (string, func()) {
@@ -179,6 +179,27 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 	if directCalls.Load() < 2 || ruleCalls.Load() == 0 || proxyCalls.Load() < 2 || wrongUA.Load() != 0 {
 		stop()
 		t.Fatal("device direct/proxy/header acquisition failed")
+	}
+	// After the rules and controller are ready, explicitly refresh both sources.
+	// The unspecified route must use the configured proxy; DIRECT must bypass it.
+	before := proxyCalls.Load()
+	read(control, "PUT", "/providers/proxies/follow")
+	for deadline := time.Now().Add(8 * time.Second); time.Now().Before(deadline) && proxyCalls.Load() == before; {
+		time.Sleep(30 * time.Millisecond)
+	}
+	if proxyCalls.Load() <= before {
+		stop()
+		t.Fatal("unspecified route did not follow rules")
+	}
+	before = proxyCalls.Load()
+	hits := directCalls.Load()
+	read(control, "PUT", "/providers/proxies/direct")
+	for deadline := time.Now().Add(8 * time.Second); time.Now().Before(deadline) && directCalls.Load() == hits; {
+		time.Sleep(30 * time.Millisecond)
+	}
+	if directCalls.Load() == hits || proxyCalls.Load() != before {
+		stop()
+		t.Fatal("explicit direct did not bypass rules")
 	}
 	failed.Store(true)
 	read(control, "PUT", "/providers/proxies/direct")

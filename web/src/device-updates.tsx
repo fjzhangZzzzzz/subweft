@@ -491,6 +491,7 @@ export function UpdateRoutes({
       ),
   );
   const options = [
+    "",
     "DIRECT",
     ...profile.groups.map((g) => g.name),
     ...state.nodes.filter((n) => n.enabled).map((n) => n.node.name),
@@ -501,8 +502,8 @@ export function UpdateRoutes({
       <h3>{t("设备更新出站", "Device update routes")}</h3>
       <p className="muted">
         {t(
-          "默认直连。需要代理时，选择本配置中的独立节点或策略组；不能通过订阅自身下载该订阅。",
-          "Direct by default. Choose an independent node or group when a proxy is required; a subscription cannot download through itself.",
+          "默认跟随规则。也可选择直连、独立节点或策略组；请避免订阅下载依赖自身造成循环。",
+          "Follows rules by default. You can choose direct, an independent node or a group; avoid a subscription depending on itself.",
         )}
       </p>
       <div className="form-grid">
@@ -512,7 +513,7 @@ export function UpdateRoutes({
         ].map((v) => (
           <Field key={v.field + v.id} label={v.name}>
             <select
-              value={profile[v.field]?.[v.id] || "DIRECT"}
+              value={profile[v.field]?.[v.id] || ""}
               onChange={(e) =>
                 onChange({
                   ...profile,
@@ -531,7 +532,11 @@ export function UpdateRoutes({
                 )}
               {options.map((o) => (
                 <option key={o} value={o}>
-                  {o === "DIRECT" ? t("直连", "Direct") : o}
+                  {o === ""
+                    ? t("跟随规则", "Follow rules")
+                    : o === "DIRECT"
+                      ? t("直连", "Direct")
+                      : o}
                 </option>
               ))}
             </select>

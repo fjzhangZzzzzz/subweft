@@ -2582,12 +2582,12 @@ function ProfileEditor({
                     "设备定期更新地理数据",
                     "Periodically update geodata on devices",
                   )}
-                  checked={draft.geoAutoUpdate ?? true}
+                  checked={draft.geoAutoUpdate ?? false}
                   onChange={(geoAutoUpdate) =>
                     setDraft({ ...draft, geoAutoUpdate })
                   }
                 />
-                {(draft.geoAutoUpdate ?? true) && (
+                {(draft.geoAutoUpdate ?? false) && (
                   <Field
                     label={t(
                       "地理数据更新间隔（小时）",
@@ -2608,6 +2608,18 @@ function ProfileEditor({
                     />
                   </Field>
                 )}
+                {!draft.geoIpId && (
+                  <CheckField
+                    label={t(
+                      "使用 DAT 格式的 IP 地理数据",
+                      "Use DAT format for IP geodata",
+                    )}
+                    checked={draft.geoDataMode ?? false}
+                    onChange={(geoDataMode) =>
+                      setDraft({ ...draft, geoDataMode })
+                    }
+                  />
+                )}
                 {(["geoIpId", "geoSiteId", "geoAsnId"] as const).map((key) => (
                   <Field
                     key={key}
@@ -2621,11 +2633,23 @@ function ProfileEditor({
                   >
                     <select
                       value={draft[key] || ""}
-                      onChange={(e) =>
-                        setDraft({ ...draft, [key]: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const selected = state.resources?.find(
+                          (r) => r.id === value,
+                        );
+                        setDraft({
+                          ...draft,
+                          [key]: value,
+                          ...(key === "geoIpId" && selected
+                            ? { geoDataMode: selected.type === "geoip" }
+                            : {}),
+                        });
+                      }}
                     >
-                      <option value="">{t("不使用", "Unused")}</option>
+                      <option value="">
+                        {t("使用内核默认值", "Use core default")}
+                      </option>
                       {(state.resources || [])
                         .filter((r) =>
                           key === "geoIpId"

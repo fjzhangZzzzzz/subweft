@@ -72,9 +72,6 @@ func remoteProvider(s domain.Source, p domain.Profile) (map[string]any, error) {
 		return nil, domain.Invalid("source_migration_required", "sources."+s.ID)
 	}
 	proxy := p.SourceUpdates[s.ID]
-	if proxy == "" {
-		proxy = "DIRECT"
-	}
 	h := s.Update.HealthCheck
 	override := map[string]any{"additional-prefix": "[" + s.Name + "] " + s.Update.Prefix, "additional-suffix": s.Update.Suffix}
 	if len(s.Update.Renames) > 0 {
@@ -84,7 +81,10 @@ func remoteProvider(s domain.Source, p domain.Profile) (map[string]any, error) {
 		}
 		override["proxy-name"] = renames
 	}
-	out := map[string]any{"type": "http", "url": s.URL, "interval": s.Interval, "proxy": proxy, "header": deviceHeaders(s.Update.UserAgent, s.Update.Headers), "override": override, "health-check": map[string]any{"enable": h.Enable, "url": h.URL, "interval": h.Interval, "timeout": h.Timeout, "lazy": h.Lazy, "expected-status": h.ExpectedStatus}}
+	out := map[string]any{"type": "http", "url": s.URL, "interval": s.Interval, "header": deviceHeaders(s.Update.UserAgent, s.Update.Headers), "override": override, "health-check": map[string]any{"enable": h.Enable, "url": h.URL, "interval": h.Interval, "timeout": h.Timeout, "lazy": h.Lazy, "expected-status": h.ExpectedStatus}}
+	if proxy != "" {
+		out["proxy"] = proxy
+	}
 	if s.Update.Filter != "" {
 		out["filter"] = s.Update.Filter
 	}

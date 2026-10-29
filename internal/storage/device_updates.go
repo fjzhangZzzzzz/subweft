@@ -115,7 +115,7 @@ func (s *Store) migrateDeviceUpdates() error {
 					}
 				}
 				if selected {
-					route := "DIRECT"
+					route := ""
 					if src.ClientProvider != nil && src.ClientProvider.Proxy != "" {
 						route = src.ClientProvider.Proxy
 					}

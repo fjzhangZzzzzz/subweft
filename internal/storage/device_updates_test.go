@@ -27,7 +27,11 @@ func TestDeviceMigrationPreservesInputsAndIsIdempotent(t *testing.T) {
 	if e = Save(ctx, s, "source", &src.Meta, &src, ""); e != nil {
 		t.Fatal(e)
 	}
-	p := domain.Profile{Name: "profile", AutoPublish: true, Groups: []domain.Group{{Name: "Proxy", SourceIDs: []string{src.ID}}}}
+	implicit := domain.Source{Name: "implicit", Kind: "http", ClientProvider: &domain.ClientProvider{}}
+	if e = Save(ctx, s, "source", &implicit.Meta, &implicit, ""); e != nil {
+		t.Fatal(e)
+	}
+	p := domain.Profile{Name: "profile", AutoPublish: true, Groups: []domain.Group{{Name: "Proxy", SourceIDs: []string{src.ID, implicit.ID}}}}
 	if e = Save(ctx, s, "profile", &p.Meta, &p, ""); e != nil {
 		t.Fatal(e)
 	}
@@ -49,6 +53,9 @@ func TestDeviceMigrationPreservesInputsAndIsIdempotent(t *testing.T) {
 	profile, e := Load[domain.Profile](ctx, s, "profile", p.ID)
 	if e != nil || profile.AutoPublish || profile.SourceUpdates[src.ID] != "Independent" {
 		t.Fatal("migration lost route")
+	}
+	if route, found := profile.SourceUpdates[implicit.ID]; !found || route != "" {
+		t.Fatal("migration changed implicit route")
 	}
 	rev := got.Revision
 	s.Close()

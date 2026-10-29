@@ -90,3 +90,51 @@ func TestDeviceDownloadDependenciesAndInvalidDefinitions(t *testing.T) {
 		t.Fatal("independent bootstrap node omitted")
 	}
 }
+
+func TestDefaultUpdateFollowsRulesAndExplicitDirectSurvives(t *testing.T) {
+	p, s := remoteFixture()
+	for _, explicit := range []bool{false, true} {
+		if explicit {
+			p.SourceUpdates = map[string]string{"s": "DIRECT"}
+			p.RuleUpdates = map[string]string{"r": "DIRECT"}
+		}
+		result, e := compile.Compile(p, s, false)
+		if e != nil {
+			t.Fatal(e)
+		}
+		var config map[string]any
+		if e = yaml.Unmarshal(result.Config, &config); e != nil {
+			t.Fatal(e)
+		}
+		for _, key := range []string{"proxy-providers", "rule-providers"} {
+			for _, raw := range config[key].(map[string]any) {
+				route, ok := raw.(map[string]any)["proxy"]
+				if ok != explicit || explicit && route != "DIRECT" {
+					t.Fatalf("%s proxy selection mismatch", key)
+				}
+			}
+		}
+		if _, ok := config["geox-url"]; ok {
+			t.Fatal("core geographic defaults replaced")
+		}
+		if _, ok := config["geo-auto-update"]; ok {
+			t.Fatal("implicit geodata update changed")
+		}
+	}
+}
+
+func TestImplicitDATGeodataPreservesCoreURLs(t *testing.T) {
+	p, s := remoteFixture()
+	p.GeoDataMode = true
+	r, e := compile.Compile(p, s, false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var c map[string]any
+	if e = yaml.Unmarshal(r.Config, &c); e != nil {
+		t.Fatal(e)
+	}
+	if c["geodata-mode"] != true || c["geox-url"] != nil {
+		t.Fatal("DAT mode or implicit URLs lost")
+	}
+}

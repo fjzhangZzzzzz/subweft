@@ -115,6 +115,7 @@ export type Settings = {
   nameservers: string[];
 };
 export type Profile = Meta & {
+  geoDataMode?: boolean;
   geoAutoUpdate?: boolean;
   geoUpdateInterval?: number;
   sourceUpdates?: Record<string, string>;

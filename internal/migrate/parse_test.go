@@ -12,7 +12,7 @@ func TestImportPreservesExplicitMembershipAndOrder(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(p.Sources) != 2 || len(p.Nodes) != 1 || len(p.Resources) != 3 || p.Profile.GeoIPID == "" {
+	if len(p.Sources) != 2 || len(p.Nodes) != 1 || len(p.Resources) != 2 || p.Profile.GeoIPID != "" {
 		t.Fatal("import lost inputs")
 	}
 	for _, g := range p.Profile.Groups {
@@ -45,5 +45,20 @@ func TestLogicalRulesRoundTrip(t *testing.T) {
 	r, e := migrate.ParseRule("AND,((DOMAIN-SUFFIX,example.invalid),(NOT,((NETWORK,UDP)))),Proxy")
 	if e != nil || r.Type != "AND" || len(r.Conditions) != 2 || r.Conditions[1].Type != "NOT" {
 		t.Fatal("logical rule import failed", e)
+	}
+}
+
+func TestImportGeoDefaultsAndExplicitAutoUpdate(t *testing.T) {
+	p, e := migrate.Parse(migrate.Input{Name: "defaults", Content: testfixture.MigrationConfig})
+	if e != nil || p.Profile.GeoAutoUpdate != nil || p.Profile.GeoIPID != "" || p.Profile.GeoSiteID != "" {
+		t.Fatal("implicit core geodata defaults were made explicit", e)
+	}
+	p, e = migrate.Parse(migrate.Input{Name: "explicit", Content: testfixture.MigrationConfig + "\ngeo-auto-update: true\ngeo-update-interval: 48\n"})
+	if e != nil || p.Profile.GeoAutoUpdate == nil || !*p.Profile.GeoAutoUpdate || p.Profile.GeoUpdateInterval != 48 {
+		t.Fatal("explicit geodata settings lost", e)
+	}
+	p, e = migrate.Parse(migrate.Input{Name: "dat", Content: testfixture.MigrationConfig + "\ngeodata-mode: true\n"})
+	if e != nil || !p.Profile.GeoDataMode || p.Profile.GeoIPID != "" {
+		t.Fatal("implicit DAT geodata setting lost", e)
 	}
 }

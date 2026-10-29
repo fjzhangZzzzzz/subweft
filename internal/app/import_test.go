@@ -27,7 +27,7 @@ func TestReviewedImportIsAtomicDraftOnlyAndCannotReplay(t *testing.T) {
 		t.Fatal(e)
 	}
 	after, e := s.Store.Snapshot(ctx)
-	if e != nil || len(after.Profiles) != 1 || len(after.Sources) != 2 || len(after.Resources) != 3 || len(after.Active) != 0 || p.Revision != 1 {
+	if e != nil || len(after.Profiles) != 1 || len(after.Sources) != 2 || len(after.Resources) != 2 || len(after.Active) != 0 || p.Revision != 1 || p.GeoIPID != "" {
 		t.Fatal("import was incomplete or activated a release")
 	}
 	if _, e = s.CommitImport(ctx, candidate.ID, candidate.Revision); e == nil {

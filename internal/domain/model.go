@@ -126,6 +126,7 @@ type Settings struct {
 	Nameservers           []string       `json:"nameservers"`
 }
 type Profile struct {
+	GeoDataMode       bool              `json:"geoDataMode,omitempty"`
 	GeoAutoUpdate     *bool             `json:"geoAutoUpdate,omitempty"`
 	GeoUpdateInterval int               `json:"geoUpdateInterval,omitempty"`
 	SourceUpdates     map[string]string `json:"sourceUpdates,omitempty"`

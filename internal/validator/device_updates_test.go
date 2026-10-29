@@ -41,6 +41,15 @@ func TestRemoteProjectionUsesPinnedCoreWithoutFetching(t *testing.T) {
 	if e = checker.Check(context.Background(), result.Config); e != nil {
 		t.Fatal(e)
 	}
+	// The same rules remain valid offline when all geographic URLs are implicit.
+	p.GeoSiteID = ""
+	implicit, e := compile.Compile(p, snap, false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = checker.Check(context.Background(), implicit.Config); e != nil {
+		t.Fatal(e)
+	}
 	p.Settings.DNSEnabled = true
 	p.Settings.DNSMode = "redir-host"
 	p.Settings.Nameservers = []string{"1.1.1.1", "bogus://geosite.example.invalid"}
