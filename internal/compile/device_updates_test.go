@@ -138,3 +138,22 @@ func TestImplicitDATGeodataPreservesCoreURLs(t *testing.T) {
 		t.Fatal("DAT mode or implicit URLs lost")
 	}
 }
+
+func TestExplicitSubscriptionOrderSurvivesSnapshotOrder(t *testing.T) {
+	p, s := remoteFixture()
+	s.Sources = append(s.Sources, domain.Source{Meta: domain.Meta{ID: "second"}, Name: "second", Kind: "http", URL: "https://example.invalid/second", Interval: 3600, Enabled: true})
+	p.Groups = []domain.Group{{Name: "Proxy", Type: "select", SourceIDs: []string{"second", "s"}, AllSources: true}}
+	r, e := compile.Compile(p, s, false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var config map[string]any
+	if e = yaml.Unmarshal(r.Config, &config); e != nil {
+		t.Fatal(e)
+	}
+	groups := config["proxy-groups"].([]any)
+	uses := groups[0].(map[string]any)["use"].([]any)
+	if len(uses) != 2 || uses[0] != "second" || uses[1] != "s" {
+		t.Fatalf("subscription order or deduplication lost: %v", uses)
+	}
+}

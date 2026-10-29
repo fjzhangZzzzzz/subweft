@@ -264,18 +264,31 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 				seen[name] = true
 			}
 		}
-		ids := map[string]bool{}
+		// Explicit selection has an order; append tag/all matches afterwards without duplicates.
+		sourceByID := make(map[string]domain.Source, len(snap.Sources))
+		for _, s := range snap.Sources {
+			sourceByID[s.ID] = s
+		}
+		orderedSources := make([]domain.Source, 0, len(snap.Sources))
+		selectedSources := map[string]bool{}
 		for _, id := range g.SourceIDs {
-			ids[id] = true
+			if s, ok := sourceByID[id]; ok && s.Enabled && !selectedSources[id] {
+				orderedSources = append(orderedSources, s)
+				selectedSources[id] = true
+			}
 		}
 		for _, s := range snap.Sources {
-			if s.Enabled && (g.AllSources || ids[s.ID] || intersects(g.Tags, s.Tags)) {
-				if s.Kind == "http" {
-					remoteUses = append(remoteUses, s.ID)
-				}
-				for _, n := range sourceNodes[s.ID] {
-					add(n, true)
-				}
+			if s.Enabled && !selectedSources[s.ID] && (g.AllSources || intersects(g.Tags, s.Tags)) {
+				orderedSources = append(orderedSources, s)
+				selectedSources[s.ID] = true
+			}
+		}
+		for _, s := range orderedSources {
+			if s.Kind == "http" {
+				remoteUses = append(remoteUses, s.ID)
+			}
+			for _, n := range sourceNodes[s.ID] {
+				add(n, true)
 			}
 		}
 		for _, id := range g.NodeIDs {
