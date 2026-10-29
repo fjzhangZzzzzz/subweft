@@ -13,6 +13,37 @@ import (
 func (c *checker) CheckBundle(ctx context.Context, config []byte, assets map[string][]byte) error {
 	return c.Check(ctx, config)
 }
+func TestEmptyLocalRuleSetCanBeEdited(t *testing.T) {
+	for _, format := range []string{"yaml", "text"} {
+		t.Run(format, func(t *testing.T) {
+			ctx := context.Background()
+			s, _, _, _ := setup(t)
+			input := app.ResourceInput{Resource: domain.Resource{Name: "empty", Kind: "local", Type: "ruleset", Behavior: "domain", Format: format, Enabled: true, Interval: 3600}, Entries: []string{}}
+			resource, err := s.SaveResource(ctx, input)
+			if err != nil || resource.Digest == "" || resource.Count != 0 {
+				t.Fatalf("save empty: %v", err)
+			}
+			entries, err := s.ResourceEntries(ctx, resource.ID)
+			if err != nil || len(entries) != 0 {
+				t.Fatalf("read empty: %v", err)
+			}
+			input.Resource, input.Entries = resource, []string{"example.invalid"}
+			resource, err = s.SaveResource(ctx, input)
+			if err != nil || resource.Count != 1 {
+				t.Fatalf("add rule: %v", err)
+			}
+			input.Resource, input.Entries = resource, []string{}
+			resource, err = s.SaveResource(ctx, input)
+			if err != nil || resource.Count != 0 {
+				t.Fatalf("remove last rule: %v", err)
+			}
+			entries, err = s.ResourceEntries(ctx, resource.ID)
+			if err != nil || len(entries) != 0 {
+				t.Fatalf("read cleared ruleset: %v", err)
+			}
+		})
+	}
+}
 func TestResourceVersionsStayBoundToReleaseAndRevokedDevice(t *testing.T) {
 	ctx := context.Background()
 	s, c, _, _ := setup(t)

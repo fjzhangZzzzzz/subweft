@@ -46,7 +46,7 @@ func (s *Service) PreviewImport(ctx context.Context, input migrate.Input) (Impor
 			return ImportCandidate{}, e
 		}
 		if draft.Resource.Kind == "local" {
-			data, count, e := normalizeRules(draft.Data, draft.Resource.Behavior, draft.Resource.Format)
+			data, count, e := normalizeRules(draft.Data, draft.Resource.Behavior, draft.Resource.Format, true)
 			if e != nil {
 				return ImportCandidate{}, e
 			}

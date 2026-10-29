@@ -48,7 +48,7 @@ func validateResource(v domain.Resource) error {
 	}
 	return nil
 }
-func normalizeRules(data []byte, behavior, format string) ([]byte, int, error) {
+func normalizeRules(data []byte, behavior, format string, allowEmpty bool) ([]byte, int, error) {
 	if len(data) > 16<<20 {
 		return nil, 0, domain.Invalid("input_too_large", "entries")
 	}
@@ -82,7 +82,7 @@ func normalizeRules(data []byte, behavior, format string) ([]byte, int, error) {
 			entries = append(entries, line)
 		}
 	}
-	if len(entries) == 0 || len(entries) > 500000 {
+	if (len(entries) == 0 && !allowEmpty) || len(entries) > 500000 {
 		return nil, 0, domain.Invalid("invalid_rule_count", "entries")
 	}
 	seen := map[string]bool{}
@@ -170,7 +170,7 @@ func (s *Service) SaveResource(ctx context.Context, in ResourceInput) (domain.Re
 				}
 			}
 			if data != nil && e == nil {
-				data, v.Count, e = normalizeRules(data, v.Behavior, v.Format)
+				data, v.Count, e = normalizeRules(data, v.Behavior, v.Format, true)
 			}
 		}
 		if e != nil {
@@ -212,7 +212,7 @@ func (s *Service) RefreshResource(ctx context.Context, id string) (domain.Resour
 	}
 	data, e := s.Fetcher.FetchLimit(ctx, v.URL, 64<<20)
 	if e == nil && v.Type == "ruleset" {
-		data, v.Count, e = normalizeRules(data, v.Behavior, v.Format)
+		data, v.Count, e = normalizeRules(data, v.Behavior, v.Format, false)
 	}
 	digest := ""
 	if e == nil {
@@ -255,7 +255,11 @@ func (s *Service) ResourceEntries(ctx context.Context, id string) ([]string, err
 		return nil, e
 	}
 	if v.Format == "text" {
-		return strings.Split(strings.TrimSuffix(string(data), "\n"), "\n"), nil
+		text := strings.TrimSuffix(string(data), "\n")
+		if text == "" {
+			return []string{}, nil
+		}
+		return strings.Split(text, "\n"), nil
 	}
 	var m struct {
 		Payload []string `yaml:"payload"`
