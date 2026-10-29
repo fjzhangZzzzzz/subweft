@@ -1,6 +1,6 @@
 # Linux 容器安装
 
-本入口面向 Linux amd64/arm64。镜像只含 Subweft 和系统运行依赖，Mihomo 按[锁定文件](../internal/validator/lock.json)单独取得并以只读文件挂载。当前容器验证由原生 CI 执行，未向生产部署。
+本入口面向 Linux amd64/arm64。镜像只含 Subweft 和系统运行依赖，Mihomo 按[锁定文件](../internal/validator/lock.json)单独取得并以只读文件挂载。候选容器验证由三平台原生 CI 执行；部署方的生产验收单独记录。
 
 ## 隔离边界
 
