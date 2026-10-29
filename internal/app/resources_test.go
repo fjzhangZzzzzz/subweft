@@ -117,7 +117,7 @@ func TestResourceVersionsStayBoundToReleaseAndRevokedDevice(t *testing.T) {
 		t.Fatal("revoked resource URL still usable")
 	}
 }
-func TestAutomaticPublishUsesFrozenDefinitionAndKeepsLastGood(t *testing.T) {
+func TestRetiredAutomaticPublishPreservesActiveRelease(t *testing.T) {
 	ctx := context.Background()
 	s, c, _, _ := setup(t)
 	src, p := create(t, s)
@@ -151,8 +151,8 @@ func TestAutomaticPublishUsesFrozenDefinitionAndKeepsLastGood(t *testing.T) {
 		t.Fatal(e)
 	}
 	next, e := storage.Load[domain.Release](ctx, s.Store, "release", snap.Active[p.ID])
-	if e != nil || next.ID == first.ID || bytes.Contains(next.Config, []byte("unpublished-draft.invalid")) || next.ProfileRevision != p.Revision {
-		t.Fatal("automatic update published draft or missed source change")
+	if e != nil || next.ID != first.ID || bytes.Contains(next.Config, []byte("unpublished-draft.invalid")) || next.ProfileRevision != p.Revision {
+		t.Fatal("retired automatic publisher mutated active release")
 	}
 	src, _ = storage.Load[domain.Source](ctx, s.Store, "source", src.ID)
 	_, e = s.SaveOverride(ctx, src.ID, src.Revision, domain.NodeOverride{Identity: domain.NodeIdentity(n), Name: "another change"}, false)

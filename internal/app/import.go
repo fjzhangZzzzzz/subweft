@@ -2,9 +2,9 @@ package app
 
 import (
 	"context"
+	"github.com/fjzhangZzzzzz/subweft/internal/compile"
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
 	"github.com/fjzhangZzzzzz/subweft/internal/migrate"
-	"github.com/fjzhangZzzzzz/subweft/internal/source"
 	"github.com/fjzhangZzzzzz/subweft/internal/storage"
 	"time"
 )
@@ -37,7 +37,7 @@ func (s *Service) PreviewImport(ctx context.Context, input migrate.Input) (Impor
 		return ImportCandidate{}, e
 	}
 	for _, v := range plan.Sources {
-		if e = source.ValidateOptions(v.Fetch); e != nil {
+		if e = compile.ValidateDeviceUpdate(v.Update); e != nil {
 			return ImportCandidate{}, e
 		}
 	}

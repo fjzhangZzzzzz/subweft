@@ -17,6 +17,7 @@ import (
 
 	"github.com/fjzhangZzzzzz/subweft/internal/compile"
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
+	"github.com/fjzhangZzzzzz/subweft/internal/source"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -123,8 +124,18 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 				remote, _ := provider["url"].(string)
 				id := strings.TrimPrefix(remote, compile.ResourcePrefix)
 				data, ok := assets[id]
-				if !ok || !strings.HasPrefix(remote, compile.ResourcePrefix) {
-					return domain.Invalid("validation_resource_missing", "publish")
+				if strings.HasPrefix(remote, compile.ResourcePrefix) {
+					if !ok {
+						return domain.Invalid("validation_resource_missing", "publish")
+					}
+				} else {
+					if source.ValidateURL(remote) != nil {
+						return domain.Invalid("invalid_url", "publish")
+					}
+					data, e = remoteValidationData(providerKey, provider)
+					if e != nil {
+						return e
+					}
 				}
 				filename, _ := provider["path"].(string)
 				target := filepath.Join(dir, filepath.FromSlash(filename))
@@ -141,11 +152,19 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 		}
 	}
 
+	remoteGeo := map[string]bool{}
 	if urls, ok := configMap["geox-url"].(map[string]any); ok {
 		for key, raw := range urls {
 			remote, ok := raw.(string)
 			if !ok {
 				return domain.Invalid("invalid_geodata", "publish")
+			}
+			if !strings.HasPrefix(remote, compile.ResourcePrefix) {
+				if source.ValidateURL(remote) != nil {
+					return domain.Invalid("invalid_url", "publish")
+				}
+				remoteGeo[key] = true
+				continue
 			}
 			data, ok := assets[strings.TrimPrefix(remote, compile.ResourcePrefix)]
 			if !ok {
@@ -157,6 +176,9 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 			}
 		}
 		delete(configMap, "geox-url")
+	}
+	if len(remoteGeo) > 0 {
+		deferRemoteGeo(configMap, remoteGeo)
 	}
 	config, e = yaml.Marshal(configMap)
 	if e != nil {
@@ -174,7 +196,7 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 	}
 	hideWindow(cmd)
 	cmd.Dir = dir
-	// No inherited proxy or user configuration. The compiler emits no remote rule/providers.
+	// No inherited proxy or user configuration. Remote definitions have been projected to local validation-only files.
 	if runtime.GOOS != "linux" {
 		cmd.Env = []string{"HOME=" + dir, "USERPROFILE=" + dir, "APPDATA=" + dir, "LOCALAPPDATA=" + dir, "PATH=" + filepath.Dir(n.Path), "SystemRoot=" + os.Getenv("SystemRoot")}
 	}

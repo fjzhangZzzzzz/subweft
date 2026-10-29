@@ -1,3 +1,4 @@
+import { HeaderFields } from "./device-updates";
 import { ruleTypes, ruleLabel } from "./rules";
 import { SecretControl } from "./schema-form";
 import { useEffect, useState } from "react";
@@ -5,6 +6,7 @@ import { Button, Field, CheckField } from "./ui";
 import type { T } from "./ui";
 import type { Meta } from "./types";
 export type Resource = Meta & {
+  headers?: Record<string, string>;
   url?: string;
   name: string;
   kind: string;
@@ -85,17 +87,13 @@ export function ResourcesPanel({
         onSave={(v) =>
           void onRun(
             async () => {
-              const saved = await request<Resource>(
+              await request<Resource>(
                 edit.id ? "resources/" + edit.id : "resources",
                 edit.id ? "PUT" : "POST",
                 v,
               );
               setEdit(undefined);
               onDirtyChange(false);
-              if (saved.kind === "http" && saved.enabled)
-                await request("resources/" + saved.id + "/refresh", "POST", {
-                  revision: saved.revision,
-                });
             },
             t(
               "已保存；应用配置后客户端生效",
@@ -113,8 +111,8 @@ export function ResourcesPanel({
           <h1>{t("规则集与地理数据", "Rulesets & geodata")}</h1>
           <p>
             {t(
-              "独立维护规则与缓存，发布时固定内容版本。",
-              "Maintain definitions and caches independently; publishing freezes content versions.",
+              "本地规则在发布时固定；远程规则和地理数据由设备下载更新。",
+              "Publishing freezes local rules. Devices download and update remote rules and geodata.",
             )}
           </p>
         </div>
@@ -135,37 +133,26 @@ export function ResourcesPanel({
                 {v.type === "ruleset"
                   ? t("规则集", "Ruleset")
                   : v.type.toUpperCase()}{" "}
-                · {v.count} {t("条目", "entries")}
+                ·{" "}
+                {v.kind === "http"
+                  ? t("由设备更新", "Updated by devices")
+                  : `${v.count} ${t("条目", "entries")}`}
               </p>
               <p className="muted">
-                {v.digest
-                  ? t("内容已就绪", "Ready")
-                  : t("尚未更新", "Not fetched")}{" "}
+                {v.kind === "http"
+                  ? t("远程定义", "Remote definition")
+                  : v.digest
+                    ? t("内容已就绪", "Ready")
+                    : t("尚未更新", "Not fetched")}{" "}
                 · {v.enabled ? t("启用", "Enabled") : t("停用", "Disabled")}
               </p>
-              {v.lastError && (
+              {v.kind !== "http" && v.lastError && (
                 <p role="status" className="alert error">
                   {v.lastError}
                 </p>
               )}
               <div className="actions">
                 <Button onClick={() => open(v)}>{t("编辑", "Edit")}</Button>
-                {v.kind === "http" && (
-                  <Button
-                    disabled={busy}
-                    onClick={() =>
-                      void onRun(
-                        () =>
-                          request("resources/" + v.id + "/refresh", "POST", {
-                            revision: v.revision,
-                          }),
-                        t("缓存已刷新", "Cache refreshed"),
-                      )
-                    }
-                  >
-                    {t("刷新", "Refresh")}
-                  </Button>
-                )}
                 <Button
                   danger
                   onClick={() => {
@@ -367,6 +354,13 @@ function ResourceForm({
               onChange={setURL}
             />
           </Field>
+          {draft.type === "ruleset" && (
+            <HeaderFields
+              t={t}
+              value={draft.headers || {}}
+              onChange={(headers) => set("headers", headers)}
+            />
+          )}
           <Field label={t("更新间隔（秒）", "Refresh interval (seconds)")}>
             <input
               type="number"

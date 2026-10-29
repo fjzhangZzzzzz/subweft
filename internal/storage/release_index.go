@@ -59,8 +59,14 @@ func (s *Store) ensureReleaseIndex() error {
 			return e
 		}
 	}
-	if _, e = tx.Exec(`PRAGMA user_version=2`); e != nil {
+	var version int
+	if e = tx.QueryRow(`PRAGMA user_version`).Scan(&version); e != nil {
 		return e
+	}
+	if version < 2 {
+		if _, e = tx.Exec(`PRAGMA user_version=2`); e != nil {
+			return e
+		}
 	}
 	return tx.Commit()
 }

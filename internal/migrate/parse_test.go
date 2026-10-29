@@ -30,7 +30,7 @@ func TestImportPreservesExplicitMembershipAndOrder(t *testing.T) {
 	if p.Profile.Rules[0].Type != "RULE-SET" || p.Profile.Rules[2].Type != "GEOIP" || p.Profile.Rules[3].Type != "MATCH" {
 		t.Fatal("rule order changed")
 	}
-	if p.Sources[0].ClientProvider == nil || !p.Sources[0].ClientProvider.HealthCheck.Enable {
+	if !p.Sources[0].Update.HealthCheck.Enable {
 		t.Fatal("client provider health check lost")
 	}
 }

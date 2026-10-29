@@ -23,3 +23,5 @@
 - [资源发布决策](adr/0005-versioned-resources.md)：版本关联、授权与一致性恢复。
 
 - [任务工作台决策](adr/0006-task-oriented-workspace.md)：日常表单、配置归属、一键应用与公开边界。
+
+- [统一设备更新](adr/0007-device-managed-updates.md)：远程定义、出站依赖、缓存与迁移边界。

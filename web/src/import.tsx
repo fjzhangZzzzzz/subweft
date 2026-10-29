@@ -80,9 +80,9 @@ export function ImportWizard({
       "客户端缓存路径由服务统一生成。",
       "Client cache paths are managed by the service.",
     ),
-    refresh_http_sources_and_resources_before_publish: t(
-      "发布前须取得有效的来源和规则缓存。",
-      "Valid source and rule caches are required before publishing.",
+    remote_content_updated_by_devices: t(
+      "远程订阅、规则和地理数据由设备更新；首次下载需在客户端确认。",
+      "Devices update remote subscriptions, rules and geodata; verify initial downloads in the client.",
     ),
     review_managed_geodata_source_or_upload_existing_client_data: t(
       "GEOIP/GEOSITE 转为受管理资源。请核对数据来源，或上传原客户端数据文件。",

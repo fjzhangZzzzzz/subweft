@@ -50,7 +50,23 @@ type ClientProvider struct {
 	Proxy       string      `json:"proxy,omitempty"`
 	HealthCheck HealthCheck `json:"healthCheck"`
 }
+type DeviceUpdate struct {
+	UserAgent   string            `json:"userAgent,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty"`
+	HealthCheck HealthCheck       `json:"healthCheck"`
+	Prefix      string            `json:"prefix,omitempty"`
+	Suffix      string            `json:"suffix,omitempty"`
+	Filter      string            `json:"filter,omitempty"`
+	Exclude     string            `json:"exclude,omitempty"`
+	Renames     []NameReplacement `json:"renames,omitempty"`
+}
+type NameReplacement struct {
+	Pattern     string `json:"pattern"`
+	Replacement string `json:"replacement"`
+}
 type Source struct {
+	Update         DeviceUpdate    `json:"update"`
+	LegacyProxy    string          `json:"legacyProxy,omitempty"`
 	ClientProvider *ClientProvider `json:"clientProvider,omitempty"`
 	Fetch          FetchOptions    `json:"fetch"`
 	ExtractNodes   bool            `json:"extractNodes"`
@@ -110,10 +126,14 @@ type Settings struct {
 	Nameservers           []string       `json:"nameservers"`
 }
 type Profile struct {
-	GeoASNID    string `json:"geoAsnId,omitempty"`
-	AutoPublish bool   `json:"autoPublish"`
-	GeoIPID     string `json:"geoIpId,omitempty"`
-	GeoSiteID   string `json:"geoSiteId,omitempty"`
+	GeoAutoUpdate     *bool             `json:"geoAutoUpdate,omitempty"`
+	GeoUpdateInterval int               `json:"geoUpdateInterval,omitempty"`
+	SourceUpdates     map[string]string `json:"sourceUpdates,omitempty"`
+	RuleUpdates       map[string]string `json:"ruleUpdates,omitempty"`
+	GeoASNID          string            `json:"geoAsnId,omitempty"`
+	AutoPublish       bool              `json:"autoPublish"`
+	GeoIPID           string            `json:"geoIpId,omitempty"`
+	GeoSiteID         string            `json:"geoSiteId,omitempty"`
 	Meta
 	Name     string   `json:"name"`
 	Groups   []Group  `json:"groups"`
@@ -190,6 +210,9 @@ func ValidateSource(s Source) error {
 	return nil
 }
 func ValidateProfile(p Profile) error {
+	if p.GeoUpdateInterval != 0 && (p.GeoUpdateInterval < 1 || p.GeoUpdateInterval > 168) {
+		return Invalid("invalid_interval", "geoUpdateInterval")
+	}
 	if !ValidName(p.Name) {
 		return Invalid("invalid_name", "name")
 	}

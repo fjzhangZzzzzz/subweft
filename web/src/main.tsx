@@ -1,3 +1,4 @@
+import { SourceForm, UpdateRoutes } from "./device-updates";
 import { ImportWizard } from "./import";
 import { UsersPanel } from "./users";
 import { RulesEditor } from "./rules";
@@ -287,6 +288,22 @@ function App() {
         "MATCH 必须是最后一条启用的规则。",
         "MATCH must be the last enabled rule.",
       ],
+      source_migration_required: [
+        "订阅包含旧设置，请编辑订阅完成转换后再应用。",
+        "Resolve legacy subscription settings before applying.",
+      ],
+      provider_proxy_missing: [
+        "更新出站不存在，请重新选择本配置中的节点或策略组。",
+        "Select an existing update route in this profile.",
+      ],
+      proxy_dependency_cycle: [
+        "更新出站或策略组存在循环依赖，请改用独立节点或可直连的订阅。",
+        "Circular dependency: use an independent node or directly reachable subscription.",
+      ],
+      device_updates_only: [
+        "远程内容统一由设备更新，请在客户端检查更新状态。",
+        "Remote content is updated by devices; check your client.",
+      ],
       source_unavailable: [
         "选中的订阅尚无有效节点或已停用。",
         "A selected source is disabled or has no valid nodes.",
@@ -476,17 +493,13 @@ function App() {
           onSave={(inValue) =>
             run(
               async () => {
-                const saved = await api<Source>(
+                await api<Source>(
                   value ? `sources/${value.id}` : "sources",
                   value ? "PUT" : "POST",
                   inValue,
                 );
                 setModal(null);
                 setModalDirty(false);
-                if (saved.kind === "http" && saved.enabled)
-                  await api(`sources/${saved.id}/refresh`, "POST", {
-                    revision: saved.revision,
-                  });
               },
               t("订阅已保存", "Source saved"),
               true,
@@ -888,7 +901,7 @@ function App() {
                     <Network size={19} />,
                   ],
                   [
-                    t("可用节点", "Available nodes"),
+                    t("本地节点", "Local nodes"),
                     state.sources.reduce((n, s) => n + s.nodeCount, 0) +
                       state.nodes.length,
                     <Server size={19} />,
@@ -932,7 +945,7 @@ function App() {
                     [
                       t("添加订阅或手工节点", "Add sources or manual nodes"),
                       t(
-                        "订阅凭据由服务保管，节点按需复用。",
+                        "集中维护订阅，授权设备直接获取节点。",
                         "Keep credentials on the server and reuse sources.",
                       ),
                       "sources",
@@ -989,7 +1002,7 @@ function App() {
                   </h2>
                   <p>
                     {t(
-                      "草稿与发布版本分开维护。订阅更新失败时保留旧缓存，设备下载只读取已发布内容。",
+                      "发布固定配置定义和本地内容；远程订阅由设备更新，远程内容是否可用需在客户端确认。",
                       "Drafts and releases stay separate. Failed refreshes preserve cached sources; devices receive published content only.",
                     )}
                   </p>
@@ -1088,11 +1101,18 @@ function App() {
                         <option value="">
                           {t("手工节点", "Manual nodes")}
                         </option>
-                        {state.sources.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} · {s.nodeCount}
-                          </option>
-                        ))}
+                        {state.sources
+                          .filter(
+                            (s) => s.kind !== "http" || s.migrationRequired,
+                          )
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} ·{" "}
+                              {s.kind === "http"
+                                ? t("由设备更新", "Device updates")
+                                : s.nodeCount}
+                            </option>
+                          ))}
                       </select>
                     </Field>
                   )}
@@ -1165,7 +1185,7 @@ function App() {
                             <th>{t("名称与标签", "Name & tags")}</th>
                             <th>{t("节点", "Nodes")}</th>
                             <th>{t("订阅状态", "Source status")}</th>
-                            <th>{t("最近成功", "Last success")}</th>
+
                             <th>{t("操作", "Actions")}</th>
                           </tr>
                         </thead>
@@ -1195,12 +1215,16 @@ function App() {
                                   </div>
                                 </td>
                                 <td data-label={t("节点", "Nodes")}>
-                                  <button
-                                    className="link-button"
-                                    onClick={() => void showNodes(v)}
-                                  >
-                                    {v.nodeCount} {t("个节点", "nodes")}
-                                  </button>
+                                  {v.kind === "http" ? (
+                                    t("由设备更新", "Updated by devices")
+                                  ) : (
+                                    <button
+                                      className="link-button"
+                                      onClick={() => void showNodes(v)}
+                                    >
+                                      {v.nodeCount} {t("个节点", "nodes")}
+                                    </button>
+                                  )}
                                 </td>
                                 <td data-label={t("状态", "Status")}>
                                   <span
@@ -1208,46 +1232,31 @@ function App() {
                                   >
                                     {!v.enabled
                                       ? t("已停用", "Disabled")
-                                      : v.lastError
-                                        ? t(
-                                            "使用旧缓存 / 待更新",
-                                            "Cached / refresh needed",
-                                          )
-                                        : v.nodeCount
-                                          ? t("已有有效快照", "Valid snapshot")
-                                          : t("等待更新", "Awaiting refresh")}
+                                      : v.migrationRequired
+                                        ? t("设置待转换", "Migration required")
+                                        : v.kind === "http"
+                                          ? t(
+                                              "由设备更新",
+                                              "Updated by devices",
+                                            )
+                                          : v.lastError
+                                            ? t(
+                                                "使用旧缓存 / 待更新",
+                                                "Cached / refresh needed",
+                                              )
+                                            : v.nodeCount
+                                              ? t(
+                                                  "已有有效快照",
+                                                  "Valid snapshot",
+                                                )
+                                              : t(
+                                                  "等待更新",
+                                                  "Awaiting refresh",
+                                                )}
                                   </span>
-                                </td>
-                                <td
-                                  data-label={t("最近成功", "Last success")}
-                                  className="muted"
-                                >
-                                  {time(v.lastSuccess)}
                                 </td>
                                 <td data-label={t("操作", "Actions")}>
                                   <div className="row-actions">
-                                    {v.kind === "http" && (
-                                      <Button
-                                        disabled={busy || !v.enabled}
-                                        onClick={() =>
-                                          void run(
-                                            () =>
-                                              api(
-                                                `sources/${v.id}/refresh`,
-                                                "POST",
-                                                { revision: v.revision },
-                                              ),
-                                            t(
-                                              "订阅已更新；重新发布配置后设备刷新可获取新配置",
-                                              "Source refreshed. Publish the profile, then refresh the client.",
-                                            ),
-                                          )
-                                        }
-                                      >
-                                        <RefreshCw size={14} />
-                                        {t("更新", "Refresh")}
-                                      </Button>
-                                    )}
                                     <IconButton
                                       label={t("编辑订阅", "Edit source")}
                                       onClick={() => showSource(v)}
@@ -1749,10 +1758,10 @@ function App() {
                       <dd className="mono wrap">{state.validator}</dd>
                       <dt>{t("节点协议", "Node protocols")}</dt>
                       <dd>{state.capabilities.protocols.join(" · ")}</dd>
-                      <dt>{t("自动发布", "Automatic publishing")}</dt>
+                      <dt>{t("远程更新", "Remote updates")}</dt>
                       <dd>
                         {t(
-                          "自动更新最近已发布的定义；保存草稿不会激活",
+                          "由设备更新订阅、规则和地理数据；更改配置后需应用",
                           "Updates use the last published definition; saving drafts never activates them",
                         )}
                       </dd>
@@ -1970,379 +1979,6 @@ function NameForm({
     </form>
   );
 }
-function SourceForm({
-  value,
-  t,
-  onSave,
-}: {
-  value?: Source;
-  t: T;
-  onSave: (v: unknown) => unknown;
-}) {
-  const [name, setName] = useState(value?.name || "");
-  const [kind, setKind] = useState(value?.kind || "http");
-  const [url, setURL] = useState(value?.url || "");
-  const [content, setContent] = useState("");
-  const [tags, setTags] = useState(value?.tags?.join(", ") || "");
-  const [interval, setInterval] = useState(value?.interval || 3600);
-  const [clientProvider, setClientProvider] = useState(
-    value?.clientProvider || {
-      enabled: false,
-      interval: 3600,
-      healthCheck: {
-        enable: false,
-        url: "https://www.gstatic.com/generate_204",
-        interval: 300,
-        timeout: 5000,
-        lazy: true,
-      },
-    },
-  );
-  const [extractNodes, setExtract] = useState(value?.extractNodes || false);
-  const [fetchOptions, setFetch] = useState(
-    value?.fetch || { timeout: 20, retries: 1 },
-  );
-  const [enabled, setEnabled] = useState(value?.enabled ?? true);
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave({
-          id: value?.id || "",
-          revision: value?.revision || 0,
-          name: name.trim(),
-          kind,
-          url,
-          content,
-          tags: split(tags),
-          interval,
-          enabled,
-          extractNodes,
-          fetch: fetchOptions,
-          clientProvider,
-        });
-      }}
-    >
-      <ModalTitle
-        title={
-          value
-            ? t("编辑订阅", "Edit source")
-            : t("添加订阅", "Add subscription source")
-        }
-      />
-      <p className="muted">
-        {t(
-          "支持 13 种协议的节点 YAML、常见代理 URI 列表及单层 Base64。未知节点字段会明确拒绝。",
-          "Use supported fields in node YAML, proxy URI lists, or one Base64 envelope. Unknown fields are rejected.",
-        )}
-      </p>
-      <Field
-        label={t("订阅名称", "Source name")}
-        hint={t(
-          "节点输出会带有此订阅前缀。",
-          "Output node names include this source prefix.",
-        )}
-      >
-        <input
-          autoFocus
-          required
-          value={name}
-          maxLength={80}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </Field>
-      <Field label={t("订阅方式", "Source type")}>
-        <select
-          value={kind}
-          onChange={(e) => setKind(e.target.value as "http" | "local")}
-        >
-          <option value="http">HTTP {t("订阅", "subscription")}</option>
-          <option value="local">
-            {t("本地内容导入", "Local content import")}
-          </option>
-        </select>
-      </Field>
-      {kind === "http" ? (
-        <Field
-          label={t("订阅地址", "Subscription URL")}
-          hint={
-            value
-              ? t(
-                  "凭据默认隐藏；留空保留原地址。",
-                  "Hidden by default. Leave blank to keep the current URL.",
-                )
-              : t(
-                  "凭据由服务保存，不下发原地址。",
-                  "Credentials stay server-side; the upstream URL is not distributed.",
-                )
-          }
-        >
-          <SecretControl
-            t={t}
-            name={t("订阅地址", "Subscription URL")}
-            required={!value || value.kind !== kind}
-            value={url}
-            onChange={setURL}
-          />
-        </Field>
-      ) : (
-        <>
-          <Field
-            label={t("导入内容", "Import content")}
-            hint={
-              value
-                ? t(
-                    "留空保留原内容。这里用于导入订阅，不用于编辑生成配置。",
-                    "Leave blank to keep existing input. This imports a source; it does not edit generated configuration.",
-                  )
-                : t(
-                    "最大 2 MiB；未知字段会明确拒绝。",
-                    "Maximum 2 MiB. Unknown fields are rejected.",
-                  )
-            }
-          >
-            <textarea
-              rows={6}
-              required={!value || value.kind !== kind}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              spellCheck={false}
-            />
-          </Field>
-          <Field label={t("或选择文件", "Or choose a file")}>
-            <input
-              type="file"
-              accept=".yaml,.yml,.txt"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file && file.size <= 2 * 1024 * 1024)
-                  void file.text().then(setContent);
-              }}
-            />
-          </Field>
-        </>
-      )}
-      <div className="form-grid">
-        <Field label={t("标签，以逗号分隔", "Tags, comma separated")}>
-          <input value={tags} onChange={(e) => setTags(e.target.value)} />
-        </Field>
-        <Field label={t("抓取间隔（秒）", "Refresh interval (seconds)")}>
-          <input
-            type="number"
-            min={60}
-            max={604800}
-            required
-            value={interval}
-            onChange={(e) => setInterval(Number(e.target.value))}
-          />
-        </Field>
-      </div>
-      <CheckField
-        label={t(
-          "从完整配置中只提取节点",
-          "Extract only nodes from a complete configuration",
-        )}
-        checked={extractNodes}
-        onChange={setExtract}
-      />
-      <p className="muted">
-        {t(
-          "启用提取时，订阅中的规则、DNS 和客户端设置不会被导入。配置通过独立表单维护。",
-          "Extraction imports only nodes; profile forms manage rules, DNS and client settings independently.",
-        )}
-      </p>
-      {kind === "http" && (
-        <details>
-          <summary>{t("抓取高级参数", "Advanced fetch settings")}</summary>
-          <ObjectForm
-            schema={{
-              kind: "object",
-              properties: {
-                timeout: { kind: "integer", min: 3, max: 120 },
-                retries: { kind: "integer", min: 0, max: 3 },
-                proxy: { kind: "string", secret: true },
-                userAgent: { kind: "string" },
-                headers: {
-                  kind: "map",
-                  values: { kind: "string" },
-                  secret: true,
-                },
-              },
-            }}
-            value={fetchOptions}
-            t={t}
-            path="fetch"
-            onChange={(v) => setFetch(v as typeof fetchOptions)}
-          />
-          <p className="muted">
-            {t(
-              "代理仅支持 HTTP(S) CONNECT；目标与代理地址都会检查 SSRF 边界。",
-              "Proxies use HTTP(S) CONNECT; both target and proxy destinations receive SSRF checks.",
-            )}
-          </p>
-        </details>
-      )}
-      <details>
-        <summary>
-          {t("客户端更新与健康检查", "Client updates & health checks")}
-        </summary>
-        <CheckField
-          label={t(
-            "允许客户端单独更新节点列表",
-            "Allow clients to update the node list separately",
-          )}
-          checked={clientProvider.enabled}
-          onChange={(enabled) =>
-            setClientProvider({ ...clientProvider, enabled })
-          }
-        />
-        {clientProvider.enabled && (
-          <>
-            <div className="form-grid">
-              <Field
-                label={t(
-                  "客户端更新间隔（秒）",
-                  "Client refresh interval (seconds)",
-                )}
-              >
-                <input
-                  type="number"
-                  min={60}
-                  max={604800}
-                  value={clientProvider.interval}
-                  onChange={(e) =>
-                    setClientProvider({
-                      ...clientProvider,
-                      interval: Number(e.target.value),
-                    })
-                  }
-                />
-              </Field>
-              <Field
-                label={t("更新使用的代理（可选）", "Update proxy (optional)")}
-              >
-                <input
-                  value={clientProvider.proxy || ""}
-                  onChange={(e) =>
-                    setClientProvider({
-                      ...clientProvider,
-                      proxy: e.target.value,
-                    })
-                  }
-                />
-              </Field>
-            </div>
-            <CheckField
-              label={t(
-                "定期检查节点可用性",
-                "Check node availability periodically",
-              )}
-              checked={clientProvider.healthCheck.enable}
-              onChange={(enable) =>
-                setClientProvider({
-                  ...clientProvider,
-                  healthCheck: { ...clientProvider.healthCheck, enable },
-                })
-              }
-            />
-            {clientProvider.healthCheck.enable && (
-              <>
-                <Field label={t("检查地址", "Check URL")}>
-                  <input
-                    type="url"
-                    value={clientProvider.healthCheck.url}
-                    onChange={(e) =>
-                      setClientProvider({
-                        ...clientProvider,
-                        healthCheck: {
-                          ...clientProvider.healthCheck,
-                          url: e.target.value,
-                        },
-                      })
-                    }
-                  />
-                </Field>
-                <div className="form-grid">
-                  {(["interval", "timeout"] as const).map((key) => (
-                    <Field
-                      key={key}
-                      label={
-                        key === "interval"
-                          ? t("检查间隔（秒）", "Check interval (seconds)")
-                          : t("超时（毫秒）", "Timeout (milliseconds)")
-                      }
-                    >
-                      <input
-                        type="number"
-                        min={key === "interval" ? 30 : 100}
-                        max={key === "interval" ? 86400 : 30000}
-                        value={clientProvider.healthCheck[key]}
-                        onChange={(e) =>
-                          setClientProvider({
-                            ...clientProvider,
-                            healthCheck: {
-                              ...clientProvider.healthCheck,
-                              [key]: Number(e.target.value),
-                            },
-                          })
-                        }
-                      />
-                    </Field>
-                  ))}
-                </div>
-                <CheckField
-                  label={t("仅检查正在使用的节点", "Check only nodes in use")}
-                  checked={clientProvider.healthCheck.lazy}
-                  onChange={(lazy) =>
-                    setClientProvider({
-                      ...clientProvider,
-                      healthCheck: { ...clientProvider.healthCheck, lazy },
-                    })
-                  }
-                />
-                <Field
-                  label={t(
-                    "期望 HTTP 状态码（可选）",
-                    "Expected HTTP status (optional)",
-                  )}
-                >
-                  <input
-                    value={clientProvider.healthCheck.expectedStatus || ""}
-                    onChange={(e) =>
-                      setClientProvider({
-                        ...clientProvider,
-                        healthCheck: {
-                          ...clientProvider.healthCheck,
-                          expectedStatus: e.target.value,
-                        },
-                      })
-                    }
-                  />
-                </Field>
-              </>
-            )}
-          </>
-        )}
-        <p className="muted">
-          {t(
-            "客户端读取已发布的节点快照；上游地址保留在服务端。这里的 proxy 与健康检查由客户端执行。",
-            "Clients read published snapshots. Upstream URLs remain server-side; proxy and health checks here run in the client.",
-          )}
-        </p>
-      </details>
-      <CheckField
-        label={t("启用订阅", "Enable source")}
-        checked={enabled}
-        onChange={setEnabled}
-      />
-      <div className="form-footer">
-        <Button primary type="submit">
-          {t("保存订阅", "Save source")}
-        </Button>
-      </div>
-    </form>
-  );
-}
 function DeviceForm({
   value,
   profiles,
@@ -2473,7 +2109,7 @@ function ProfileEditor({
   const [manageRulesets, setManageRulesets] = useState(false);
   const [resourcesDirty, setResourcesDirty] = useState(false);
   const [rulesDirty, setRulesDirty] = useState(false);
-  const [allowStale, setAllowStale] = useState(false);
+  const allowStale = false;
   const [preview, setPreview] = useState<{
     config: string;
     members: Record<string, string[]>;
@@ -2499,6 +2135,18 @@ function ProfileEditor({
     const rename = (name: string) => (name === oldName ? value.name : name);
     setDraft({
       ...draft,
+      sourceUpdates: Object.fromEntries(
+        Object.entries(draft.sourceUpdates || {}).map(([id, route]) => [
+          id,
+          rename(route),
+        ]),
+      ),
+      ruleUpdates: Object.fromEntries(
+        Object.entries(draft.ruleUpdates || {}).map(([id, route]) => [
+          id,
+          rename(route),
+        ]),
+      ),
       groups: draft.groups.map((g, index) => ({
         ...(i === index ? value : g),
         groups: (i === index ? value : g).groups.map(rename),
@@ -2573,7 +2221,10 @@ function ProfileEditor({
                     allowStale,
                   });
                 },
-                t("校验通过，配置已应用", "Validated and applied"),
+                t(
+                  "配置结构检查通过，已应用；远程内容待设备验证",
+                  "Structure checked and applied; remote content awaits device validation",
+                ),
               )
             }
           >
@@ -2631,14 +2282,6 @@ function ProfileEditor({
               <Button danger disabled={busy} onClick={onDelete}>
                 {t("删除配置", "Delete profile")}
               </Button>
-              <CheckField
-                label={t(
-                  "允许使用更新失败订阅的旧缓存",
-                  "Allow cached content after refresh failures",
-                )}
-                checked={allowStale}
-                onChange={setAllowStale}
-              />
             </div>
           </details>
         </div>
@@ -2651,6 +2294,7 @@ function ProfileEditor({
           )}
         </div>
       )}
+      <UpdateRoutes profile={draft} state={state} t={t} onChange={setDraft} />
       <div className="editor-tabs tabs">
         {[
           ["groups", t("策略组", "Policy groups")],
@@ -2908,33 +2552,43 @@ function ProfileEditor({
             {tab === "settings" && (
               <>
                 <h3>{t("连接设置", "Connection settings")}</h3>
-                <CheckField
-                  label={t(
-                    "上游更新后自动校验并发布",
-                    "Automatically validate and publish upstream updates",
-                  )}
-                  checked={!!draft.autoPublish}
-                  onChange={(autoPublish) =>
-                    setDraft({ ...draft, autoPublish })
-                  }
-                />
                 <p className="muted">
                   {t(
-                    "自动更新只使用最近已发布的配置定义；保存草稿不会自动发布草稿。失败保留现行版本。",
-                    "Automatic updates use the last published definition. Saving a draft never publishes it; failures retain the active release.",
+                    "远程地理数据由设备更新。首次下载需要设备网络可达；此处不提供内核不支持的逐项下载代理。",
+                    "Devices update remote geodata. Initial downloads require device connectivity; per-file proxy selection is not supported by the core.",
                   )}
                 </p>
-                {state.publishStatus
-                  ?.filter((v) => v.id === draft.id && v.error)
-                  .map((v) => (
-                    <p className="alert error" key={v.id}>
-                      {t(
-                        "自动发布未成功，现行版本已保留：",
-                        "Automatic publication failed; active release retained: ",
-                      )}
-                      {v.error}
-                    </p>
-                  ))}
+                <CheckField
+                  label={t(
+                    "设备定期更新地理数据",
+                    "Periodically update geodata on devices",
+                  )}
+                  checked={draft.geoAutoUpdate ?? true}
+                  onChange={(geoAutoUpdate) =>
+                    setDraft({ ...draft, geoAutoUpdate })
+                  }
+                />
+                {(draft.geoAutoUpdate ?? true) && (
+                  <Field
+                    label={t(
+                      "地理数据更新间隔（小时）",
+                      "Geodata update interval (hours)",
+                    )}
+                  >
+                    <input
+                      type="number"
+                      min={1}
+                      max={168}
+                      value={draft.geoUpdateInterval || 24}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          geoUpdateInterval: +e.target.value,
+                        })
+                      }
+                    />
+                  </Field>
+                )}
                 {(["geoIpId", "geoSiteId", "geoAsnId"] as const).map((key) => (
                   <Field
                     key={key}
@@ -3608,7 +3262,7 @@ function GroupForm({
               .map((s) => (
                 <CheckField
                   key={s.id}
-                  label={`${s.name} (${s.nodeCount})${s.enabled ? "" : t(" · 已停用", " · disabled")}`}
+                  label={`${s.name} (${s.kind === "http" ? t("由设备更新", "Device updates") : s.nodeCount})${s.enabled ? "" : t(" · 已停用", " · disabled")}`}
                   checked={
                     g.allSources ? s.enabled : g.sourceIds.includes(s.id)
                   }
@@ -3877,7 +3531,13 @@ function NewProfileForm({
           .map((s) => (
             <CheckField
               key={s.id}
-              label={s.name + " · " + s.nodeCount + t(" 个节点", " nodes")}
+              label={
+                s.name +
+                " · " +
+                (s.kind === "http"
+                  ? t("由设备更新", "Updated by devices")
+                  : s.nodeCount + t(" 个节点", " nodes"))
+              }
               checked={sourceIds.includes(s.id)}
               onChange={() => setSources(toggle(sourceIds, s.id))}
             />

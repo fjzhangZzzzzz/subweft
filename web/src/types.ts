@@ -30,6 +30,9 @@ export type Node = {
 };
 export type ManualNode = Meta & { node: Node; enabled: boolean };
 export type Source = Meta & {
+  update?: import("./device-updates").DeviceUpdate;
+  legacyProxy?: string;
+  migrationRequired?: boolean;
   url?: string;
   clientProvider?: {
     enabled: boolean;
@@ -112,6 +115,10 @@ export type Settings = {
   nameservers: string[];
 };
 export type Profile = Meta & {
+  geoAutoUpdate?: boolean;
+  geoUpdateInterval?: number;
+  sourceUpdates?: Record<string, string>;
+  ruleUpdates?: Record<string, string>;
   autoPublish?: boolean;
   geoIpId?: string;
   geoAsnId?: string;

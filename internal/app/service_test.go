@@ -120,43 +120,37 @@ func TestPublishRejectPreservesActiveAndIndependentDeviceRevocation(t *testing.T
 		t.Fatal("revoked device restored")
 	}
 }
-func TestRefreshFailurePreservesSnapshotAndRequiresAcknowledgment(t *testing.T) {
+func TestRemoteDefinitionsNeverFetchAndPublishWithoutCache(t *testing.T) {
 	ctx := context.Background()
-	s, _, _, _ := setup(t)
-	var bad atomic.Bool
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if bad.Load() {
-			http.Error(w, "unavailable", 503)
-			return
-		}
-		_, _ = w.Write([]byte(testfixture.ProviderYAML))
-	}))
+	svc, _, _, _ := setup(t)
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1); http.Error(w, "unavailable", 503) }))
 	defer upstream.Close()
-	src, e := s.SaveSource(ctx, app.SourceInput{Name: "remote", Kind: "http", URL: upstream.URL, Enabled: true, Interval: 60})
+	src, e := svc.SaveSource(ctx, app.SourceInput{Name: "remote", Kind: "http", URL: upstream.URL, Enabled: true, Interval: 60})
 	if e != nil {
 		t.Fatal(e)
 	}
-	src, e = s.Refresh(ctx, src.ID)
+	// A nil fetcher makes any accidental acquisition fail immediately.
+	svc.Fetcher = nil
+	if _, e = svc.Refresh(ctx, src.ID); e == nil {
+		t.Fatal("retired refresh accepted")
+	}
+	p, e := svc.SaveProfile(ctx, domain.Profile{Name: "remote", Groups: []domain.Group{{Name: "Proxy", Type: "select", SourceIDs: []string{src.ID}}}, Rules: []domain.Rule{{Type: "MATCH", Target: "Proxy", Enabled: true}}})
 	if e != nil {
 		t.Fatal(e)
 	}
-	bad.Store(true)
-	if _, e = s.Refresh(ctx, src.ID); e == nil {
-		t.Fatal("expected fetch failure")
+	if _, e = svc.Publish(ctx, p.ID, p.Revision, false); e != nil {
+		t.Fatal(e)
 	}
-	current, e := storage.Load[domain.Source](ctx, s.Store, "source", src.ID)
-	if e != nil || len(current.Nodes) != 2 || current.LastError == "" {
-		t.Fatal("valid cache lost")
-	}
-	p, e := s.SaveProfile(ctx, domain.Profile{Name: "cached", Groups: []domain.Group{{Name: "Proxy", Type: "select", AllSources: true}}, Rules: []domain.Rule{{Type: "MATCH", Target: "Proxy", Enabled: true}}, Settings: domain.Settings{MixedPort: 7890}})
+	d, e := svc.SaveDevice(ctx, domain.Device{Name: "device", ProfileID: p.ID, State: "active"}, "fixture")
 	if e != nil {
 		t.Fatal(e)
 	}
-	if _, e = s.Publish(ctx, p.ID, p.Revision, false); e == nil {
-		t.Fatal("stale cache not acknowledged")
-	}
-	if _, e = s.Publish(ctx, p.ID, p.Revision, true); e != nil {
+	if _, _, e = svc.Store.Download(ctx, d.Token); e != nil {
 		t.Fatal(e)
+	}
+	if calls.Load() != 0 {
+		t.Fatal("server contacted upstream")
 	}
 }
 func TestConcurrentEditCannotPublishStaleCandidate(t *testing.T) {

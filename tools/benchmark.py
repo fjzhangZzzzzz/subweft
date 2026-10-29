@@ -114,13 +114,11 @@ def main():
             with client.open(base+'/auth/login') as response:query=urllib.parse.urlsplit(response.url).query;response.read()
             with client.open(urllib.request.Request(issuer+'/approve',data=query.encode())) as response:response.read()
             csrf=call('state')['csrf']
-            stage='fetch ten HTTP sources'
+            stage='save ten device-updated HTTP definitions'
             for i in range(10):
-                src=call('sources',{'name':f'source-{i:02d}','kind':'http','url':issuer+f'/bench/provider/{i}','enabled':True,'tags':[],'interval':3600,'clientProvider':{'enabled':True,'interval':3600,'healthCheck':{'enable':False}}})
-                call('sources/'+src['id']+'/refresh',{'revision':src['revision']})
-            stage='fetch 300000-entry ruleset'
-            resource=call('resources',{'name':'large-public-rules','kind':'http','type':'ruleset','behavior':'domain','format':'text','url':issuer+'/bench/rules.txt','enabled':True,'interval':3600})
-            resource=call('resources/'+resource['id']+'/refresh',{'revision':resource['revision']})
+                src=call('sources',{'name':f'source-{i:02d}','kind':'http','url':issuer+f'/bench/provider/{i}','enabled':True,'tags':[],'interval':3600})
+            stage='save 300000-entry local ruleset'
+            resource=call('resources',{'name':'large-local-rules','kind':'local','type':'ruleset','behavior':'domain','format':'text','entries':[f'entry-{i}.example.invalid' for i in range(300000)],'enabled':True,'interval':3600})
             if resource['count']!=300000:raise RuntimeError('wrong rule count')
             stage='publish five profiles with native validation'
             links=[]
@@ -161,7 +159,7 @@ def main():
                 if after!=results[index%len(results)][2]:raise RuntimeError('restored config differs')
             for url in resources:
                 with direct.open(url,timeout=30) as response:response.read()
-            report={'scope':'real app executable; HTTP fetch+publish+immutable providers+300000 domain rules; loopback only','platform':os.name,'sources':10,'nodes':2000,'profiles':5,'devices':20,'rules':300000,'requests':args.requests,'concurrency':10,'failures':0,'response_bytes':results[0][1],'p50_ms':round(latency[len(latency)//2],2),'p95_ms':round(latency[(len(latency)-1)*95//100],2),'app_idle_rss_mib':round(idle/1048576,2),'app_peak_rss_mib':round(max(peaks['app'],memory(service.pid)[1])/1048576,2),'native_core_peak_rss_mib':(round(native_peak/1048576,2) if os.name!='nt' else None),'native_job_peak_rss_mib':(round(native_job_peak/1048576,2) if os.name!='nt' else None),'native_measurement':'Linux wait4 for core child and whole job separately; Windows unmeasured','sample_interval_ms':10,'settle_seconds':args.settle,'resource_downloads':len(asset_bytes),'resource_bytes':sum(asset_bytes),'container_total_peak_mib':None,'driver_excluded':True,'cli_restore_restart_passed':True}
+            report={'scope':'real app executable; device-updated remote definitions+publish+300000 local domain rules; loopback only','platform':os.name,'sources':10,'upstream_fixture_nodes':2000,'server_remote_nodes':0,'profiles':5,'devices':20,'rules':300000,'requests':args.requests,'concurrency':10,'failures':0,'response_bytes':results[0][1],'p50_ms':round(latency[len(latency)//2],2),'p95_ms':round(latency[(len(latency)-1)*95//100],2),'app_idle_rss_mib':round(idle/1048576,2),'app_peak_rss_mib':round(max(peaks['app'],memory(service.pid)[1])/1048576,2),'native_core_peak_rss_mib':(round(native_peak/1048576,2) if os.name!='nt' else None),'native_job_peak_rss_mib':(round(native_job_peak/1048576,2) if os.name!='nt' else None),'native_measurement':'Linux wait4 for core child and whole job separately; Windows unmeasured','sample_interval_ms':10,'settle_seconds':args.settle,'resource_downloads':len(asset_bytes),'resource_bytes':sum(asset_bytes),'container_total_peak_mib':None,'driver_excluded':True,'cli_restore_restart_passed':True}
             cgroup=Path('/sys/fs/cgroup/memory.peak')
             if cgroup.is_file():report['container_total_peak_mib']=round(int(cgroup.read_text())/1048576,2)
             report['targets_passed']=idle<=64*1048576 and report['p95_ms']<=300

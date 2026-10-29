@@ -1,5 +1,7 @@
 # ADR-0005：SQLite 内的不可变资源与设备授权
 
+> 远程刷新与缓存、自动发布及上游凭据边界已由 [ADR-0007](0007-device-managed-updates.md) 替代；本页保留决策演进记录。
+
 状态：已接受；扩展 [ADR-0003](0003-initial-slice-storage.md) 的首个实现边界。
 
 ## 决策与原因
