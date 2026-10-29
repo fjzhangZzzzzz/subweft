@@ -265,30 +265,35 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 			}
 		}
 		// Explicit selection has an order; append tag/all matches afterwards without duplicates.
-		sourceByID := make(map[string]domain.Source, len(snap.Sources))
-		for _, s := range snap.Sources {
-			sourceByID[s.ID] = s
-		}
-		orderedSources := make([]domain.Source, 0, len(snap.Sources))
 		selectedSources := map[string]bool{}
-		for _, id := range g.SourceIDs {
-			if s, ok := sourceByID[id]; ok && s.Enabled && !selectedSources[id] {
-				orderedSources = append(orderedSources, s)
-				selectedSources[id] = true
-			}
-		}
-		for _, s := range snap.Sources {
-			if s.Enabled && !selectedSources[s.ID] && (g.AllSources || intersects(g.Tags, s.Tags)) {
-				orderedSources = append(orderedSources, s)
-				selectedSources[s.ID] = true
-			}
-		}
-		for _, s := range orderedSources {
+		addSource := func(s domain.Source) {
 			if s.Kind == "http" {
 				remoteUses = append(remoteUses, s.ID)
 			}
 			for _, n := range sourceNodes[s.ID] {
 				add(n, true)
+			}
+		}
+		var sourceIndex map[string]int
+		if len(g.SourceIDs) > 0 {
+			sourceIndex = make(map[string]int, len(snap.Sources))
+			for i := range snap.Sources {
+				sourceIndex[snap.Sources[i].ID] = i
+			}
+		}
+		for _, id := range g.SourceIDs {
+			if selectedSources[id] {
+				continue
+			}
+			if index, ok := sourceIndex[id]; ok && snap.Sources[index].Enabled {
+				addSource(snap.Sources[index])
+				selectedSources[id] = true
+			}
+		}
+		for _, s := range snap.Sources {
+			if s.Enabled && !selectedSources[s.ID] && (g.AllSources || intersects(g.Tags, s.Tags)) {
+				addSource(s)
+				selectedSources[s.ID] = true
 			}
 		}
 		for _, id := range g.NodeIDs {
