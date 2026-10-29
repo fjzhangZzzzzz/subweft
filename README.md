@@ -4,7 +4,7 @@
 
 [English](README.en.md) · [设计](docs/design.md) · [支持矩阵](docs/support-matrix.md) · [验收标准](docs/acceptance.md)
 
-> **v0.1.0-rc.3 人工验收候选**：按日常任务组织的表单、标准配置导入、一键应用及设备流程已提供；真实 Pocket ID、Clash Verge 和生产切换尚待验收。先看[人工验收入口](docs/human-acceptance.md)。
+> **v0.2.0-rc.1 人工验收候选**：远程订阅、规则和地理数据统一由设备更新，通过表单选择更新出站；保留标准配置导入、一键应用及独立设备链接。客户端实际使用仍需验收。先看[人工验收入口](docs/human-acceptance.md)。
 
 Subweft 面向个人和家庭，把订阅、手工节点、策略组、规则、配置发布及设备链接维护集中到 Web 表单。服务持有上游凭据，设备通过独立授权获取渲染后的 Mihomo 配置。
 

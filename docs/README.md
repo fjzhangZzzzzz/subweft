@@ -1,6 +1,6 @@
 # 文档导航
 
-本仓库提供 v0.1.0-rc.3 完整首版人工验收候选；未替代生产。能力状态按[支持矩阵](support-matrix.md)记录，生产替代以[验收标准](acceptance.md)为准。
+本仓库提供 v0.2.0-rc.1 统一设备更新候选。实现与验证范围见[能力状态](status.md)，各层验收以[验收标准](acceptance.md)为准。
 
 - [人工验收入口](human-acceptance.md)：完整表单路径、标准配置导入、Pocket ID 与 Clash Verge。
 - [Linux 容器](container.md)：双架构安装、Secret、Nginx、备份恢复与升级。
