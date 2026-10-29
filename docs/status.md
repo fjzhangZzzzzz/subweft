@@ -1,8 +1,8 @@
 # 当前能力与验收边界
 
-[0.2.0-rc.1 候选](https://github.com/fjzhangZzzzzz/subweft/releases/tag/v0.2.0-rc.1)已发布，源码与部署工件分别绑定准确提交和摘要。统一更新方向及升级约束见 [ADR-0007](adr/0007-device-managed-updates.md)，人工流程见 [验收入口](human-acceptance.md)。
+[0.2.0-rc.3 候选](https://github.com/fjzhangZzzzzz/subweft/releases/tag/v0.2.0-rc.3)已发布，源码与部署工件分别绑定准确提交和摘要。统一更新方向及升级约束见 [ADR-0007](adr/0007-device-managed-updates.md)，人工流程见 [验收入口](human-acceptance.md)。
 
-下一候选按 [ADR-0008](adr/0008-core-defaults.md) 调整默认出站和地理数据行为；在完成发布和部署验证前，以上已发布候选仍以其原行为为准。
+按 [ADR-0008](adr/0008-core-defaults.md)，未指定的更新出站跟随设备规则，地理数据使用内核默认值；已有显式出站保留。显式选择的订阅顺序按配置保留。
 
 ## 能力
 
@@ -14,9 +14,11 @@
 
 ## 验证范围
 
+rc.3 的[准确提交三平台 CI](https://github.com/fjzhangZzzzzz/subweft/actions/runs/40833760961)通过，包含原生测试、隔离及打包恢复；固定内核运行测试验证跟随规则与显式直连。此前候选曾一次 Windows 空闲内存超标、重试通过；一次本机并发测试提前失败，后续复测未重现，原因未确定。
+
 已通过本地 Go 回归、前端构建和新增固定 Mihomo 设备集成测试：直连与独立代理下载、完整配置 YAML 提取、失败保留缓存、地址变更及同目录回滚。隔离原生校验不访问上游，也不把验证投影写入发布。
 
-真实 Playwright UI 已验证订阅请求设置往返、旧覆盖处理与转换、出站循环报错及修正发布、远程规则创建、设备链接掩码与暂停/恢复/轮换、弹窗退出确认，以及手机和桌面主页面布局。Windows 独立性能复验包含 30 万条本地规则，200 次并发下载零失败，P95 约 21 毫秒；CLI 备份恢复重启后配置一致。[三平台原生 CI](https://github.com/fjzhangZzzzzz/subweft/actions/runs/40817722045)全部通过，Linux amd64/arm64 容器隔离、性能与恢复验证通过，Windows 包恢复通过。已下载的准确 Windows 发布工件再次通过真实 UI 应用更改流程。Linux amd64 同一压力场景 P95 约 12 毫秒，应用空闲 RSS 约 52 MiB、峰值约 82 MiB；该数据不衡量设备的上游网络速度。旧候选的不可变验证记录保留在对应 GitHub Release，不把旧结果当作新版本通过。
+真实 Playwright UI 已验证订阅请求设置往返、旧覆盖处理与转换、出站循环报错及修正发布、远程规则创建、设备链接掩码与暂停/恢复/轮换、弹窗退出确认，以及手机和桌面主页面布局。Windows 独立性能复验包含 30 万条本地规则及 200 次并发下载；这些测量不衡量设备的上游网络速度。旧候选的不可变验证记录保留在对应 GitHub Release，不把旧结果当作新版本通过。
 
 ## 人工验收边界
 
