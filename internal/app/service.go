@@ -236,6 +236,21 @@ func (s *Service) Delete(ctx context.Context, kind, id string, revision int) err
 			}
 		}
 	}
+	if kind == "node" {
+		for _, n := range snap.Nodes {
+			if n.ID == id {
+				for _, p := range snap.Profiles {
+					for _, routes := range []map[string]string{p.SourceUpdates, p.RuleUpdates} {
+						for _, route := range routes {
+							if route == n.Node.Name {
+								return domain.Invalid("resource_in_use", "id")
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 	if kind == "resource" {
 		for _, p := range snap.Profiles {
 			if p.GeoIPID == id || p.GeoSiteID == id || p.GeoASNID == id {

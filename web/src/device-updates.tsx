@@ -43,6 +43,16 @@ export function HeaderFields({
           <Field label={t("名称", "Name")}>
             <input
               required
+              ref={(el) =>
+                el?.setCustomValidity(
+                  rows.some(
+                    (r, j) =>
+                      j !== i && r[0].toLowerCase() === name.toLowerCase(),
+                  )
+                    ? t("请求头名称不能重复", "Header names must be unique")
+                    : "",
+                )
+              }
               value={name}
               onChange={(e) =>
                 update(
@@ -487,7 +497,7 @@ export function UpdateRoutes({
   ];
   if (!sources.length && !rules.length) return null;
   return (
-    <section className="panel">
+    <section className="update-routes">
       <h3>{t("设备更新出站", "Device update routes")}</h3>
       <p className="muted">
         {t(

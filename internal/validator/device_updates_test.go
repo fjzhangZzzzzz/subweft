@@ -41,6 +41,16 @@ func TestRemoteProjectionUsesPinnedCoreWithoutFetching(t *testing.T) {
 	if e = checker.Check(context.Background(), result.Config); e != nil {
 		t.Fatal(e)
 	}
+	p.Settings.DNSEnabled = true
+	p.Settings.DNSMode = "redir-host"
+	p.Settings.Nameservers = []string{"1.1.1.1", "bogus://geosite.example.invalid"}
+	bad, e := compile.Compile(p, snap, false)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = checker.Check(context.Background(), bad.Config); e == nil {
+		t.Fatal("projection masked invalid ordinary DNS server")
+	}
 	if calls.Load() != 0 {
 		t.Fatal("validator contacted remote")
 	}

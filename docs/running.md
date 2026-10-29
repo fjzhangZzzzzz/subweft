@@ -47,7 +47,7 @@ go mod verify
 | SUBWEFT_ADMIN_SUBJECTS | 引导管理员精确 sub，逗号分隔 |
 | SUBWEFT_MIHOMO_PATH | 锁定摘要相符的程序绝对路径 |
 | SUBWEFT_VALIDATION_DIR | 生产必须为 tmpfs 内的校验目录 |
-| SUBWEFT_FETCH_ALLOW_CIDRS | 可选的精确来源目标例外，默认拒绝私网 |
+| SUBWEFT_FETCH_ALLOW_CIDRS | 旧配置项；远程内容已统一由设备更新，不用于服务端获取 |
 | SUBWEFT_LOCAL_HTTP | 仅用于明确环回 IP 的 HTTP 应用和监听；issuer 可为环回 HTTP 或真实 HTTPS |
 
 生产安装、Secret 挂载、Nginx、升级与恢复使用[容器说明](container.md)。认证发现采用延迟连接，IdP 离线不阻止服务重启及已有设备下载；登录仍失败关闭。校验器或命名空间不可用时不降级发布。

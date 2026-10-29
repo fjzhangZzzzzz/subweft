@@ -1913,3 +1913,14 @@ details > summary {
     display: inline-flex;
   }
 }
+
+.update-routes {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.update-routes h3 {
+  margin: 0 0 8px;
+}
+.update-routes p {
+  margin: 0 0 12px;
+}

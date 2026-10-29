@@ -361,15 +361,24 @@ function ResourceForm({
               onChange={(headers) => set("headers", headers)}
             />
           )}
-          <Field label={t("更新间隔（秒）", "Refresh interval (seconds)")}>
-            <input
-              type="number"
-              min={60}
-              max={604800}
-              value={draft.interval}
-              onChange={(e) => set("interval", +e.target.value)}
-            />
-          </Field>
+          {draft.type === "ruleset" ? (
+            <Field label={t("更新间隔（秒）", "Refresh interval (seconds)")}>
+              <input
+                type="number"
+                min={60}
+                max={604800}
+                value={draft.interval}
+                onChange={(e) => set("interval", +e.target.value)}
+              />
+            </Field>
+          ) : (
+            <p className="muted">
+              {t(
+                "地理数据更新周期在配置的连接设置中统一维护；首次下载需要设备可直连该地址。",
+                "Manage geodata update intervals in profile connection settings. Initial downloads require direct device reachability.",
+              )}
+            </p>
+          )}
         </>
       ) : draft.type === "ruleset" ? (
         <>

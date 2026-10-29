@@ -133,6 +133,7 @@ func sourceMeta(v domain.Source) sourceView {
 	out := sourceView{Meta: v.Meta, Name: v.Name, Kind: v.Kind, Enabled: v.Enabled, Tags: v.Tags, Interval: v.Interval, ExtractNodes: v.ExtractNodes}
 	if v.Kind == "http" {
 		out.MigrationRequired = len(v.Overrides) > 0 || v.LegacyProxy != ""
+		out.Overrides = v.Overrides
 	} else {
 		out.NodeCount = len(v.Nodes)
 		out.LastSuccess = v.LastSuccess
@@ -325,6 +326,10 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 			v, e := storage.Load[domain.Source](ctx, s.Store, "source", id)
 			if e != nil {
 				fail(w, e)
+				return
+			}
+			if v.Kind == "http" && len(v.Overrides) == 0 {
+				fail(w, domain.Invalid("device_updates_only", "source"))
 				return
 			}
 			counts := map[string]int{}

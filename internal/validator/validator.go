@@ -114,44 +114,6 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 	if yaml.Unmarshal(config, &configMap) != nil {
 		return domain.Invalid("invalid_config", "publish")
 	}
-	for _, providerKey := range []string{"rule-providers", "proxy-providers"} {
-		if providers, ok := configMap[providerKey].(map[string]any); ok {
-			for _, raw := range providers {
-				provider, ok := raw.(map[string]any)
-				if !ok {
-					return domain.Invalid("invalid_provider", "publish")
-				}
-				remote, _ := provider["url"].(string)
-				id := strings.TrimPrefix(remote, compile.ResourcePrefix)
-				data, ok := assets[id]
-				if strings.HasPrefix(remote, compile.ResourcePrefix) {
-					if !ok {
-						return domain.Invalid("validation_resource_missing", "publish")
-					}
-				} else {
-					if source.ValidateURL(remote) != nil {
-						return domain.Invalid("invalid_url", "publish")
-					}
-					data, e = remoteValidationData(providerKey, provider)
-					if e != nil {
-						return e
-					}
-				}
-				filename, _ := provider["path"].(string)
-				target := filepath.Join(dir, filepath.FromSlash(filename))
-				if !strings.HasPrefix(target, dir+string(os.PathSeparator)) {
-					return domain.Invalid("invalid_resource_path", "publish")
-				}
-				if os.MkdirAll(filepath.Dir(target), 0700) != nil || os.WriteFile(target, data, 0600) != nil {
-					return domain.Invalid("validation_failed", "publish")
-				}
-				provider["type"] = "file"
-				delete(provider, "url")
-				delete(provider, "interval")
-			}
-		}
-	}
-
 	remoteGeo := map[string]bool{}
 	if urls, ok := configMap["geox-url"].(map[string]any); ok {
 		for key, raw := range urls {
@@ -177,6 +139,51 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 		}
 		delete(configMap, "geox-url")
 	}
+	for _, providerKey := range []string{"rule-providers", "proxy-providers"} {
+		if providers, ok := configMap[providerKey].(map[string]any); ok {
+			for _, raw := range providers {
+				provider, ok := raw.(map[string]any)
+				if !ok {
+					return domain.Invalid("invalid_provider", "publish")
+				}
+				remote, _ := provider["url"].(string)
+				id := strings.TrimPrefix(remote, compile.ResourcePrefix)
+				data, ok := assets[id]
+				if strings.HasPrefix(remote, compile.ResourcePrefix) {
+					if !ok {
+						return domain.Invalid("validation_resource_missing", "publish")
+					}
+				} else {
+					if source.ValidateURL(remote) != nil {
+						return domain.Invalid("invalid_url", "publish")
+					}
+					data, e = remoteValidationData(providerKey, provider)
+					if e != nil {
+						return e
+					}
+				}
+				if providerKey == "rule-providers" && provider["behavior"] == "classical" && len(remoteGeo) > 0 {
+					format, _ := provider["format"].(string)
+					data, e = projectClassicalRules(data, format, remoteGeo)
+					if e != nil {
+						return domain.Invalid("invalid_resource", "publish")
+					}
+				}
+				filename, _ := provider["path"].(string)
+				target := filepath.Join(dir, filepath.FromSlash(filename))
+				if !strings.HasPrefix(target, dir+string(os.PathSeparator)) {
+					return domain.Invalid("invalid_resource_path", "publish")
+				}
+				if os.MkdirAll(filepath.Dir(target), 0700) != nil || os.WriteFile(target, data, 0600) != nil {
+					return domain.Invalid("validation_failed", "publish")
+				}
+				provider["type"] = "file"
+				delete(provider, "url")
+				delete(provider, "interval")
+			}
+		}
+	}
+
 	if len(remoteGeo) > 0 {
 		deferRemoteGeo(configMap, remoteGeo)
 	}

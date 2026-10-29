@@ -1235,10 +1235,7 @@ function App() {
                                       : v.migrationRequired
                                         ? t("设置待转换", "Migration required")
                                         : v.kind === "http"
-                                          ? t(
-                                              "由设备更新",
-                                              "Updated by devices",
-                                            )
+                                          ? t("已启用", "Enabled")
                                           : v.lastError
                                             ? t(
                                                 "使用旧缓存 / 待更新",
@@ -1257,6 +1254,17 @@ function App() {
                                 </td>
                                 <td data-label={t("操作", "Actions")}>
                                   <div className="row-actions">
+                                    {v.kind === "http" &&
+                                      !!v.overrides?.length && (
+                                        <Button
+                                          onClick={() => void showNodes(v)}
+                                        >
+                                          {t(
+                                            "处理旧节点修改",
+                                            "Resolve legacy node edits",
+                                          )}
+                                        </Button>
+                                      )}
                                     <IconButton
                                       label={t("编辑订阅", "Edit source")}
                                       onClick={() => showSource(v)}
@@ -2474,8 +2482,19 @@ function ProfileEditor({
                 danger
                 onClick={() => {
                   const name = draft.groups[deleteGroup].name;
+                  const replaceRoute = (
+                    routes: Record<string, string> | undefined,
+                  ) =>
+                    Object.fromEntries(
+                      Object.entries(routes || {}).map(([id, route]) => [
+                        id,
+                        route === name ? replacement : route,
+                      ]),
+                    );
                   setDraft({
                     ...draft,
+                    sourceUpdates: replaceRoute(draft.sourceUpdates),
+                    ruleUpdates: replaceRoute(draft.ruleUpdates),
                     groups: draft.groups
                       .filter((_, i) => i !== deleteGroup)
                       .map((g) => ({

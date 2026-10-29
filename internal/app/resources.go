@@ -40,6 +40,9 @@ func validateResource(v domain.Resource) error {
 			return domain.Invalid("invalid_format", "format")
 		}
 	case "mmdb", "geoip", "geosite", "asn":
+		if len(v.Headers) > 0 {
+			return domain.Invalid("geodata_headers_unsupported", "headers")
+		}
 	default:
 		return domain.Invalid("invalid_resource_type", "type")
 	}
