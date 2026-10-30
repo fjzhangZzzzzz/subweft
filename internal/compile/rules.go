@@ -99,11 +99,11 @@ func renderRules(p domain.Profile, names map[string]bool, resources map[string]d
 		var line string
 		if r.Type == "RULE-SET" {
 			resource, ok := resources[r.Value]
-			if !ok || resource.Type != "ruleset" || !resource.Enabled || resource.Digest == "" {
+			if !ok || resource.Type != "ruleset" || !resource.Enabled || (resource.Kind != "http" && resource.Digest == "") {
 				return nil, nil, domain.Invalid("ruleset_unavailable", field+".value")
 			}
 			used[r.Value] = resource.Digest
-			line = "RULE-SET," + resource.Name
+			line = "RULE-SET," + r.Value
 		} else {
 			var e error
 			line, e = RuleCondition(domain.Condition{Type: r.Type, Value: r.Value, NoResolve: false, Children: r.Conditions}, 0)

@@ -122,17 +122,10 @@ func Parse(in Input) (Plan, error) {
 		if e := validateProvider(raw); e != nil {
 			return domain.Invalid("unsupported_or_invalid_field", "sources")
 		}
-		if e := known(raw, "name", "type", "url", "path", "interval", "proxy", "health-check", "override", "payload"); e != nil {
+		if e := known(raw, "name", "type", "url", "path", "interval", "proxy", "health-check", "override", "payload", "header", "filter", "exclude-filter"); e != nil {
 			return domain.Field("sources", e)
 		}
-		if prefix := object(raw["override"]); prefix != nil {
-			if e := known(prefix, "additional-prefix"); e != nil {
-				return e
-			}
-			if got := text(prefix["additional-prefix"]); got != "" && got != "["+name+"] " {
-				return domain.Invalid("nonstandard_prefix_requires_review", "sources")
-			}
-		}
+
 		s := domain.Source{Meta: domain.Meta{ID: domain.NewID()}, Name: name, Enabled: enabled, Kind: "http", URL: text(raw["url"]), Interval: integer(raw["interval"], 3600), Tags: []string{"imported"}, Fetch: domain.FetchOptions{Timeout: 20, Retries: 1}, ClientProvider: &domain.ClientProvider{Enabled: true, Interval: integer(raw["interval"], 3600), Proxy: text(raw["proxy"]), HealthCheck: domain.HealthCheck{Interval: 300, Timeout: 5000, Lazy: true}}}
 		if h := object(raw["health-check"]); h != nil {
 			if e := known(h, "enable", "url", "interval", "timeout", "lazy", "expected-status"); e != nil {
@@ -142,6 +135,27 @@ func Parse(in Input) (Plan, error) {
 			if lazy, exists := h["lazy"]; exists {
 				s.ClientProvider.HealthCheck.Lazy = flag(lazy)
 			}
+		}
+		s.Update.HealthCheck = s.ClientProvider.HealthCheck
+		s.Update.Filter = text(raw["filter"])
+		s.Update.Exclude = text(raw["exclude-filter"])
+		if h, e := requestHeaders(raw["header"]); e != nil {
+			return e
+		} else {
+			s.Update.Headers = h
+		}
+		if o := object(raw["override"]); o != nil {
+			s.Update.Prefix = strings.TrimPrefix(text(o["additional-prefix"]), "["+name+"] ")
+			s.Update.Suffix = text(o["additional-suffix"])
+			if entries, ok := o["proxy-name"].([]any); ok {
+				for _, item := range entries {
+					r := object(item)
+					s.Update.Renames = append(s.Update.Renames, domain.NameReplacement{Pattern: text(r["pattern"]), Replacement: text(r["target"])})
+				}
+			}
+		}
+		if e := compile.ValidateDeviceUpdate(s.Update); e != nil {
+			return e
 		}
 		if text(raw["type"]) == "inline" {
 			data, e := yaml.Marshal(map[string]any{"proxies": fields.Normalize(raw["payload"])})
@@ -160,7 +174,7 @@ func Parse(in Input) (Plan, error) {
 		}
 		if s.Kind == "http" {
 			var e error
-			s.URL, s.Fetch.Headers, e = source.NormalizeCredentials(s.URL, s.Fetch.Headers)
+			s.URL, s.Update.Headers, e = source.NormalizeCredentials(s.URL, s.Update.Headers)
 			if e != nil {
 				return e
 			}
@@ -231,13 +245,22 @@ func Parse(in Input) (Plan, error) {
 		if raw == nil {
 			return plan, domain.Invalid("invalid_ruleset", "resources")
 		}
-		if e = known(raw, "type", "url", "path", "interval", "behavior", "format", "payload", "proxy", "size-limit"); e != nil {
+		if e = known(raw, "type", "url", "path", "interval", "behavior", "format", "payload", "proxy", "size-limit", "header"); e != nil {
 			return plan, e
 		}
-		if text(raw["proxy"]) != "" || raw["size-limit"] != nil {
+		if raw["size-limit"] != nil {
 			return plan, domain.Invalid("resource_fetch_settings_require_review", "resources")
 		}
 		r := domain.Resource{Meta: domain.Meta{ID: domain.NewID()}, Name: name, Type: "ruleset", Kind: text(raw["type"]), URL: text(raw["url"]), Enabled: true, Interval: integer(raw["interval"], 86400), Behavior: text(raw["behavior"]), Format: text(raw["format"])}
+		if p.RuleUpdates == nil {
+			p.RuleUpdates = map[string]string{}
+		}
+		p.RuleUpdates[r.ID] = text(raw["proxy"])
+		var err error
+		r.Headers, err = requestHeaders(raw["header"])
+		if err != nil {
+			return plan, err
+		}
 		if r.Format == "" {
 			r.Format = "yaml"
 		}
@@ -336,7 +359,7 @@ func Parse(in Input) (Plan, error) {
 		}
 		p.Rules = append(p.Rules, r)
 	}
-	special := map[string]bool{"proxy-providers": true, "proxy-groups": true, "proxies": true, "rule-providers": true, "rules": true, "dns": true, "geox-url": true, "geodata-mode": true}
+	special := map[string]bool{"proxy-providers": true, "proxy-groups": true, "proxies": true, "rule-providers": true, "rules": true, "dns": true, "geox-url": true, "geodata-mode": true, "geo-auto-update": true, "geo-update-interval": true}
 	for k, v := range root {
 		if special[k] {
 			continue
@@ -390,6 +413,20 @@ func Parse(in Input) (Plan, error) {
 			return plan, e
 		}
 	}
+	if raw, present := root["geo-auto-update"]; present {
+		v, ok := raw.(bool)
+		if !ok {
+			return plan, domain.Invalid("invalid_field_type", "geo-auto-update")
+		}
+		p.GeoAutoUpdate = &v
+	}
+	if raw, present := root["geo-update-interval"]; present {
+		n := integer(raw, -1)
+		if n < 1 || n > 168 {
+			return plan, domain.Invalid("invalid_field_type", "geo-update-interval")
+		}
+		p.GeoUpdateInterval = n
+	}
 	urls := object(root["geox-url"])
 	if e := known(urls, "mmdb", "geoip", "geosite", "asn"); e != nil {
 		return plan, e
@@ -400,9 +437,11 @@ func Parse(in Input) (Plan, error) {
 		}
 	}
 	if value, exists := root["geodata-mode"]; exists {
-		if _, ok := value.(bool); !ok {
+		v, ok := value.(bool)
+		if !ok {
 			return plan, domain.Invalid("invalid_field_type", "geodata-mode")
 		}
+		p.GeoDataMode = v
 	}
 	needsCountry := false
 	needsSite := false
@@ -433,6 +472,10 @@ func Parse(in Input) (Plan, error) {
 		if !needed && urls[kind] == nil {
 			continue
 		}
+		// Omitted URL means the device's own core default, not a synthetic resource.
+		if urls[kind] == nil {
+			continue
+		}
 		address := text(urls[kind])
 		if address == "" {
 			filename := map[string]string{"mmdb": "geoip.metadb", "geoip": "geoip.dat", "geosite": "geosite.dat", "asn": "GeoLite2-ASN.mmdb"}[kind]
@@ -453,7 +496,16 @@ func Parse(in Input) (Plan, error) {
 		return plan, e
 	}
 	plan.Profile = p
-	plan.Warnings = append(plan.Warnings, "import_creates_draft_only", "client_cache_paths_are_service_managed", "refresh_http_sources_and_resources_before_publish")
+	plan.Profile.SourceUpdates = map[string]string{}
+	for i := range plan.Sources {
+		src := &plan.Sources[i]
+		if src.ClientProvider != nil {
+			plan.Profile.SourceUpdates[src.ID] = src.ClientProvider.Proxy
+		}
+		src.ClientProvider = nil
+		src.Fetch = domain.FetchOptions{}
+	}
+	plan.Warnings = append(plan.Warnings, "import_creates_draft_only", "client_cache_paths_are_service_managed", "remote_content_updated_by_devices")
 	if needsCountry || needsSite {
 		plan.Warnings = append(plan.Warnings, "review_managed_geodata_source_or_upload_existing_client_data")
 	}
@@ -607,4 +659,23 @@ func ParseRule(line string) (domain.Rule, error) {
 	r.Value = c.Value
 	r.Conditions = c.Children
 	return r, nil
+}
+
+func requestHeaders(raw any) (map[string]string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	m, ok := raw.(map[string]any)
+	if !ok {
+		return nil, domain.Invalid("invalid_header", "header")
+	}
+	out := map[string]string{}
+	for k, v := range m {
+		values, e := list(v)
+		if e != nil || len(values) != 1 {
+			return nil, domain.Invalid("single_header_value_required", "header")
+		}
+		out[k] = values[0]
+	}
+	return out, nil
 }

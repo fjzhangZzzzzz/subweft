@@ -4,6 +4,7 @@ import "time"
 
 // Resource caches are content-addressed encrypted assets; definitions stay small.
 type Resource struct {
+	Headers map[string]string `json:"headers,omitempty"`
 	Meta
 	Name        string    `json:"name"`
 	Kind        string    `json:"kind"` // local or http

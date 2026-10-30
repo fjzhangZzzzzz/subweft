@@ -11,17 +11,17 @@ import (
 
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
 	"github.com/fjzhangZzzzzz/subweft/internal/fields"
+	"github.com/fjzhangZzzzzz/subweft/internal/source"
 	"go.yaml.in/yaml/v3"
 )
 
 type Result struct {
-	InputDigest string
-	Assets      map[string][]byte
-	Resources   map[string]string
-	Config      []byte
-	Members     map[string][]string
-	Sources     map[string]string
-	Stale       []string
+	Assets    map[string][]byte
+	Resources map[string]string
+	Config    []byte
+	Members   map[string][]string
+	Sources   map[string]string
+	Stale     []string
 }
 
 func Digest(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
@@ -29,19 +29,6 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 	result := Result{Assets: map[string][]byte{}, Resources: map[string]string{}, Members: map[string][]string{}, Sources: map[string]string{}, Stale: []string{}}
 	if e := domain.ValidateProfile(p); e != nil {
 		return result, e
-	}
-	// Expand profile-local pools without mutating the saved definition.
-	p.Groups = append([]domain.Group(nil), p.Groups...)
-	for i := range p.Groups {
-		g := &p.Groups[i]
-		g.SourceIDs = append([]string(nil), g.SourceIDs...)
-		for _, name := range g.Pools {
-			for _, pool := range p.Pools {
-				if pool.Name == name {
-					g.SourceIDs = append(g.SourceIDs, pool.SourceIDs...)
-				}
-			}
-		}
 	}
 	if len(p.Groups) == 0 {
 		return result, domain.Invalid("no_groups", "groups")
@@ -86,7 +73,7 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 		for _, s := range snap.Sources {
 			if s.ID == id {
 				found = true
-				if !s.Enabled || len(s.Nodes) == 0 {
+				if !s.Enabled || (s.Kind != "http" && len(s.Nodes) == 0) {
 					return result, domain.Invalid("source_unavailable", "groups")
 				}
 			}
@@ -97,6 +84,11 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 	}
 	for _, s := range snap.Sources {
 		if !selected[s.ID] {
+			continue
+		}
+		if s.Kind == "http" {
+			b, _ := json.Marshal(s.Update)
+			result.Sources[s.ID] = Digest(append([]byte(s.URL), b...))
 			continue
 		}
 		if s.LastError != "" {
@@ -137,6 +129,36 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 	for _, g := range p.Groups {
 		for _, id := range g.NodeIDs {
 			selectedManual[id] = true
+		}
+	}
+	// Include explicit update egress nodes and their dialer dependencies.
+	for _, route := range p.SourceUpdates {
+		for _, n := range snap.Nodes {
+			if n.Node.Name == route {
+				selectedManual[n.ID] = true
+			}
+		}
+	}
+	for _, route := range p.RuleUpdates {
+		for _, n := range snap.Nodes {
+			if n.Node.Name == route {
+				selectedManual[n.ID] = true
+			}
+		}
+	}
+	for changed := true; changed; {
+		changed = false
+		for _, n := range snap.Nodes {
+			if selectedManual[n.ID] {
+				if route, ok := n.Node.Options["dialer-proxy"].(string); ok {
+					for _, dep := range snap.Nodes {
+						if dep.Node.Name == route && !selectedManual[dep.ID] {
+							selectedManual[dep.ID] = true
+							changed = true
+						}
+					}
+				}
+			}
 		}
 	}
 	for _, n := range snap.Nodes {
@@ -221,6 +243,7 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 			}
 		}
 		members := []string{}
+		remoteUses := []string{}
 		seen := map[string]bool{}
 		add := func(name string, filter bool) {
 			kind := nodeMap[name].Type
@@ -241,15 +264,36 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 				seen[name] = true
 			}
 		}
-		ids := map[string]bool{}
+		// Explicit selection has an order; append tag/all matches afterwards without duplicates.
+		selectedSources := map[string]bool{}
+		addSource := func(s domain.Source) {
+			if s.Kind == "http" {
+				remoteUses = append(remoteUses, s.ID)
+			}
+			for _, n := range sourceNodes[s.ID] {
+				add(n, true)
+			}
+		}
+		var sourceIndex map[string]int
+		if len(g.SourceIDs) > 0 {
+			sourceIndex = make(map[string]int, len(snap.Sources))
+			for i := range snap.Sources {
+				sourceIndex[snap.Sources[i].ID] = i
+			}
+		}
 		for _, id := range g.SourceIDs {
-			ids[id] = true
+			if selectedSources[id] {
+				continue
+			}
+			if index, ok := sourceIndex[id]; ok && snap.Sources[index].Enabled {
+				addSource(snap.Sources[index])
+				selectedSources[id] = true
+			}
 		}
 		for _, s := range snap.Sources {
-			if s.Enabled && (g.AllSources || ids[s.ID] || intersects(g.Tags, s.Tags)) {
-				for _, n := range sourceNodes[s.ID] {
-					add(n, true)
-				}
+			if s.Enabled && !selectedSources[s.ID] && (g.AllSources || intersects(g.Tags, s.Tags)) {
+				addSource(s)
+				selectedSources[s.ID] = true
 			}
 		}
 		for _, id := range g.NodeIDs {
@@ -264,82 +308,45 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 			}
 			add(name, false)
 		}
-		if len(members) == 0 {
+		if len(members) == 0 && len(remoteUses) == 0 {
 			return result, domain.Invalid("empty_group", field)
 		}
-		if selected, ok := g.Options["default-selected"].(string); ok && selected != "" && !seen[selected] {
+		if selected, ok := g.Options["default-selected"].(string); ok && selected != "" && !seen[selected] && len(remoteUses) == 0 {
 			return result, domain.Invalid("default_member_missing", field+".options.default-selected")
 		}
 		result.Members[g.Name] = members
 		out := map[string]any{"name": g.Name, "type": g.Type, "proxies": members}
-		uses := []string{}
-		providerSelection := []string{}
-		providerFiltered := false
-		providerMembers := map[string]bool{}
-		for _, src := range snap.Sources {
-			if !src.Enabled || src.ClientProvider == nil || !src.ClientProvider.Enabled || !(g.AllSources || ids[src.ID] || intersects(g.Tags, src.Tags)) {
-				continue
-			}
-			subset := []domain.Node{}
-			for _, name := range sourceNodes[src.ID] {
-				if seen[name] {
-					subset = append(subset, nodeMap[name])
-					providerMembers[name] = true
-					externalNodes[name] = true
-				}
-			}
-			if len(subset) == 0 {
-				continue
-			}
-			if proxy := src.ClientProvider.Proxy; proxy != "" && !names[proxy] {
-				return result, domain.Invalid("provider_proxy_missing", field)
-			}
-			full := []domain.Node{}
-			for _, name := range sourceNodes[src.ID] {
-				full = append(full, nodeMap[name])
-			}
-			providerFiltered = providerFiltered || len(subset) != len(full)
-			for _, n := range subset {
-				providerSelection = append(providerSelection, regexp.QuoteMeta(n.Name))
-			}
-			id, provider, data, e := providerResource(src, full)
-			if e != nil {
-				return result, e
-			}
-			if proxy := src.ClientProvider.Proxy; proxy != "" {
-				for _, node := range full {
-					if node.Name == proxy {
-						return result, domain.Invalid("provider_download_cycle", field)
+		for _, id := range remoteUses {
+			for _, src := range snap.Sources {
+				if src.ID == id {
+					provider, e := remoteProvider(src, p)
+					if e != nil {
+						return result, e
 					}
-				}
-				fetchDependencies[g.Name] = append(fetchDependencies[g.Name], proxy)
-			}
-			if existing, ok := proxyProviders[src.Name]; ok && existing.(map[string]any)["url"] != provider["url"] {
-				return result, domain.Invalid("duplicate_provider_name", field)
-			}
-			if !domain.ValidName(src.Name) {
-				return result, domain.Invalid("invalid_name", field)
-			}
-			uses = append(uses, src.Name)
-			proxyProviders[src.Name] = provider
-			result.Assets[id] = data
-			result.Resources[id] = Digest(data)
-		}
-		if len(uses) > 0 {
-			explicit := []string{}
-			for _, name := range members {
-				if !providerMembers[name] {
-					explicit = append(explicit, name)
+					route, _ := provider["proxy"].(string)
+					if route != "" && !names[route] {
+						return result, domain.Invalid("provider_proxy_missing", "sourceUpdates."+id)
+					}
+					if route != "" {
+						fetchDependencies[g.Name] = append(fetchDependencies[g.Name], route)
+					}
+					proxyProviders[id] = provider
 				}
 			}
-			out["proxies"] = explicit
-			out["use"] = uses
-			// Providers stay shared; a pinned membership filter preserves the exact
-			// selection (including type exclusions) without generating per-group providers.
-			if providerFiltered {
-				out["filter"] = "^(?:" + strings.Join(providerSelection, "|") + ")$"
+		}
+		if len(remoteUses) > 0 {
+			out["use"] = remoteUses
+			if g.Filter != "" {
+				out["filter"] = g.Filter
+			}
+			if g.Exclude != "" {
+				out["exclude-filter"] = g.Exclude
+			}
+			if value, ok := g.Options["exclude-type"]; ok {
+				out["exclude-type"] = value
 			}
 		}
+
 		if g.Type != "select" {
 			u, e := url.Parse(g.URL)
 			if e != nil || u.Hostname() == "" || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") {
@@ -392,28 +399,46 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 	if e != nil {
 		return result, e
 	}
-	for id, digest := range resources {
-		result.Resources[id] = digest
-	}
 	providers := map[string]any{}
 	for id, digest := range resources {
 		r := resourceMap[id]
-		if r.LastError != "" && !allowStale {
-			return result, domain.Invalid("stale_cache_requires_ack", "allowStale")
+		address := ResourceURL(id)
+		if r.Kind == "http" {
+			address = r.URL
+			if e := source.ValidateURL(address); e != nil {
+				return result, domain.Field("rules", e)
+			}
+			if e := ValidateDeviceUpdate(domain.DeviceUpdate{Headers: r.Headers}); e != nil {
+				return result, e
+			}
+		} else {
+			result.Resources[id] = digest
 		}
-		_ = digest
-		ext := "yaml"
-		if r.Format == "text" {
-			ext = "txt"
+		route := p.RuleUpdates[id]
+		if route != "" && !names[route] {
+			return result, domain.Invalid("provider_proxy_missing", "ruleUpdates."+id)
 		}
-		if !domain.ValidName(r.Name) {
-			return result, domain.Invalid("invalid_name", "rules")
+		// Validate reachability of a rule update route without introducing a traffic dependency.
+		if route != "" {
+			routeNeeded, e := validateDependencies(nodes, mapWithRoot(result.Members, route), fetchDependencies)
+			if e != nil {
+				return result, e
+			}
+			for name := range routeNeeded {
+				needed[name] = true
+			}
 		}
-		if _, exists := providers[r.Name]; exists {
-			return result, domain.Invalid("duplicate_provider_name", "rules")
+		provider := map[string]any{"type": "http", "behavior": r.Behavior, "format": r.Format, "url": address, "interval": r.Interval}
+		if route != "" {
+			provider["proxy"] = route
 		}
-		providers[r.Name] = map[string]any{"type": "http", "behavior": r.Behavior, "format": r.Format, "url": ResourceURL(id), "path": "./rules/" + id + "." + ext, "interval": 86400}
+		if r.Kind == "http" {
+			provider["header"] = deviceHeaders("", r.Headers)
+		}
+		provider["path"] = devicePath(p.ID, id, r.Format, []any{provider, digest})
+		providers[id] = provider
 	}
+
 	config := map[string]any{"mixed-port": p.Settings.MixedPort, "allow-lan": p.Settings.AllowLAN, "ipv6": p.Settings.IPv6, "mode": "rule", "log-level": "info", "proxies": renderedNodes(nodes, externalNodes, needed), "proxy-groups": outputGroups, "rules": rules}
 	if len(proxyProviders) > 0 {
 		config["proxy-providers"] = proxyProviders
@@ -422,25 +447,43 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 		config["rule-providers"] = providers
 	}
 	geox := map[string]string{}
+	if p.GeoDataMode {
+		config["geodata-mode"] = true
+	}
 	for key, id := range map[string]string{"mmdb": p.GeoIPID, "geosite": p.GeoSiteID, "asn": p.GeoASNID} {
 		if id == "" {
 			continue
 		}
 		r, ok := resourceMap[id]
-		if !ok || !r.Enabled || r.Digest == "" || !(r.Type == key || key == "mmdb" && r.Type == "geoip") {
+		if !ok || !r.Enabled || (r.Kind != "http" && r.Digest == "") || !(r.Type == key || key == "mmdb" && r.Type == "geoip") {
 			return result, domain.Invalid("geodata_unavailable", "settings")
 		}
 		actual := key
+		if key == "mmdb" && r.Type == "mmdb" && p.GeoDataMode {
+			return result, domain.Invalid("geodata_unavailable", "settings")
+		}
 		if key == "mmdb" && r.Type == "geoip" {
 			actual = "geoip"
 			config["geodata-mode"] = true
 		}
-		result.Resources[id] = r.Digest
-		geox[actual] = ResourceURL(id)
+		if r.Kind == "http" {
+			if e := source.ValidateURL(r.URL); e != nil {
+				return result, e
+			}
+			geox[actual] = r.URL
+		} else {
+			result.Resources[id] = r.Digest
+			geox[actual] = ResourceURL(id)
+		}
 	}
 	if len(geox) > 0 {
 		config["geox-url"] = geox
-		config["geo-auto-update"] = false
+	}
+	if p.GeoAutoUpdate != nil {
+		config["geo-auto-update"] = *p.GeoAutoUpdate
+	}
+	if p.GeoUpdateInterval != 0 {
+		config["geo-update-interval"] = p.GeoUpdateInterval
 	}
 	if p.Settings.DNSEnabled {
 		if p.Settings.DNSMode != "fake-ip" && p.Settings.DNSMode != "redir-host" {
@@ -493,7 +536,6 @@ func Compile(p domain.Profile, snap domain.Snapshot, allowStale bool) (Result, e
 			dns[key] = ordered
 		}
 	}
-	result.InputDigest = inputDigest(p, snap, result)
 	result.Config, e = yaml.Marshal(config)
 	return result, e
 }
@@ -528,7 +570,16 @@ func Redact(config []byte) []byte {
 					return []byte("preview unavailable\n")
 				}
 			}
-		case "secret", "authentication":
+		case "proxy-providers", "rule-providers":
+			for j := 1; j < len(value.Content); j += 2 {
+				m := value.Content[j]
+				for k := 0; k+1 < len(m.Content); k += 2 {
+					if m.Content[k].Value == "url" || m.Content[k].Value == "header" {
+						_ = m.Content[k+1].Encode("[REDACTED]")
+					}
+				}
+			}
+		case "geox-url", "secret", "authentication":
 			_ = value.Encode("[REDACTED]")
 		}
 	}
@@ -563,5 +614,14 @@ func renderedNodes(nodes []domain.Node, external map[string]bool, used map[strin
 			out = append(out, n)
 		}
 	}
+	return out
+}
+
+func mapWithRoot(members map[string][]string, route string) map[string][]string {
+	out := map[string][]string{}
+	for k, v := range members {
+		out[k] = v
+	}
+	out["\x00rule-update"] = []string{route}
 	return out
 }

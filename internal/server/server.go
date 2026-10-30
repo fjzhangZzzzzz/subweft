@@ -74,6 +74,9 @@ func fail(w http.ResponseWriter, e error) {
 		if errors.As(e, &de) {
 			v = *de
 			status = 422
+			if de.Code == "device_updates_only" {
+				status = 410
+			}
 		}
 	}
 	respond(w, status, map[string]any{"error": v})
@@ -110,9 +113,10 @@ func read(w http.ResponseWriter, r *http.Request, v any) bool {
 }
 
 type sourceView struct {
-	ClientProvider *domain.ClientProvider `json:"clientProvider,omitempty"`
-	ExtractNodes   bool                   `json:"extractNodes"`
-	Overrides      []domain.NodeOverride  `json:"overrides,omitempty"`
+	MigrationRequired bool                   `json:"migrationRequired"`
+	ClientProvider    *domain.ClientProvider `json:"clientProvider,omitempty"`
+	ExtractNodes      bool                   `json:"extractNodes"`
+	Overrides         []domain.NodeOverride  `json:"overrides,omitempty"`
 	domain.Meta
 	Name        string   `json:"name"`
 	Kind        string   `json:"kind"`
@@ -126,14 +130,20 @@ type sourceView struct {
 }
 
 func sourceMeta(v domain.Source) sourceView {
-	return sourceView{v.ClientProvider, v.ExtractNodes, v.Overrides, v.Meta, v.Name, v.Kind, v.Enabled, v.Tags, v.Interval, len(v.Nodes), v.LastSuccess, v.LastAttempt, v.LastError}
+	out := sourceView{Meta: v.Meta, Name: v.Name, Kind: v.Kind, Enabled: v.Enabled, Tags: v.Tags, Interval: v.Interval, ExtractNodes: v.ExtractNodes}
+	if v.Kind == "http" {
+		out.MigrationRequired = len(v.Overrides) > 0 || v.LegacyProxy != ""
+		out.Overrides = v.Overrides
+	} else {
+		out.NodeCount = len(v.Nodes)
+		out.LastSuccess = v.LastSuccess
+		out.LastAttempt = v.LastAttempt
+		out.LastError = v.LastError
+		out.Overrides = v.Overrides
+	}
+	return out
 }
-func releaseMeta(v domain.Release) domain.Release {
-	v.Config = nil
-	v.Definition = nil
-	v.InputDigest = ""
-	return v
-}
+func releaseMeta(v domain.Release) domain.Release    { v.Config = nil; v.Definition = nil; return v }
 func deviceMeta(v domain.Device) domain.Device       { v.Token = ""; return v }
 func nodeMeta(v domain.ManualNode) domain.ManualNode { v.Node = domain.NodeMetadata(v.Node); return v }
 func (a *API) manage(w http.ResponseWriter, r *http.Request) {
@@ -237,7 +247,7 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 			fail(w, e)
 			return
 		}
-		respond(w, 200, map[string]any{"build": buildinfo.Current(), "user": session.Name, "role": session.Role, "issuer": a.Auth.Issuer(), "users": users, "publishStatus": publishStatus, "pendingProfiles": app.PendingProfiles(snap), "csrf": session.CSRF, "sources": sources, "nodes": nodes, "profiles": snap.Profiles, "resources": resourceMetas(snap.Resources), "devices": devices, "releases": releases, "active": snap.Active, "seen": seen, "validatorJobPeakRSSBytes": validator.JobPeakRSS(s.Validator), "validatorPeakRSSBytes": validator.PeakRSS(s.Validator), "validator": s.Validator.Identity(), "capabilities": map[string]any{"protocols": domain.Protocols(), "groups": []string{"select", "url-test", "fallback", "load-balance"}, "automaticPublish": true}})
+		respond(w, 200, map[string]any{"build": buildinfo.Current(), "user": session.Name, "role": session.Role, "issuer": a.Auth.Issuer(), "users": users, "publishStatus": publishStatus, "csrf": session.CSRF, "sources": sources, "nodes": nodes, "profiles": snap.Profiles, "resources": resourceMetas(snap.Resources), "devices": devices, "releases": releases, "active": snap.Active, "seen": seen, "validatorJobPeakRSSBytes": validator.JobPeakRSS(s.Validator), "validatorPeakRSSBytes": validator.PeakRSS(s.Validator), "validator": s.Validator.Identity(), "capabilities": map[string]any{"protocols": domain.Protocols(), "groups": []string{"select", "url-test", "fallback", "load-balance"}, "automaticPublish": false, "deviceUpdates": true}})
 		return
 	}
 	switch kind {
@@ -259,7 +269,15 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 			if e != nil {
 				fail(w, e)
 			} else {
-				respond(w, 200, app.SourceInput{Meta: v.Meta, Name: v.Name, Kind: v.Kind, Enabled: v.Enabled, Tags: v.Tags, Interval: v.Interval, ExtractNodes: v.ExtractNodes, Fetch: v.Fetch, ClientProvider: v.ClientProvider, URL: v.URL})
+				legacy := ""
+				if v.LegacyProxy != "" {
+					legacy = "configured"
+				}
+				respond(w, 200, struct {
+					app.SourceInput
+					Overrides   []domain.NodeOverride `json:"overrides,omitempty"`
+					LegacyProxy string                `json:"legacyProxy,omitempty"`
+				}{app.SourceInput{Meta: v.Meta, Name: v.Name, Kind: v.Kind, Enabled: v.Enabled, Tags: v.Tags, Interval: v.Interval, ExtractNodes: v.ExtractNodes, Update: v.Update, URL: v.URL}, v.Overrides, legacy})
 			}
 			return
 		}
@@ -308,6 +326,10 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 			v, e := storage.Load[domain.Source](ctx, s.Store, "source", id)
 			if e != nil {
 				fail(w, e)
+				return
+			}
+			if v.Kind == "http" && len(v.Overrides) == 0 {
+				fail(w, domain.Invalid("device_updates_only", "source"))
 				return
 			}
 			counts := map[string]int{}

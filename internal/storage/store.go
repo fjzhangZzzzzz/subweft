@@ -111,7 +111,7 @@ func open(dir, keyFile string, create bool) (*Store, error) {
 	if e = db.QueryRow(`PRAGMA user_version`).Scan(&version); e != nil {
 		return fail(e)
 	}
-	if version > 2 {
+	if version > 3 {
 		return fail(errors.New("database_version_too_new"))
 	}
 	if version == 0 {
@@ -148,6 +148,9 @@ INSERT INTO meta VALUES('generation','0'); PRAGMA user_version=1;`)
 		return fail(e)
 	}
 	if e = s.ensureReleaseIndex(); e != nil {
+		return fail(e)
+	}
+	if e = s.migrateDeviceUpdates(); e != nil {
 		return fail(e)
 	}
 	keepLock = true

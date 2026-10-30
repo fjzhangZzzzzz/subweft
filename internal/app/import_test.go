@@ -6,6 +6,7 @@ import (
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
 	"github.com/fjzhangZzzzzz/subweft/internal/migrate"
 	"github.com/fjzhangZzzzzz/subweft/internal/testfixture"
+	"strings"
 	"testing"
 )
 
@@ -26,12 +27,42 @@ func TestReviewedImportIsAtomicDraftOnlyAndCannotReplay(t *testing.T) {
 		t.Fatal(e)
 	}
 	after, e := s.Store.Snapshot(ctx)
-	if e != nil || len(after.Profiles) != 1 || len(after.Sources) != 2 || len(after.Resources) != 3 || len(after.Active) != 0 || p.Revision != 1 {
+	if e != nil || len(after.Profiles) != 1 || len(after.Sources) != 2 || len(after.Resources) != 2 || len(after.Active) != 0 || p.Revision != 1 || p.GeoIPID != "" {
 		t.Fatal("import was incomplete or activated a release")
 	}
 	if _, e = s.CommitImport(ctx, candidate.ID, candidate.Revision); e == nil {
 		t.Fatal("import replayed")
 	}
+}
+
+func TestImportPreservesAnEmptyInlineRuleSet(t *testing.T) {
+	ctx := context.Background()
+	s, _, _, _ := setup(t)
+	config := strings.Replace(testfixture.MigrationConfig, "payload: ['+.example.invalid']", "payload: []", 1)
+	if config == testfixture.MigrationConfig {
+		t.Fatal("test fixture did not change")
+	}
+	candidate, err := s.PreviewImport(ctx, migrate.Input{Name: "Empty rules", Content: config})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.CommitImport(ctx, candidate.ID, candidate.Revision); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := s.Store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, resource := range snap.Resources {
+		if resource.Name == "self" {
+			entries, err := s.ResourceEntries(ctx, resource.ID)
+			if err != nil || len(entries) != 0 || resource.Digest == "" || resource.Count != 0 {
+				t.Fatal("empty ruleset was not retained")
+			}
+			return
+		}
+	}
+	t.Fatal("empty ruleset missing")
 }
 func TestImportConcurrentChangeLeavesAllDraftsUnwritten(t *testing.T) {
 	ctx := context.Background()

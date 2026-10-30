@@ -17,6 +17,7 @@ import (
 
 	"github.com/fjzhangZzzzzz/subweft/internal/compile"
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
+	"github.com/fjzhangZzzzzz/subweft/internal/source"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -178,54 +179,88 @@ func (n *Native) check(ctx context.Context, config []byte, assets map[string][]b
 			}
 		}
 
-	}
-	for _, providerKey := range []string{"rule-providers", "proxy-providers"} {
-		if definition {
-			continue
+	} else {
+		// Absent geographic URLs are supplied by Mihomo itself, hence remain remote.
+		remoteGeo := map[string]bool{"geosite": true, "asn": true}
+		if configMap["geodata-mode"] == true {
+			remoteGeo["geoip"] = true
+		} else {
+			remoteGeo["mmdb"] = true
 		}
-		if providers, ok := configMap[providerKey].(map[string]any); ok {
-			for _, raw := range providers {
-				provider, ok := raw.(map[string]any)
+		if urls, ok := configMap["geox-url"].(map[string]any); ok {
+			for key, raw := range urls {
+				remote, ok := raw.(string)
 				if !ok {
-					return domain.Invalid("invalid_provider", "publish")
+					return domain.Invalid("invalid_geodata", "publish")
 				}
-				remote, _ := provider["url"].(string)
-				id := strings.TrimPrefix(remote, compile.ResourcePrefix)
-				data, ok := assets[id]
-				if !ok || !strings.HasPrefix(remote, compile.ResourcePrefix) {
+				if !strings.HasPrefix(remote, compile.ResourcePrefix) {
+					if source.ValidateURL(remote) != nil {
+						return domain.Invalid("invalid_url", "publish")
+					}
+					remoteGeo[key] = true
+					continue
+				}
+				delete(remoteGeo, key)
+				data, ok := assets[strings.TrimPrefix(remote, compile.ResourcePrefix)]
+				if !ok {
 					return domain.Invalid("validation_resource_missing", "publish")
 				}
-				filename, _ := provider["path"].(string)
-				target := filepath.Join(dir, filepath.FromSlash(filename))
-				if !strings.HasPrefix(target, dir+string(os.PathSeparator)) {
-					return domain.Invalid("invalid_resource_path", "publish")
-				}
-				if os.MkdirAll(filepath.Dir(target), 0700) != nil || os.WriteFile(target, data, 0600) != nil {
+				filename := map[string]string{"mmdb": "Country.mmdb", "geoip": "GeoIP.dat", "geosite": "GeoSite.dat", "asn": "ASN.mmdb"}[key]
+				if filename == "" || os.WriteFile(filepath.Join(dir, filename), data, 0600) != nil {
 					return domain.Invalid("validation_failed", "publish")
 				}
-				provider["type"] = "file"
-				delete(provider, "url")
-				delete(provider, "interval")
+			}
+			delete(configMap, "geox-url")
+		}
+		for _, providerKey := range []string{"rule-providers", "proxy-providers"} {
+			if providers, ok := configMap[providerKey].(map[string]any); ok {
+				for _, raw := range providers {
+					provider, ok := raw.(map[string]any)
+					if !ok {
+						return domain.Invalid("invalid_provider", "publish")
+					}
+					remote, _ := provider["url"].(string)
+					id := strings.TrimPrefix(remote, compile.ResourcePrefix)
+					data, ok := assets[id]
+					if strings.HasPrefix(remote, compile.ResourcePrefix) {
+						if !ok {
+							return domain.Invalid("validation_resource_missing", "publish")
+						}
+					} else {
+						if source.ValidateURL(remote) != nil {
+							return domain.Invalid("invalid_url", "publish")
+						}
+						data, e = remoteValidationData(providerKey, provider)
+						if e != nil {
+							return e
+						}
+					}
+					if providerKey == "rule-providers" && provider["behavior"] == "classical" && len(remoteGeo) > 0 {
+						format, _ := provider["format"].(string)
+						data, e = projectClassicalRules(data, format, remoteGeo)
+						if e != nil {
+							return domain.Invalid("invalid_resource", "publish")
+						}
+					}
+					filename, _ := provider["path"].(string)
+					target := filepath.Join(dir, filepath.FromSlash(filename))
+					if !strings.HasPrefix(target, dir+string(os.PathSeparator)) {
+						return domain.Invalid("invalid_resource_path", "publish")
+					}
+					if os.MkdirAll(filepath.Dir(target), 0700) != nil || os.WriteFile(target, data, 0600) != nil {
+						return domain.Invalid("validation_failed", "publish")
+					}
+					provider["type"] = "file"
+					delete(provider, "url")
+					delete(provider, "interval")
+				}
 			}
 		}
-	}
 
-	if urls, ok := configMap["geox-url"].(map[string]any); ok {
-		for key, raw := range urls {
-			remote, ok := raw.(string)
-			if !ok {
-				return domain.Invalid("invalid_geodata", "publish")
-			}
-			data, ok := assets[strings.TrimPrefix(remote, compile.ResourcePrefix)]
-			if !ok {
-				return domain.Invalid("validation_resource_missing", "publish")
-			}
-			filename := map[string]string{"mmdb": "Country.mmdb", "geoip": "GeoIP.dat", "geosite": "GeoSite.dat", "asn": "ASN.mmdb"}[key]
-			if filename == "" || os.WriteFile(filepath.Join(dir, filename), data, 0600) != nil {
-				return domain.Invalid("validation_failed", "publish")
-			}
+		if len(remoteGeo) > 0 {
+			deferRemoteGeo(configMap, remoteGeo)
 		}
-		delete(configMap, "geox-url")
+
 	}
 	config, e = yaml.Marshal(configMap)
 	if e != nil {

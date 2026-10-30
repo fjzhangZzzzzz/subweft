@@ -50,7 +50,23 @@ type ClientProvider struct {
 	Proxy       string      `json:"proxy,omitempty"`
 	HealthCheck HealthCheck `json:"healthCheck"`
 }
+type DeviceUpdate struct {
+	UserAgent   string            `json:"userAgent,omitempty"`
+	Headers     map[string]string `json:"headers,omitempty"`
+	HealthCheck HealthCheck       `json:"healthCheck"`
+	Prefix      string            `json:"prefix,omitempty"`
+	Suffix      string            `json:"suffix,omitempty"`
+	Filter      string            `json:"filter,omitempty"`
+	Exclude     string            `json:"exclude,omitempty"`
+	Renames     []NameReplacement `json:"renames,omitempty"`
+}
+type NameReplacement struct {
+	Pattern     string `json:"pattern"`
+	Replacement string `json:"replacement"`
+}
 type Source struct {
+	Update         DeviceUpdate    `json:"update"`
+	LegacyProxy    string          `json:"legacyProxy,omitempty"`
 	ClientProvider *ClientProvider `json:"clientProvider,omitempty"`
 	Fetch          FetchOptions    `json:"fetch"`
 	ExtractNodes   bool            `json:"extractNodes"`
@@ -68,13 +84,7 @@ type Source struct {
 	LastAttempt time.Time `json:"lastAttempt"`
 	LastError   string    `json:"lastError,omitempty"`
 }
-type SourcePool struct {
-	Name      string   `json:"name"`
-	SourceIDs []string `json:"sourceIds"`
-}
-
 type Group struct {
-	Pools      []string       `json:"pools,omitempty"`
 	Options    map[string]any `json:"options,omitempty"`
 	Name       string         `json:"name"`
 	Type       string         `json:"type"`
@@ -116,11 +126,15 @@ type Settings struct {
 	Nameservers           []string       `json:"nameservers"`
 }
 type Profile struct {
-	Pools       []SourcePool `json:"pools,omitempty"`
-	GeoASNID    string       `json:"geoAsnId,omitempty"`
-	AutoPublish bool         `json:"autoPublish"`
-	GeoIPID     string       `json:"geoIpId,omitempty"`
-	GeoSiteID   string       `json:"geoSiteId,omitempty"`
+	GeoDataMode       bool              `json:"geoDataMode,omitempty"`
+	GeoAutoUpdate     *bool             `json:"geoAutoUpdate,omitempty"`
+	GeoUpdateInterval int               `json:"geoUpdateInterval,omitempty"`
+	SourceUpdates     map[string]string `json:"sourceUpdates,omitempty"`
+	RuleUpdates       map[string]string `json:"ruleUpdates,omitempty"`
+	GeoASNID          string            `json:"geoAsnId,omitempty"`
+	AutoPublish       bool              `json:"autoPublish"`
+	GeoIPID           string            `json:"geoIpId,omitempty"`
+	GeoSiteID         string            `json:"geoSiteId,omitempty"`
 	Meta
 	Name     string   `json:"name"`
 	Groups   []Group  `json:"groups"`
@@ -137,9 +151,8 @@ type Device struct {
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 }
 type Release struct {
-	InputDigest string            `json:"inputDigest,omitempty"`
-	Resources   map[string]string `json:"resources,omitempty"`
-	Definition  *Profile          `json:"definition,omitempty"`
+	Resources  map[string]string `json:"resources,omitempty"`
+	Definition *Profile          `json:"definition,omitempty"`
 	Meta
 	ProfileID       string            `json:"profileId"`
 	ProfileRevision int               `json:"profileRevision"`
@@ -198,36 +211,11 @@ func ValidateSource(s Source) error {
 	return nil
 }
 func ValidateProfile(p Profile) error {
+	if p.GeoUpdateInterval != 0 && (p.GeoUpdateInterval < 1 || p.GeoUpdateInterval > 168) {
+		return Invalid("invalid_interval", "geoUpdateInterval")
+	}
 	if !ValidName(p.Name) {
 		return Invalid("invalid_name", "name")
-	}
-	if len(p.Pools) > 32 {
-		return Invalid("too_many_pools", "pools")
-	}
-	pools := map[string]bool{}
-	for i, pool := range p.Pools {
-		field := fmt.Sprintf("pools.%d", i)
-		if !ValidName(pool.Name) || pools[pool.Name] {
-			return Invalid("duplicate_or_invalid_name", field+".name")
-		}
-		if len(pool.SourceIDs) == 0 || len(pool.SourceIDs) > 100 {
-			return Invalid("invalid_pool_members", field+".sourceIds")
-		}
-		seen := map[string]bool{}
-		for _, id := range pool.SourceIDs {
-			if id == "" || seen[id] {
-				return Invalid("invalid_pool_members", field+".sourceIds")
-			}
-			seen[id] = true
-		}
-		pools[pool.Name] = true
-	}
-	for i, g := range p.Groups {
-		for _, name := range g.Pools {
-			if !pools[name] {
-				return Invalid("pool_missing", fmt.Sprintf("groups.%d.pools", i))
-			}
-		}
 	}
 	count := 0
 	var conditions func([]Condition, int) bool

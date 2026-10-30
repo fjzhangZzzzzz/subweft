@@ -6,11 +6,43 @@ import (
 	"github.com/fjzhangZzzzzz/subweft/internal/app"
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
 	"github.com/fjzhangZzzzzz/subweft/internal/storage"
+	"github.com/fjzhangZzzzzz/subweft/internal/testfixture"
 	"testing"
 )
 
 func (c *checker) CheckBundle(ctx context.Context, config []byte, assets map[string][]byte) error {
 	return c.Check(ctx, config)
+}
+func TestEmptyLocalRuleSetCanBeEdited(t *testing.T) {
+	for _, format := range []string{"yaml", "text"} {
+		t.Run(format, func(t *testing.T) {
+			ctx := context.Background()
+			s, _, _, _ := setup(t)
+			input := app.ResourceInput{Resource: domain.Resource{Name: "empty", Kind: "local", Type: "ruleset", Behavior: "domain", Format: format, Enabled: true, Interval: 3600}, Entries: []string{}}
+			resource, err := s.SaveResource(ctx, input)
+			if err != nil || resource.Digest == "" || resource.Count != 0 {
+				t.Fatalf("save empty: %v", err)
+			}
+			entries, err := s.ResourceEntries(ctx, resource.ID)
+			if err != nil || len(entries) != 0 {
+				t.Fatalf("read empty: %v", err)
+			}
+			input.Resource, input.Entries = resource, []string{"example.invalid"}
+			resource, err = s.SaveResource(ctx, input)
+			if err != nil || resource.Count != 1 {
+				t.Fatalf("add rule: %v", err)
+			}
+			input.Resource, input.Entries = resource, []string{}
+			resource, err = s.SaveResource(ctx, input)
+			if err != nil || resource.Count != 0 {
+				t.Fatalf("remove last rule: %v", err)
+			}
+			entries, err = s.ResourceEntries(ctx, resource.ID)
+			if err != nil || len(entries) != 0 {
+				t.Fatalf("read cleared ruleset: %v", err)
+			}
+		})
+	}
 }
 func TestResourceVersionsStayBoundToReleaseAndRevokedDevice(t *testing.T) {
 	ctx := context.Background()
@@ -85,7 +117,7 @@ func TestResourceVersionsStayBoundToReleaseAndRevokedDevice(t *testing.T) {
 		t.Fatal("revoked resource URL still usable")
 	}
 }
-func TestAutomaticPublishUsesFrozenDefinitionAndKeepsLastGood(t *testing.T) {
+func TestRetiredAutomaticPublishPreservesActiveRelease(t *testing.T) {
 	ctx := context.Background()
 	s, c, _, _ := setup(t)
 	src, p := create(t, s)
@@ -104,10 +136,13 @@ func TestAutomaticPublishUsesFrozenDefinitionAndKeepsLastGood(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	// Simulate an acquired snapshot: runtime cache changes do not edit the
-	// configured source or the saved profile definition.
-	src.Nodes[0].Name = "upstream renamed"
-	if e = s.Store.SaveSourceSnapshot(ctx, src); e != nil {
+	src, e = s.SaveSource(ctx, app.SourceInput{Meta: src.Meta, Name: src.Name, Kind: "local", Content: testfixture.ProviderYAML + "\n", Enabled: true, Interval: 3600})
+	if e != nil {
+		t.Fatal(e)
+	}
+	n := src.Nodes[0]
+	_, e = s.SaveOverride(ctx, src.ID, src.Revision, domain.NodeOverride{Identity: domain.NodeIdentity(n), Name: "renamed locally"}, false)
+	if e != nil {
 		t.Fatal(e)
 	}
 	s.AutoPublish(ctx)
@@ -116,11 +151,12 @@ func TestAutomaticPublishUsesFrozenDefinitionAndKeepsLastGood(t *testing.T) {
 		t.Fatal(e)
 	}
 	next, e := storage.Load[domain.Release](ctx, s.Store, "release", snap.Active[p.ID])
-	if e != nil || next.ID == first.ID || bytes.Contains(next.Config, []byte("unpublished-draft.invalid")) || next.ProfileRevision != p.Revision {
-		t.Fatal("automatic update published draft or missed source change")
+	if e != nil || next.ID != first.ID || bytes.Contains(next.Config, []byte("unpublished-draft.invalid")) || next.ProfileRevision != p.Revision {
+		t.Fatal("retired automatic publisher mutated active release")
 	}
-	src.Nodes[0].Name = "another upstream change"
-	if e = s.Store.SaveSourceSnapshot(ctx, src); e != nil {
+	src, _ = storage.Load[domain.Source](ctx, s.Store, "source", src.ID)
+	_, e = s.SaveOverride(ctx, src.ID, src.Revision, domain.NodeOverride{Identity: domain.NodeIdentity(n), Name: "another change"}, false)
+	if e != nil {
 		t.Fatal(e)
 	}
 	c.reject.Store(true)

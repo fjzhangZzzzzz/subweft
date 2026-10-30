@@ -169,8 +169,6 @@ export function ConditionForm({
 }
 
 export function RulesEditor({
-  focusTarget,
-  targetLabel,
   rules,
   onChange,
   targets,
@@ -179,8 +177,6 @@ export function RulesEditor({
   onManageResources,
   onDirtyChange,
 }: {
-  focusTarget?: string;
-  targetLabel?: string;
   rules: Rule[];
   onChange: (v: Rule[]) => void;
   targets: string[];
@@ -189,12 +185,6 @@ export function RulesEditor({
   onManageResources?: () => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
-  const [quickType, setQuickType] = useState("DOMAIN-SUFFIX");
-  const [quickValue, setQuickValue] = useState("");
-  const [quickOpen, setQuickOpen] = useState(
-    !!focusTarget &&
-      !rules.some((r) => r.target === focusTarget && r.type !== "MATCH"),
-  );
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<number[]>([]);
@@ -207,13 +197,9 @@ export function RulesEditor({
   const [batch, setBatch] = useState("");
   const [batchType, setBatchType] = useState("DOMAIN-SUFFIX");
   const [batchTarget, setBatchTarget] = useState(targets[0] || "DIRECT");
-  useEffect(() => {
-    if (focusTarget) setBatchTarget(focusTarget);
-  }, [focusTarget]);
   const dialogDirty =
     (!!edit && JSON.stringify(edit.value) !== JSON.stringify(edit.original)) ||
-    (batchOpen && !!batch.trim()) ||
-    !!quickValue.trim();
+    (batchOpen && !!batch.trim());
   useEffect(() => {
     onDirtyChange(dialogDirty);
     return () => onDirtyChange(false);
@@ -237,10 +223,7 @@ export function RulesEditor({
     setEdit(edit && { ...edit, value: { ...edit.value, ...v } });
   const filtered = rules
     .map((r, i) => ({ r, i }))
-    .filter(
-      ({ r }) =>
-        r.type !== "MATCH" && (!focusTarget || r.target === focusTarget),
-    )
+    .filter(({ r }) => r.type !== "MATCH")
     .filter(({ r }) =>
       (
         ruleLabel(r.type, t) +
@@ -266,108 +249,22 @@ export function RulesEditor({
   const fallback = rules[fallbackIndex];
   return (
     <>
-      {focusTarget && quickOpen && (
-        <form
-          className="quick-rule"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!quickValue.trim()) return;
-            add([
-              {
-                type: quickType,
-                value: quickValue.trim(),
-                target: focusTarget,
-                enabled: true,
-                noResolve: false,
-              },
-            ]);
-            setQuickValue("");
-          }}
-        >
-          <Field label={t("匹配方式", "Match type")}>
-            <select
-              value={quickType}
-              onChange={(e) => {
-                setQuickType(e.target.value);
-                setQuickValue("");
-              }}
-            >
-              {[
-                "DOMAIN-SUFFIX",
-                "DOMAIN",
-                "IP-CIDR",
-                "IP-CIDR6",
-                "RULE-SET",
-              ].map((type) => (
-                <option key={type} value={type}>
-                  {ruleLabel(type, t)}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label={t("匹配内容", "Match value")}>
-            {quickType === "RULE-SET" ? (
-              <select
-                value={quickValue}
-                onChange={(e) => setQuickValue(e.target.value)}
-              >
-                <option value="">{t("选择规则集", "Select ruleset")}</option>
-                {resources
-                  .filter((r) => r.type === "ruleset")
-                  .map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-              </select>
-            ) : (
-              <input
-                value={quickValue}
-                onChange={(e) => setQuickValue(e.target.value)}
-                placeholder={
-                  quickType.startsWith("DOMAIN")
-                    ? "example.com"
-                    : quickType === "IP-CIDR6"
-                      ? "2001:db8::/32"
-                      : "192.0.2.0/24"
-                }
-              />
-            )}
-          </Field>
-          <Button type="submit" primary disabled={!quickValue.trim()}>
-            {t("添加", "Add")}
-          </Button>
-        </form>
-      )}
       <div className="section-intro">
         <div>
-          {!focusTarget && <h3>{t("分流规则", "Routing rules")}</h3>}
-          {!focusTarget && (
-            <p>
-              {t(
-                "从上到下匹配，第一条命中即生效。",
-                "The first matching rule takes effect.",
-              )}
-            </p>
-          )}
+          <h3>{t("分流规则", "Routing rules")}</h3>
+          <p>
+            {t(
+              "从上到下匹配，第一条命中即生效。",
+              "The first matching rule takes effect.",
+            )}
+          </p>
         </div>
         <div className="actions">
-          {focusTarget && (
-            <Button
-              primary={!quickOpen}
-              disabled={!!quickValue.trim()}
-              onClick={() => setQuickOpen(!quickOpen)}
-            >
-              {quickOpen
-                ? t("收起添加", "Hide add form")
-                : t("添加规则", "Add rule")}
-            </Button>
-          )}
           <Button onClick={() => setBatchOpen(true)}>
             {t("批量添加", "Add in batch")}
           </Button>
           <Button
-            primary={!focusTarget}
+            primary
             onClick={() =>
               open(-1, {
                 ...initial(),
@@ -376,90 +273,82 @@ export function RulesEditor({
               })
             }
           >
-            {focusTarget
-              ? t("更多匹配方式", "More match types")
-              : t("添加规则", "Add rule")}
+            {t("添加规则", "Add rule")}
           </Button>
         </div>
       </div>
-      {(!focusTarget || filtered.length > 8 || query) && (
-        <Field label={t("搜索规则", "Search rules")}>
-          <input
-            type="search"
-            value={query}
-            placeholder={t(
-              "搜索匹配内容、类型或去向",
-              "Match value, type or destination",
-            )}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setPage(0);
-            }}
-          />
-        </Field>
-      )}
-      {!focusTarget && (
-        <div className="actions selection-bar">
-          <Button
-            onClick={() =>
-              setSelected(
-                filtered.slice(current * 50, current * 50 + 50).map((v) => v.i),
-              )
-            }
-          >
-            {t("选择本页", "Select page")}
-          </Button>
-          <span className="muted">
-            {filtered.length} {t("条规则", "rules")}
-          </span>
-          {selected.length > 0 && (
-            <>
-              <span>
-                {t("已选", "Selected")} {selected.length}
-              </span>
-              <Button onClick={() => setSelected([])}>
-                {t("取消选择", "Clear")}
-              </Button>
-              {[true, false].map((enabled) => (
-                <Button
-                  key={String(enabled)}
-                  onClick={() =>
-                    onChange(
-                      rules.map((r, i) =>
-                        selected.includes(i) ? { ...r, enabled } : r,
-                      ),
-                    )
-                  }
-                >
-                  {enabled
-                    ? t("启用所选", "Enable selected")
-                    : t("停用所选", "Disable selected")}
-                </Button>
-              ))}
-              <Button
-                danger
-                onClick={() => {
-                  if (confirm(t("删除所选规则？", "Delete selected rules?"))) {
-                    onChange(rules.filter((_, i) => !selected.includes(i)));
-                    setSelected([]);
-                  }
-                }}
-              >
-                {t("删除所选", "Delete selected")}
-              </Button>
-            </>
+      <Field label={t("搜索规则", "Search rules")}>
+        <input
+          type="search"
+          value={query}
+          placeholder={t(
+            "搜索匹配内容、类型或去向",
+            "Match value, type or destination",
           )}
-        </div>
-      )}
-      <div className="table-scroll">
-        <table
-          className={`compact-table responsive-cards ${focusTarget ? "purpose-rule-table" : ""}`}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(0);
+          }}
+        />
+      </Field>
+      <div className="actions selection-bar">
+        <Button
+          onClick={() =>
+            setSelected(
+              filtered.slice(current * 50, current * 50 + 50).map((v) => v.i),
+            )
+          }
         >
+          {t("选择本页", "Select page")}
+        </Button>
+        <span className="muted">
+          {filtered.length} {t("条规则", "rules")}
+        </span>
+        {selected.length > 0 && (
+          <>
+            <span>
+              {t("已选", "Selected")} {selected.length}
+            </span>
+            <Button onClick={() => setSelected([])}>
+              {t("取消选择", "Clear")}
+            </Button>
+            {[true, false].map((enabled) => (
+              <Button
+                key={String(enabled)}
+                onClick={() =>
+                  onChange(
+                    rules.map((r, i) =>
+                      selected.includes(i) ? { ...r, enabled } : r,
+                    ),
+                  )
+                }
+              >
+                {enabled
+                  ? t("启用所选", "Enable selected")
+                  : t("停用所选", "Disable selected")}
+              </Button>
+            ))}
+            <Button
+              danger
+              onClick={() => {
+                if (confirm(t("删除所选规则？", "Delete selected rules?"))) {
+                  onChange(rules.filter((_, i) => !selected.includes(i)));
+                  setSelected([]);
+                }
+              }}
+            >
+              {t("删除所选", "Delete selected")}
+            </Button>
+          </>
+        )}
+      </div>
+      <div className="table-scroll">
+        <table className="compact-table responsive-cards">
           <thead>
             <tr>
-              {!focusTarget && <th>{t("顺序", "Order")}</th>}
+              <th>{t("顺序", "Order")}</th>
               <th>{t("匹配条件", "Match")}</th>
-              {!focusTarget && <th>{t("去向", "Destination")}</th>}
+              <th>{t("去向", "Destination")}</th>
               <th>{t("启用", "Enabled")}</th>
               <th>{t("操作", "Actions")}</th>
             </tr>
@@ -467,21 +356,17 @@ export function RulesEditor({
           <tbody>
             {filtered.slice(current * 50, current * 50 + 50).map(({ r, i }) => (
               <tr key={i} className={r.enabled ? "" : "muted"}>
-                {!focusTarget && (
-                  <td data-label={t("顺序", "Order")}>
-                    <CheckField
-                      label={String(i + 1)}
-                      checked={selected.includes(i)}
-                      onChange={(v) =>
-                        setSelected(
-                          v
-                            ? [...selected, i]
-                            : selected.filter((x) => x !== i),
-                        )
-                      }
-                    />
-                  </td>
-                )}
+                <td data-label={t("顺序", "Order")}>
+                  <CheckField
+                    label={String(i + 1)}
+                    checked={selected.includes(i)}
+                    onChange={(v) =>
+                      setSelected(
+                        v ? [...selected, i] : selected.filter((x) => x !== i),
+                      )
+                    }
+                  />
+                </td>
                 <td data-label={t("匹配条件", "Match")}>
                   <strong>{ruleLabel(r.type, t)}</strong>
                   <small className="cell-detail">
@@ -495,24 +380,16 @@ export function RulesEditor({
                         : r.value}
                   </small>
                 </td>
-                {!focusTarget && (
-                  <td data-label={t("去向", "Destination")}>
-                    {focusTarget && targetLabel
-                      ? targetLabel
-                      : r.target === "DIRECT"
-                        ? t("直连", "DIRECT")
-                        : r.target === "REJECT"
-                          ? t("拒绝", "REJECT")
-                          : r.target}
-                  </td>
-                )}
+                <td data-label={t("去向", "Destination")}>
+                  {r.target === "DIRECT"
+                    ? t("直连", "DIRECT")
+                    : r.target === "REJECT"
+                      ? t("拒绝", "REJECT")
+                      : r.target}
+                </td>
                 <td data-label={t("启用", "Enabled")}>
                   <CheckField
-                    label={
-                      focusTarget
-                        ? t("启用", "Enabled")
-                        : t("启用规则", "Enable rule") + " " + (i + 1)
-                    }
+                    label={t("启用规则", "Enable rule") + " " + (i + 1)}
                     checked={r.enabled}
                     onChange={(enabled) => update(i, { ...r, enabled })}
                   />
@@ -522,31 +399,24 @@ export function RulesEditor({
                     <Button onClick={() => open(i, r)}>
                       {t("编辑", "Edit")}
                     </Button>
-                    {!focusTarget && (
-                      <>
-                        <Button
-                          aria-label={
-                            t("上移规则", "Move rule up") + " " + (i + 1)
-                          }
-                          disabled={i === 0}
-                          onClick={() => move(i, -1)}
-                        >
-                          ↑
-                        </Button>
-                        <Button
-                          aria-label={
-                            t("下移规则", "Move rule down") + " " + (i + 1)
-                          }
-                          disabled={
-                            i === rules.length - 1 ||
-                            rules[i + 1]?.type === "MATCH"
-                          }
-                          onClick={() => move(i, 1)}
-                        >
-                          ↓
-                        </Button>
-                      </>
-                    )}
+                    <Button
+                      aria-label={t("上移规则", "Move rule up") + " " + (i + 1)}
+                      disabled={i === 0}
+                      onClick={() => move(i, -1)}
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      aria-label={
+                        t("下移规则", "Move rule down") + " " + (i + 1)
+                      }
+                      disabled={
+                        i === rules.length - 1 || rules[i + 1]?.type === "MATCH"
+                      }
+                      onClick={() => move(i, 1)}
+                    >
+                      ↓
+                    </Button>
                     <details className="row-more">
                       <summary
                         aria-label={
@@ -583,9 +453,7 @@ export function RulesEditor({
             {query
               ? t("没有匹配的规则", "No matching rules")
               : t(
-                  focusTarget
-                    ? "还没有匹配规则，添加域名、IP 或规则集。"
-                    : "尚无分流规则，所有流量使用下方默认去向。",
+                  "尚无分流规则，所有流量使用下方默认去向。",
                   "No rules yet. All traffic uses the fallback below.",
                 )}
           </p>
@@ -607,55 +475,51 @@ export function RulesEditor({
           </Button>
         </div>
       )}
-      {!focusTarget && (
-        <div className="fallback-row">
-          <div>
-            <strong>{t("其余流量", "All other traffic")}</strong>
-            <p className="muted">
-              {t("没有命中上方规则时使用", "Used when no rule above matches")}
-            </p>
-          </div>
-          <Field label={t("默认去向", "Fallback destination")}>
-            <select
-              value={fallback?.target || ""}
-              onChange={(e) => {
-                const r: Rule = {
-                  type: "MATCH",
-                  value: "",
-                  target: e.target.value,
-                  enabled: true,
-                  noResolve: false,
-                };
-                fallback ? update(fallbackIndex, r) : onChange([...rules, r]);
-              }}
-            >
-              <option value="" disabled>
-                {t("请选择去向", "Select destination")}
-              </option>
-              {targets.map((v) => (
-                <option key={v} value={v}>
-                  {focusTarget && targetLabel
-                    ? targetLabel
-                    : v === "DIRECT"
-                      ? t("直连", "DIRECT")
-                      : v === "REJECT"
-                        ? t("拒绝", "REJECT")
-                        : v}
-                </option>
-              ))}
-            </select>
-          </Field>
-          {fallback && (
-            <CheckField
-              label={t("启用", "Enabled")}
-              checked={fallback.enabled}
-              onChange={(enabled) =>
-                update(fallbackIndex, { ...fallback, enabled })
-              }
-            />
-          )}
+      <div className="fallback-row">
+        <div>
+          <strong>{t("其余流量", "All other traffic")}</strong>
+          <p className="muted">
+            {t("没有命中上方规则时使用", "Used when no rule above matches")}
+          </p>
         </div>
-      )}
+        <Field label={t("默认去向", "Fallback destination")}>
+          <select
+            value={fallback?.target || ""}
+            onChange={(e) => {
+              const r: Rule = {
+                type: "MATCH",
+                value: "",
+                target: e.target.value,
+                enabled: true,
+                noResolve: false,
+              };
+              fallback ? update(fallbackIndex, r) : onChange([...rules, r]);
+            }}
+          >
+            <option value="" disabled>
+              {t("请选择去向", "Select destination")}
+            </option>
+            {targets.map((v) => (
+              <option key={v} value={v}>
+                {v === "DIRECT"
+                  ? t("直连", "DIRECT")
+                  : v === "REJECT"
+                    ? t("拒绝", "REJECT")
+                    : v}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {fallback && (
+          <CheckField
+            label={t("启用", "Enabled")}
+            checked={fallback.enabled}
+            onChange={(enabled) =>
+              update(fallbackIndex, { ...fallback, enabled })
+            }
+          />
+        )}
+      </div>
       {edit && (
         <EditorDialog
           title={
@@ -711,13 +575,11 @@ export function RulesEditor({
               >
                 {targets.map((v) => (
                   <option key={v} value={v}>
-                    {focusTarget && targetLabel
-                      ? targetLabel
-                      : v === "DIRECT"
-                        ? t("直连", "DIRECT")
-                        : v === "REJECT"
-                          ? t("拒绝", "REJECT")
-                          : v}
+                    {v === "DIRECT"
+                      ? t("直连", "DIRECT")
+                      : v === "REJECT"
+                        ? t("拒绝", "REJECT")
+                        : v}
                   </option>
                 ))}
               </select>
@@ -839,9 +701,7 @@ export function RulesEditor({
                 onChange={(e) => setBatchTarget(e.target.value)}
               >
                 {targets.map((v) => (
-                  <option key={v} value={v}>
-                    {focusTarget && targetLabel ? targetLabel : v}
-                  </option>
+                  <option key={v}>{v}</option>
                 ))}
               </select>
             </Field>

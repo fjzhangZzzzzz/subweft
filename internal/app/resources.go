@@ -40,15 +40,21 @@ func validateResource(v domain.Resource) error {
 			return domain.Invalid("invalid_format", "format")
 		}
 	case "mmdb", "geoip", "geosite", "asn":
+		if len(v.Headers) > 0 {
+			return domain.Invalid("geodata_headers_unsupported", "headers")
+		}
 	default:
 		return domain.Invalid("invalid_resource_type", "type")
 	}
 	if v.Kind == "http" {
+		if e := compile.ValidateDeviceUpdate(domain.DeviceUpdate{Headers: v.Headers}); e != nil {
+			return e
+		}
 		return source.ValidateURL(v.URL)
 	}
 	return nil
 }
-func normalizeRules(data []byte, behavior, format string) ([]byte, int, error) {
+func normalizeRules(data []byte, behavior, format string, allowEmpty bool) ([]byte, int, error) {
 	if len(data) > 16<<20 {
 		return nil, 0, domain.Invalid("input_too_large", "entries")
 	}
@@ -82,7 +88,7 @@ func normalizeRules(data []byte, behavior, format string) ([]byte, int, error) {
 			entries = append(entries, line)
 		}
 	}
-	if len(entries) == 0 || len(entries) > 500000 {
+	if (len(entries) == 0 && !allowEmpty) || len(entries) > 500000 {
 		return nil, 0, domain.Invalid("invalid_rule_count", "entries")
 	}
 	seen := map[string]bool{}
@@ -170,7 +176,7 @@ func (s *Service) SaveResource(ctx context.Context, in ResourceInput) (domain.Re
 				}
 			}
 			if data != nil && e == nil {
-				data, v.Count, e = normalizeRules(data, v.Behavior, v.Format)
+				data, v.Count, e = normalizeRules(data, v.Behavior, v.Format, true)
 			}
 		}
 		if e != nil {
@@ -197,51 +203,9 @@ func (s *Service) SaveResource(ctx context.Context, in ResourceInput) (domain.Re
 	return v, e
 }
 func (s *Service) RefreshResource(ctx context.Context, id string) (domain.Resource, error) {
-	select {
-	case s.fetchSem <- struct{}{}:
-		defer func() { <-s.fetchSem }()
-	case <-ctx.Done():
-		return domain.Resource{}, ctx.Err()
-	}
-	v, e := storage.Load[domain.Resource](ctx, s.Store, "resource", id)
-	if e != nil {
-		return v, e
-	}
-	if !v.Enabled || v.Kind != "http" {
-		return v, domain.Invalid("resource_not_refreshable", "resource")
-	}
-	data, e := s.Fetcher.FetchLimit(ctx, v.URL, 64<<20)
-	if e == nil && v.Type == "ruleset" {
-		data, v.Count, e = normalizeRules(data, v.Behavior, v.Format)
-	}
-	digest := ""
-	if e == nil {
-		digest, e = s.Store.PutAsset(ctx, data)
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	current, loadErr := storage.Load[domain.Resource](ctx, s.Store, "resource", id)
-	if loadErr != nil {
-		return v, loadErr
-	}
-	if current.Revision != v.Revision {
-		return v, domain.ErrConflict
-	}
-	v.LastAttempt = time.Now().UTC()
-	if e != nil {
-		v.Digest = current.Digest
-		v.Count = current.Count
-		v.LastError = "refresh_failed"
-	} else {
-		v.Digest = digest
-		v.LastSuccess = v.LastAttempt
-		v.LastError = ""
-	}
-	if err := s.Store.SaveResourceSnapshot(ctx, v); err != nil {
-		return v, err
-	}
-	return v, e
+	return domain.Resource{}, domain.Invalid("device_updates_only", "resource")
 }
+
 func (s *Service) ResourceEntries(ctx context.Context, id string) ([]string, error) {
 	v, e := storage.Load[domain.Resource](ctx, s.Store, "resource", id)
 	if e != nil {
@@ -255,7 +219,11 @@ func (s *Service) ResourceEntries(ctx context.Context, id string) ([]string, err
 		return nil, e
 	}
 	if v.Format == "text" {
-		return strings.Split(strings.TrimSuffix(string(data), "\n"), "\n"), nil
+		text := strings.TrimSuffix(string(data), "\n")
+		if text == "" {
+			return []string{}, nil
+		}
+		return strings.Split(text, "\n"), nil
 	}
 	var m struct {
 		Payload []string `yaml:"payload"`

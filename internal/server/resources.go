@@ -8,7 +8,16 @@ import (
 	"github.com/fjzhangZzzzzz/subweft/internal/storage"
 )
 
-func resourceMeta(v domain.Resource) domain.Resource { v.URL = ""; return v }
+func resourceMeta(v domain.Resource) domain.Resource {
+	v.URL = ""
+	v.Headers = nil
+	if v.Kind == "http" {
+		v.LastError = ""
+		v.Count = 0
+		v.Digest = ""
+	}
+	return v
+}
 func resourceMetas(values []domain.Resource) []domain.Resource {
 	out := []domain.Resource{}
 	for _, v := range values {

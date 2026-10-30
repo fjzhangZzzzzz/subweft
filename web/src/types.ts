@@ -30,6 +30,9 @@ export type Node = {
 };
 export type ManualNode = Meta & { node: Node; enabled: boolean };
 export type Source = Meta & {
+  update?: import("./device-updates").DeviceUpdate;
+  legacyProxy?: string;
+  migrationRequired?: boolean;
   url?: string;
   clientProvider?: {
     enabled: boolean;
@@ -68,9 +71,7 @@ export type Source = Meta & {
   lastAttempt: string;
   lastError: string;
 };
-export type SourcePool = { name: string; sourceIds: string[] };
 export type Group = {
-  pools?: string[];
   options?: import("./schema-form").ObjectValue;
   name: string;
   type: string;
@@ -114,7 +115,11 @@ export type Settings = {
   nameservers: string[];
 };
 export type Profile = Meta & {
-  pools?: SourcePool[];
+  geoDataMode?: boolean;
+  geoAutoUpdate?: boolean;
+  geoUpdateInterval?: number;
+  sourceUpdates?: Record<string, string>;
+  ruleUpdates?: Record<string, string>;
   autoPublish?: boolean;
   geoIpId?: string;
   geoAsnId?: string;
@@ -139,7 +144,6 @@ export type Release = Meta & {
   validator: string;
 };
 export type State = {
-  pendingProfiles?: Record<string, boolean>;
   build?: { version: string; commit: string; dirty: boolean; platform: string };
   publishStatus?: { id: string; attempt: string; error?: string }[];
   role: "admin" | "user";

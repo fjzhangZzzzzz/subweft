@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"sync"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/fjzhangZzzzzz/subweft/internal/source"
 	"github.com/fjzhangZzzzzz/subweft/internal/storage"
 	"github.com/fjzhangZzzzzz/subweft/internal/validator"
+	"go.yaml.in/yaml/v3"
 )
 
 type Service struct {
@@ -27,9 +27,12 @@ func New(store *storage.Store, fetcher *source.Fetcher, checker validator.Checke
 }
 
 type SourceInput struct {
-	ClientProvider *domain.ClientProvider `json:"clientProvider,omitempty"`
-	Fetch          domain.FetchOptions    `json:"fetch"`
-	ExtractNodes   bool                   `json:"extractNodes"`
+	Update             domain.DeviceUpdate    `json:"update"`
+	ConvertCached      bool                   `json:"convertCached,omitempty"`
+	ResolveLegacyProxy bool                   `json:"resolveLegacyProxy,omitempty"`
+	ClientProvider     *domain.ClientProvider `json:"clientProvider,omitempty"`
+	Fetch              domain.FetchOptions    `json:"fetch"`
+	ExtractNodes       bool                   `json:"extractNodes"`
 	domain.Meta
 	Name     string   `json:"name"`
 	Kind     string   `json:"kind"`
@@ -41,9 +44,12 @@ type SourceInput struct {
 }
 
 func (s *Service) SaveSource(ctx context.Context, in SourceInput) (domain.Source, error) {
+	if in.ClientProvider != nil || in.Fetch.Proxy != "" || in.Fetch.Timeout != 0 || in.Fetch.Retries != 0 || in.Fetch.UserAgent != "" || len(in.Fetch.Headers) > 0 {
+		return domain.Source{}, domain.Invalid("retired_fetch_settings", "update")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	v := domain.Source{ClientProvider: in.ClientProvider, Fetch: in.Fetch, ExtractNodes: in.ExtractNodes, Meta: in.Meta, Name: in.Name, Kind: in.Kind, URL: in.URL, Content: in.Content, Enabled: in.Enabled, Tags: in.Tags, Interval: in.Interval}
+	v := domain.Source{Update: in.Update, ClientProvider: in.ClientProvider, Fetch: in.Fetch, ExtractNodes: in.ExtractNodes, Meta: in.Meta, Name: in.Name, Kind: in.Kind, URL: in.URL, Content: in.Content, Enabled: in.Enabled, Tags: in.Tags, Interval: in.Interval}
 	if in.ID != "" {
 		old, e := storage.Load[domain.Source](ctx, s.Store, "source", in.ID)
 		if e != nil {
@@ -52,8 +58,51 @@ func (s *Service) SaveSource(ctx context.Context, in SourceInput) (domain.Source
 		if old.Revision != in.Revision {
 			return v, domain.ErrConflict
 		}
+		if in.ConvertCached {
+			if old.Kind != "http" || len(old.Nodes) == 0 {
+				return v, domain.Invalid("local_snapshot_unavailable", "source")
+			}
+			counts := map[string]int{}
+			for _, n := range old.Nodes {
+				counts[domain.NodeIdentity(n)]++
+			}
+			for _, o := range old.Overrides {
+				if counts[o.Identity] != 1 {
+					return v, domain.Invalid("ambiguous_or_missing_node", "overrides")
+				}
+			}
+			nodes, e := domain.SourceNodes(old)
+			if e != nil {
+				return v, e
+			}
+			if len(nodes) == 0 {
+				return v, domain.Invalid("empty_source", "source")
+			}
+			data, e := yaml.Marshal(map[string]any{"proxies": nodes})
+			if e != nil {
+				return v, e
+			}
+			v.Kind = "local"
+			v.Content = string(data)
+			v.URL = ""
+			v.Nodes = nodes
+			v.Overrides = nil
+			v.Fetch = domain.FetchOptions{}
+			v.ClientProvider = nil
+			v.LegacyProxy = ""
+			v.ExtractNodes = false
+			if e = domain.ValidateSource(v); e != nil {
+				return v, e
+			}
+			e = storage.Save(ctx, s.Store, "source", &v.Meta, &v, "")
+			return v, e
+		}
 		v.Nodes = old.Nodes
 		v.Overrides = old.Overrides
+		v.LegacyProxy = old.LegacyProxy
+		if in.ResolveLegacyProxy {
+			v.LegacyProxy = ""
+		}
 		v.LastSuccess = old.LastSuccess
 		v.LastAttempt = old.LastAttempt
 		v.LastError = old.LastError
@@ -72,12 +121,12 @@ func (s *Service) SaveSource(ctx context.Context, in SourceInput) (domain.Source
 	}
 	if v.Kind == "http" {
 		var e error
-		v.URL, v.Fetch.Headers, e = source.NormalizeCredentials(v.URL, v.Fetch.Headers)
+		v.URL, v.Update.Headers, e = source.NormalizeCredentials(v.URL, v.Update.Headers)
 		if e != nil {
 			return v, e
 		}
 	}
-	if e := source.ValidateOptions(v.Fetch); e != nil {
+	if e := compile.ValidateDeviceUpdate(v.Update); e != nil {
 		return v, e
 	}
 	if e := domain.ValidateSource(v); e != nil {
@@ -88,6 +137,7 @@ func (s *Service) SaveSource(ctx context.Context, in SourceInput) (domain.Source
 			return v, e
 		}
 		v.Content = ""
+		v.LastError = ""
 	} else {
 		nodes, e := source.ParseInput([]byte(v.Content), v.ExtractNodes)
 		if e != nil {
@@ -103,52 +153,9 @@ func (s *Service) SaveSource(ctx context.Context, in SourceInput) (domain.Source
 	return v, e
 }
 func (s *Service) Refresh(ctx context.Context, id string) (domain.Source, error) {
-	select {
-	case s.fetchSem <- struct{}{}:
-		defer func() { <-s.fetchSem }()
-	case <-ctx.Done():
-		return domain.Source{}, ctx.Err()
-	}
-	v, e := storage.Load[domain.Source](ctx, s.Store, "source", id)
-	if e != nil {
-		return v, e
-	}
-	if !v.Enabled {
-		return v, domain.Invalid("source_disabled", "source")
-	}
-	if v.Kind != "http" {
-		return v, domain.Invalid("not_http_source", "source")
-	}
-	b, e := s.Fetcher.FetchWith(ctx, v.URL, v.Fetch, source.MaxBytes)
-	if e == nil {
-		v.Nodes, e = source.ParseInput(b, v.ExtractNodes)
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	current, loadErr := storage.Load[domain.Source](ctx, s.Store, "source", id)
-	if loadErr != nil {
-		return v, loadErr
-	}
-	if current.Revision != v.Revision {
-		return v, domain.ErrConflict
-	}
-	v.LastAttempt = time.Now().UTC()
-	if e != nil {
-		v.Nodes = current.Nodes
-		v.LastError = "refresh_failed"
-		var de *domain.Error
-		if errors.As(e, &de) {
-			v.LastError = de.Code
-		}
-	} else {
-		v.LastSuccess = v.LastAttempt
-		v.LastError = ""
-	}
-	if saveErr := s.Store.SaveSourceSnapshot(ctx, v); saveErr != nil {
-		return v, saveErr
-	}
-	return v, e
+	return domain.Source{}, domain.Invalid("device_updates_only", "source")
 }
+
 func (s *Service) SaveNode(ctx context.Context, v domain.ManualNode) (domain.ManualNode, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -195,23 +202,6 @@ func (s *Service) SaveProfile(ctx context.Context, p domain.Profile) (domain.Pro
 	if e := domain.ValidateProfile(p); e != nil {
 		return p, e
 	}
-	if len(p.Pools) > 0 {
-		snap, err := s.Store.Snapshot(ctx)
-		if err != nil {
-			return p, err
-		}
-		exists := map[string]bool{}
-		for _, source := range snap.Sources {
-			exists[source.ID] = true
-		}
-		for _, pool := range p.Pools {
-			for _, id := range pool.SourceIDs {
-				if !exists[id] {
-					return p, domain.Invalid("source_missing", "pools")
-				}
-			}
-		}
-	}
 	if p.ID != "" {
 		old, e := storage.Load[domain.Profile](ctx, s.Store, "profile", p.ID)
 		if e != nil {
@@ -233,15 +223,6 @@ func (s *Service) Delete(ctx context.Context, kind, id string, revision int) err
 	}
 	if kind == "source" || kind == "node" {
 		for _, p := range snap.Profiles {
-			if kind == "source" {
-				for _, pool := range p.Pools {
-					for _, ref := range pool.SourceIDs {
-						if ref == id {
-							return domain.Invalid("resource_in_use", "id")
-						}
-					}
-				}
-			}
 			for _, g := range p.Groups {
 				refs := g.SourceIDs
 				if kind == "node" {
@@ -250,6 +231,21 @@ func (s *Service) Delete(ctx context.Context, kind, id string, revision int) err
 				for _, ref := range refs {
 					if ref == id {
 						return domain.Invalid("resource_in_use", "id")
+					}
+				}
+			}
+		}
+	}
+	if kind == "node" {
+		for _, n := range snap.Nodes {
+			if n.ID == id {
+				for _, p := range snap.Profiles {
+					for _, routes := range []map[string]string{p.SourceUpdates, p.RuleUpdates} {
+						for _, route := range routes {
+							if route == n.Node.Name {
+								return domain.Invalid("resource_in_use", "id")
+							}
+						}
 					}
 				}
 			}
@@ -303,7 +299,7 @@ func (s *Service) Publish(ctx context.Context, id string, revision int, allowSta
 	if e = s.checkResult(ctx, result); e != nil {
 		return domain.Release{}, e
 	}
-	r := domain.Release{InputDigest: result.InputDigest, Resources: result.Resources, Definition: &p, ProfileID: p.ID, ProfileRevision: p.Revision, CreatedAt: time.Now().UTC(), Config: result.Config, Digest: compile.Digest(result.Config), Sources: result.Sources, Validator: s.Validator.Identity()}
+	r := domain.Release{Resources: result.Resources, Definition: &p, ProfileID: p.ID, ProfileRevision: p.Revision, CreatedAt: time.Now().UTC(), Config: result.Config, Digest: compile.Digest(result.Config), Sources: result.Sources, Validator: s.Validator.Identity()}
 	if e = s.persistAssets(ctx, result); e != nil {
 		return r, e
 	}
@@ -376,28 +372,6 @@ func (s *Service) Schedule(ctx context.Context) {
 				_ = s.Store.PruneAssets(ctx)
 				lastPrune = time.Now()
 			}
-			values, e := storage.List[domain.Source](ctx, s.Store, "source")
-			if e != nil {
-				continue
-			}
-			for _, v := range values {
-				if !v.Enabled || v.Kind != "http" || time.Since(v.LastAttempt) < time.Duration(v.Interval)*time.Second {
-					continue
-				}
-				_, _ = s.Refresh(ctx, v.ID)
-				if ctx.Err() != nil {
-					return
-				}
-			}
-			resources, e := storage.List[domain.Resource](ctx, s.Store, "resource")
-			if e == nil {
-				for _, v := range resources {
-					if v.Enabled && v.Kind == "http" && time.Since(v.LastAttempt) >= time.Duration(v.Interval)*time.Second {
-						_, _ = s.RefreshResource(ctx, v.ID)
-					}
-				}
-			}
-			s.AutoPublish(ctx)
 		}
 	}
 }

@@ -1,6 +1,6 @@
 # 开发
 
-当前仓库提供首个SS闭环的开发预览；[本地运行](running.md)给出构建和启动方式，[能力状态](status.md)区分当前实现与完整目标。尚无正式镜像。先读[设计](design.md)、[架构](architecture.md)、[支持矩阵](support-matrix.md)和[验收标准](acceptance.md)。
+当前仓库提供统一设备更新的完整表单候选；[本地运行](running.md)给出构建和启动方式，[能力状态](status.md)区分当前实现与完整目标。Linux 容器从固定候选工件构建。先读[设计](design.md)、[架构](architecture.md)、[支持矩阵](support-matrix.md)和[验收标准](acceptance.md)。
 
 ## 实现顺序
 
@@ -28,7 +28,7 @@ python tools/check_docs.py
 git diff --check
 ```
 
-检查器核对Git索引中的文档链接、文本编码、被误跟踪的运行文件和链接文件。它不联网，不是秘密扫描或公开审计的替代品。Go测试覆盖领域、加密存储、原生校验与HTTP/OIDC集成。测试身份提供方只在测试和本地开发工具中使用。CI分别运行Linux amd64与Windows，Linux arm64交叉构建不等于原生运行验收。
+检查器核对Git索引中的文档链接、文本编码、被误跟踪的运行文件和链接文件。它不联网，不是秘密扫描或公开审计的替代品。Go测试覆盖领域、加密存储、原生校验与HTTP/OIDC集成。测试身份提供方只在测试和本地开发工具中使用。CI分别在 Linux amd64、Linux arm64 和 Windows 原生运行，交叉构建不替代原生验收。
 
 ## 贡献与工件
 
