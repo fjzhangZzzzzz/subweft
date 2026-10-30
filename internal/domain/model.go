@@ -68,7 +68,13 @@ type Source struct {
 	LastAttempt time.Time `json:"lastAttempt"`
 	LastError   string    `json:"lastError,omitempty"`
 }
+type SourcePool struct {
+	Name      string   `json:"name"`
+	SourceIDs []string `json:"sourceIds"`
+}
+
 type Group struct {
+	Pools      []string       `json:"pools,omitempty"`
 	Options    map[string]any `json:"options,omitempty"`
 	Name       string         `json:"name"`
 	Type       string         `json:"type"`
@@ -110,10 +116,11 @@ type Settings struct {
 	Nameservers           []string       `json:"nameservers"`
 }
 type Profile struct {
-	GeoASNID    string `json:"geoAsnId,omitempty"`
-	AutoPublish bool   `json:"autoPublish"`
-	GeoIPID     string `json:"geoIpId,omitempty"`
-	GeoSiteID   string `json:"geoSiteId,omitempty"`
+	Pools       []SourcePool `json:"pools,omitempty"`
+	GeoASNID    string       `json:"geoAsnId,omitempty"`
+	AutoPublish bool         `json:"autoPublish"`
+	GeoIPID     string       `json:"geoIpId,omitempty"`
+	GeoSiteID   string       `json:"geoSiteId,omitempty"`
 	Meta
 	Name     string   `json:"name"`
 	Groups   []Group  `json:"groups"`
@@ -130,8 +137,9 @@ type Device struct {
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 }
 type Release struct {
-	Resources  map[string]string `json:"resources,omitempty"`
-	Definition *Profile          `json:"definition,omitempty"`
+	InputDigest string            `json:"inputDigest,omitempty"`
+	Resources   map[string]string `json:"resources,omitempty"`
+	Definition  *Profile          `json:"definition,omitempty"`
 	Meta
 	ProfileID       string            `json:"profileId"`
 	ProfileRevision int               `json:"profileRevision"`
@@ -192,6 +200,34 @@ func ValidateSource(s Source) error {
 func ValidateProfile(p Profile) error {
 	if !ValidName(p.Name) {
 		return Invalid("invalid_name", "name")
+	}
+	if len(p.Pools) > 32 {
+		return Invalid("too_many_pools", "pools")
+	}
+	pools := map[string]bool{}
+	for i, pool := range p.Pools {
+		field := fmt.Sprintf("pools.%d", i)
+		if !ValidName(pool.Name) || pools[pool.Name] {
+			return Invalid("duplicate_or_invalid_name", field+".name")
+		}
+		if len(pool.SourceIDs) == 0 || len(pool.SourceIDs) > 100 {
+			return Invalid("invalid_pool_members", field+".sourceIds")
+		}
+		seen := map[string]bool{}
+		for _, id := range pool.SourceIDs {
+			if id == "" || seen[id] {
+				return Invalid("invalid_pool_members", field+".sourceIds")
+			}
+			seen[id] = true
+		}
+		pools[pool.Name] = true
+	}
+	for i, g := range p.Groups {
+		for _, name := range g.Pools {
+			if !pools[name] {
+				return Invalid("pool_missing", fmt.Sprintf("groups.%d.pools", i))
+			}
+		}
 	}
 	count := 0
 	var conditions func([]Condition, int) bool

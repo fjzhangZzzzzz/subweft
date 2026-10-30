@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/netip"
+
 	"net/url"
 	"os"
 	"os/signal"
@@ -21,10 +21,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fjzhangZzzzzz/subweft/internal/app"
 	"github.com/fjzhangZzzzzz/subweft/internal/auth"
+	"github.com/fjzhangZzzzzz/subweft/internal/configuration"
 	"github.com/fjzhangZzzzzz/subweft/internal/server"
-	"github.com/fjzhangZzzzzz/subweft/internal/source"
+
 	"github.com/fjzhangZzzzzz/subweft/internal/storage"
 	"github.com/fjzhangZzzzzz/subweft/internal/validator"
 	"github.com/fjzhangZzzzzz/subweft/internal/webui"
@@ -92,7 +92,7 @@ func run() error {
 		return secretErr
 	}
 	adminRaw := os.Getenv("SUBWEFT_ADMIN_SUBJECTS")
-	if clientID == "" || secret == "" || adminRaw == "" {
+	if clientID == "" || secret == "" || strings.TrimSpace(adminRaw) == "" || strings.Contains(adminRaw, ",") {
 		return errors.New("oidc_credentials_and_admin_subjects_required")
 	}
 	store, e := storage.Open(*data, *key)
@@ -120,25 +120,39 @@ func run() error {
 	if e != nil {
 		return e
 	}
-	allowed := []netip.Prefix{}
-	if raw := os.Getenv("SUBWEFT_FETCH_ALLOW_CIDRS"); raw != "" {
-		for _, value := range strings.Split(raw, ",") {
-			p, e := netip.ParsePrefix(strings.TrimSpace(value))
-			if e != nil {
-				return errors.New("invalid_fetch_allowlist")
-			}
-			allowed = append(allowed, p)
-		}
-	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	authn, e := auth.New(ctx, auth.Config{Issuer: issuer, ClientID: clientID, ClientSecret: secret, BaseURL: base, AdminSubjects: strings.Split(adminRaw, ","), LocalHTTP: local}, store)
 	if e != nil {
 		return e
 	}
-	svc := app.New(store, source.NewFetcher(allowed), checker)
-	go svc.Schedule(ctx)
-	api := &server.API{Service: svc, Auth: authn, BaseURL: base, UI: webui.Handler()}
+	geo := map[string][]byte{}
+	if dir := os.Getenv("SUBWEFT_GEODB_DIR"); dir != "" {
+		for _, name := range []string{"Country.mmdb", "GeoIP.dat", "GeoSite.dat", "ASN.mmdb"} {
+			filename := filepath.Join(dir, name)
+			info, statErr := os.Stat(filename)
+			if os.IsNotExist(statErr) {
+				continue
+			}
+			if statErr != nil || !info.Mode().IsRegular() {
+				return errors.New("geodb_unavailable")
+			}
+			if info.Size() > 128<<20 {
+				return errors.New("geodb_too_large")
+			}
+			b, err := os.ReadFile(filename)
+			if err == nil {
+				if len(b) > 128<<20 {
+					return errors.New("geodb_too_large")
+				}
+				geo[name] = b
+			} else if !os.IsNotExist(err) {
+				return errors.New("geodb_unavailable")
+			}
+		}
+	}
+	svc := configuration.New(store, validator.Definition{Native: checker, GeoDB: geo})
+	api := &server.Editor{Service: svc, Auth: authn, BaseURL: base, UI: webui.Handler()}
 	httpServer := &http.Server{Addr: listen, Handler: api.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	errCh := make(chan error, 1)
 	go func() { errCh <- httpServer.ListenAndServe() }()

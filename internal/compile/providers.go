@@ -1,14 +1,13 @@
 package compile
 
 import (
-	"fmt"
 	"net/url"
 
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
 	"go.yaml.in/yaml/v3"
 )
 
-func providerResource(s domain.Source, nodes []domain.Node, index int) (string, map[string]any, []byte, error) {
+func providerResource(s domain.Source, nodes []domain.Node) (string, map[string]any, []byte, error) {
 	settings := s.ClientProvider
 	if settings == nil || !settings.Enabled {
 		return "", nil, nil, domain.Invalid("provider_disabled", "source")
@@ -23,7 +22,7 @@ func providerResource(s domain.Source, nodes []domain.Node, index int) (string, 
 			return "", nil, nil, domain.Invalid("invalid_health_check", "clientProvider.healthCheck")
 		}
 	}
-	id := fmt.Sprintf("provider-%s-%d", s.ID, index)
+	id := "provider-" + s.ID
 	data, e := yaml.Marshal(map[string]any{"proxies": nodes})
 	if e != nil {
 		return "", nil, nil, e

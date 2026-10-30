@@ -87,6 +87,22 @@ func (n *Native) Check(ctx context.Context, config []byte) error {
 	return n.CheckBundle(ctx, config, nil)
 }
 func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[string][]byte) error {
+	return n.check(ctx, config, assets, false)
+}
+
+// Definition validates the exact client configuration without fetching HTTP providers.
+// GeoDB files are supplied by deployment and never downloaded by the application.
+type Definition struct {
+	Native *Native
+	GeoDB  map[string][]byte
+}
+
+func (d Definition) Identity() string { return d.Native.Identity() + "/definition" }
+func (d Definition) Check(ctx context.Context, config []byte) error {
+	return d.Native.check(ctx, config, d.GeoDB, true)
+}
+
+func (n *Native) check(ctx context.Context, config []byte, assets map[string][]byte, definition bool) error {
 	select {
 	case n.sem <- struct{}{}:
 		defer func() { <-n.sem }()
@@ -113,7 +129,60 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 	if yaml.Unmarshal(config, &configMap) != nil {
 		return domain.Invalid("invalid_config", "publish")
 	}
+	if definition {
+		for name, data := range assets {
+			if name != "Country.mmdb" && name != "GeoIP.dat" && name != "GeoSite.dat" && name != "ASN.mmdb" {
+				return domain.Invalid("invalid_geodata", "check")
+			}
+			if os.WriteFile(filepath.Join(dir, name), data, 0600) != nil {
+				return domain.Invalid("validation_failed", "check")
+			}
+		}
+		geoIPFile := "Country.mmdb"
+		if configMap["geodata-mode"] == true {
+			geoIPFile = "GeoIP.dat"
+		}
+		required := map[string]bool{}
+		var inspect func(any)
+		inspect = func(value any) {
+			switch v := value.(type) {
+			case string:
+				lower := strings.ToLower(v)
+				if strings.HasPrefix(lower, "geoip,") || strings.HasPrefix(lower, "geoip:") {
+					required[geoIPFile] = true
+				}
+				if strings.HasPrefix(lower, "geosite:") || strings.HasPrefix(lower, "geosite,") {
+					required["GeoSite.dat"] = true
+				}
+			case []any:
+				for _, item := range v {
+					inspect(item)
+				}
+			case map[string]any:
+				for key, item := range v {
+					if key == "geoip" && item == true {
+						required[geoIPFile] = true
+					}
+					if key == "geosite" {
+						required["GeoSite.dat"] = true
+					}
+					inspect(key)
+					inspect(item)
+				}
+			}
+		}
+		inspect(configMap)
+		for filename := range required {
+			if len(assets[filename]) == 0 {
+				return domain.Invalid("geodb_required", "check")
+			}
+		}
+
+	}
 	for _, providerKey := range []string{"rule-providers", "proxy-providers"} {
+		if definition {
+			continue
+		}
 		if providers, ok := configMap[providerKey].(map[string]any); ok {
 			for _, raw := range providers {
 				provider, ok := raw.(map[string]any)
@@ -174,7 +243,8 @@ func (n *Native) CheckBundle(ctx context.Context, config []byte, assets map[stri
 	}
 	hideWindow(cmd)
 	cmd.Dir = dir
-	// No inherited proxy or user configuration. The compiler emits no remote rule/providers.
+	// No inherited proxy or user configuration. Definition checks leave HTTP providers
+	// intact; Mihomo's test mode checks their definitions without fetching their content.
 	if runtime.GOOS != "linux" {
 		cmd.Env = []string{"HOME=" + dir, "USERPROFILE=" + dir, "APPDATA=" + dir, "LOCALAPPDATA=" + dir, "PATH=" + filepath.Dir(n.Path), "SystemRoot=" + os.Getenv("SystemRoot")}
 	}

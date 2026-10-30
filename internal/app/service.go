@@ -195,6 +195,23 @@ func (s *Service) SaveProfile(ctx context.Context, p domain.Profile) (domain.Pro
 	if e := domain.ValidateProfile(p); e != nil {
 		return p, e
 	}
+	if len(p.Pools) > 0 {
+		snap, err := s.Store.Snapshot(ctx)
+		if err != nil {
+			return p, err
+		}
+		exists := map[string]bool{}
+		for _, source := range snap.Sources {
+			exists[source.ID] = true
+		}
+		for _, pool := range p.Pools {
+			for _, id := range pool.SourceIDs {
+				if !exists[id] {
+					return p, domain.Invalid("source_missing", "pools")
+				}
+			}
+		}
+	}
 	if p.ID != "" {
 		old, e := storage.Load[domain.Profile](ctx, s.Store, "profile", p.ID)
 		if e != nil {
@@ -216,6 +233,15 @@ func (s *Service) Delete(ctx context.Context, kind, id string, revision int) err
 	}
 	if kind == "source" || kind == "node" {
 		for _, p := range snap.Profiles {
+			if kind == "source" {
+				for _, pool := range p.Pools {
+					for _, ref := range pool.SourceIDs {
+						if ref == id {
+							return domain.Invalid("resource_in_use", "id")
+						}
+					}
+				}
+			}
 			for _, g := range p.Groups {
 				refs := g.SourceIDs
 				if kind == "node" {
@@ -277,7 +303,7 @@ func (s *Service) Publish(ctx context.Context, id string, revision int, allowSta
 	if e = s.checkResult(ctx, result); e != nil {
 		return domain.Release{}, e
 	}
-	r := domain.Release{Resources: result.Resources, Definition: &p, ProfileID: p.ID, ProfileRevision: p.Revision, CreatedAt: time.Now().UTC(), Config: result.Config, Digest: compile.Digest(result.Config), Sources: result.Sources, Validator: s.Validator.Identity()}
+	r := domain.Release{InputDigest: result.InputDigest, Resources: result.Resources, Definition: &p, ProfileID: p.ID, ProfileRevision: p.Revision, CreatedAt: time.Now().UTC(), Config: result.Config, Digest: compile.Digest(result.Config), Sources: result.Sources, Validator: s.Validator.Identity()}
 	if e = s.persistAssets(ctx, result); e != nil {
 		return r, e
 	}

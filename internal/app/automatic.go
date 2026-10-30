@@ -23,9 +23,6 @@ func (s *Service) AutoPublish(ctx context.Context) {
 		return
 	}
 	for _, draft := range profiles {
-		if !draft.AutoPublish {
-			continue
-		}
 		snap, e := s.Store.Snapshot(ctx)
 		if e != nil {
 			return
@@ -35,11 +32,16 @@ func (s *Service) AutoPublish(ctx context.Context) {
 			continue
 		}
 		active, e := storage.Load[domain.Release](ctx, s.Store, "release", activeID)
-		if e != nil || active.Definition == nil {
+		if e != nil || active.Definition == nil || !active.Definition.AutoPublish {
 			continue
 		}
 		p := *active.Definition
 		result, e := compile.Compile(p, snap, false)
+		// Human library edits require an explicit Apply, even when automatic
+		// content refresh is enabled. Older releases need one explicit Apply.
+		if e == nil && (active.InputDigest == "" || result.InputDigest != active.InputDigest) {
+			continue
+		}
 		if e == nil && compile.Digest(result.Config) == active.Digest && sameResources(result.Resources, active.Resources) {
 			continue
 		}
@@ -47,7 +49,7 @@ func (s *Service) AutoPublish(ctx context.Context) {
 			e = s.checkResult(ctx, result)
 		}
 		if e == nil {
-			r := domain.Release{ProfileID: p.ID, ProfileRevision: p.Revision, Definition: &p, Resources: result.Resources, Config: result.Config, Digest: compile.Digest(result.Config), Sources: result.Sources, Validator: s.Validator.Identity(), CreatedAt: time.Now().UTC()}
+			r := domain.Release{InputDigest: result.InputDigest, ProfileID: p.ID, ProfileRevision: p.Revision, Definition: &p, Resources: result.Resources, Config: result.Config, Digest: compile.Digest(result.Config), Sources: result.Sources, Validator: s.Validator.Identity(), CreatedAt: time.Now().UTC()}
 			if e = s.persistAssets(ctx, result); e == nil {
 				e = s.Store.Publish(ctx, snap.Generation, &r)
 			}
@@ -81,4 +83,26 @@ func sameResources(a, b map[string]string) bool {
 		}
 	}
 	return true
+}
+
+// PendingProfiles reports whether the saved inputs differ from each active
+// release. It uses cached data only, without upstream fetches or subprocesses.
+func PendingProfiles(snap domain.Snapshot) map[string]bool {
+	active := map[string]domain.Release{}
+	for _, release := range snap.Releases {
+		if snap.Active[release.ProfileID] == release.ID {
+			active[release.ProfileID] = release
+		}
+	}
+	pending := map[string]bool{}
+	for _, profile := range snap.Profiles {
+		release, ok := active[profile.ID]
+		if !ok || release.ProfileRevision != profile.Revision {
+			pending[profile.ID] = true
+			continue
+		}
+		result, err := compile.Compile(profile, snap, true)
+		pending[profile.ID] = err != nil || result.InputDigest != release.InputDigest || compile.Digest(result.Config) != release.Digest || !sameResources(result.Resources, release.Resources)
+	}
+	return pending
 }

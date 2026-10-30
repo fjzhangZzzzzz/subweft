@@ -6,7 +6,6 @@ import (
 	"github.com/fjzhangZzzzzz/subweft/internal/app"
 	"github.com/fjzhangZzzzzz/subweft/internal/domain"
 	"github.com/fjzhangZzzzzz/subweft/internal/storage"
-	"github.com/fjzhangZzzzzz/subweft/internal/testfixture"
 	"testing"
 )
 
@@ -105,13 +104,10 @@ func TestAutomaticPublishUsesFrozenDefinitionAndKeepsLastGood(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	src, e = s.SaveSource(ctx, app.SourceInput{Meta: src.Meta, Name: src.Name, Kind: "local", Content: testfixture.ProviderYAML + "\n", Enabled: true, Interval: 3600})
-	if e != nil {
-		t.Fatal(e)
-	}
-	n := src.Nodes[0]
-	_, e = s.SaveOverride(ctx, src.ID, src.Revision, domain.NodeOverride{Identity: domain.NodeIdentity(n), Name: "renamed locally"}, false)
-	if e != nil {
+	// Simulate an acquired snapshot: runtime cache changes do not edit the
+	// configured source or the saved profile definition.
+	src.Nodes[0].Name = "upstream renamed"
+	if e = s.Store.SaveSourceSnapshot(ctx, src); e != nil {
 		t.Fatal(e)
 	}
 	s.AutoPublish(ctx)
@@ -123,9 +119,8 @@ func TestAutomaticPublishUsesFrozenDefinitionAndKeepsLastGood(t *testing.T) {
 	if e != nil || next.ID == first.ID || bytes.Contains(next.Config, []byte("unpublished-draft.invalid")) || next.ProfileRevision != p.Revision {
 		t.Fatal("automatic update published draft or missed source change")
 	}
-	src, _ = storage.Load[domain.Source](ctx, s.Store, "source", src.ID)
-	_, e = s.SaveOverride(ctx, src.ID, src.Revision, domain.NodeOverride{Identity: domain.NodeIdentity(n), Name: "another change"}, false)
-	if e != nil {
+	src.Nodes[0].Name = "another upstream change"
+	if e = s.Store.SaveSourceSnapshot(ctx, src); e != nil {
 		t.Fatal(e)
 	}
 	c.reject.Store(true)

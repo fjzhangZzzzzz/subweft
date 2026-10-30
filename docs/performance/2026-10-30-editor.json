@@ -1,0 +1,389 @@
+{
+  "date": "2026-10-30 17:22:52 +0800",
+  "os": "Windows-11-10.0.26300-SP0",
+  "logical_processors": 16,
+  "python": "3.15.2",
+  "build": {
+    "version": "0.2.0-dev",
+    "commit": "7118081f4d063cc080bdd7c91cff1757f19a1095",
+    "dirty": true,
+    "platform": "windows/amd64"
+  },
+  "binary_sha256": "e7193329e2e538f10100f52824385646293bb16740e2d8599a719725f8051c0d",
+  "cases": [
+    {
+      "name": "household",
+      "sources": 5,
+      "groups": 6,
+      "sets": 10,
+      "entries": 500,
+      "devices": 10,
+      "releases": 20,
+      "startup_ms": 652.99,
+      "idle_rss_mib": 37.14,
+      "state": {
+        "n": 20,
+        "p50_ms": 39.96,
+        "p95_ms": 45.52,
+        "max_ms": 46.11
+      },
+      "state_bytes": 787223,
+      "transactions": {
+        "save": {
+          "n": 20,
+          "p50_ms": 20.13,
+          "p95_ms": 33.35,
+          "max_ms": 39.76
+        },
+        "check": {
+          "n": 20,
+          "p50_ms": 91.45,
+          "p95_ms": 122.2,
+          "max_ms": 222.49
+        },
+        "publish": {
+          "n": 20,
+          "p50_ms": 19.64,
+          "p95_ms": 48.39,
+          "max_ms": 52.25
+        }
+      },
+      "first_transaction_ms": {
+        "save": 17.85,
+        "check": 107.73,
+        "publish": 25.36
+      },
+      "downloads": [
+        {
+          "concurrency": 1,
+          "n": 200,
+          "p50_ms": 23.92,
+          "p95_ms": 32.34,
+          "max_ms": 43.91,
+          "requests_per_second": 41.19,
+          "errors": 0,
+          "config_bytes": 23924
+        },
+        {
+          "concurrency": 10,
+          "n": 200,
+          "p50_ms": 44.24,
+          "p95_ms": 66.58,
+          "max_ms": 92.14,
+          "requests_per_second": 188.56,
+          "errors": 0,
+          "config_bytes": 23924
+        },
+        {
+          "concurrency": 30,
+          "n": 200,
+          "p50_ms": 133.89,
+          "p95_ms": 161.37,
+          "max_ms": 174.08,
+          "requests_per_second": 184.62,
+          "errors": 0,
+          "config_bytes": 23924
+        }
+      ],
+      "final_rss_mib": 41.0,
+      "process_peak_rss_mib": 45.15,
+      "database_bytes": 7340336,
+      "validation_child_memory": "not measured"
+    },
+    {
+      "name": "expanded",
+      "sources": 20,
+      "groups": 20,
+      "sets": 50,
+      "entries": 5000,
+      "devices": 20,
+      "releases": 20,
+      "startup_ms": 567.26,
+      "idle_rss_mib": 91.92,
+      "state": {
+        "n": 20,
+        "p50_ms": 224.64,
+        "p95_ms": 249.06,
+        "max_ms": 265.84
+      },
+      "state_bytes": 7606363,
+      "transactions": {
+        "save": {
+          "n": 20,
+          "p50_ms": 101.24,
+          "p95_ms": 178.31,
+          "max_ms": 184.39
+        },
+        "check": {
+          "n": 20,
+          "p50_ms": 155.8,
+          "p95_ms": 215.95,
+          "max_ms": 220.09
+        },
+        "publish": {
+          "n": 20,
+          "p50_ms": 103.09,
+          "p95_ms": 197.98,
+          "max_ms": 198.93
+        }
+      },
+      "first_transaction_ms": {
+        "save": 35.02,
+        "check": 125.21,
+        "publish": 38.82
+      },
+      "downloads": [
+        {
+          "concurrency": 1,
+          "n": 200,
+          "p50_ms": 85.66,
+          "p95_ms": 96.5,
+          "max_ms": 100.6,
+          "requests_per_second": 11.34,
+          "errors": 0,
+          "config_bytes": 224147
+        },
+        {
+          "concurrency": 10,
+          "n": 200,
+          "p50_ms": 717.3,
+          "p95_ms": 784.35,
+          "max_ms": 808.31,
+          "requests_per_second": 13.81,
+          "errors": 0,
+          "config_bytes": 224147
+        },
+        {
+          "concurrency": 30,
+          "n": 200,
+          "p50_ms": 2181.38,
+          "p95_ms": 2192.81,
+          "max_ms": 2206.18,
+          "requests_per_second": 13.76,
+          "errors": 0,
+          "config_bytes": 224147
+        }
+      ],
+      "final_rss_mib": 92.68,
+      "process_peak_rss_mib": 113.71,
+      "database_bytes": 34909680,
+      "validation_child_memory": "not measured"
+    },
+    {
+      "name": "stress",
+      "sources": 50,
+      "groups": 30,
+      "sets": 100,
+      "entries": 10000,
+      "devices": 50,
+      "releases": 20,
+      "startup_ms": 580.61,
+      "idle_rss_mib": 135.6,
+      "state": {
+        "n": 20,
+        "p50_ms": 1123.87,
+        "p95_ms": 1192.89,
+        "max_ms": 1245.98
+      },
+      "state_bytes": 15301630,
+      "transactions": {
+        "save": {
+          "n": 20,
+          "p50_ms": 182.77,
+          "p95_ms": 542.02,
+          "max_ms": 569.03
+        },
+        "check": {
+          "n": 20,
+          "p50_ms": 254.56,
+          "p95_ms": 555.37,
+          "max_ms": 584.73
+        },
+        "publish": {
+          "n": 20,
+          "p50_ms": 217.76,
+          "p95_ms": 471.73,
+          "max_ms": 474.52
+        }
+      },
+      "first_transaction_ms": {
+        "save": 25.63,
+        "check": 156.17,
+        "publish": 26.01
+      },
+      "downloads": [
+        {
+          "concurrency": 1,
+          "n": 200,
+          "p50_ms": 274.0,
+          "p95_ms": 307.56,
+          "max_ms": 338.49,
+          "requests_per_second": 3.59,
+          "errors": 0,
+          "config_bytes": 470227
+        },
+        {
+          "concurrency": 10,
+          "n": 200,
+          "p50_ms": 2615.08,
+          "p95_ms": 2814.36,
+          "max_ms": 3006.11,
+          "requests_per_second": 3.8,
+          "errors": 0,
+          "config_bytes": 470227
+        },
+        {
+          "concurrency": 30,
+          "n": 200,
+          "p50_ms": 8069.28,
+          "p95_ms": 8815.7,
+          "max_ms": 9008.82,
+          "requests_per_second": 3.66,
+          "errors": 0,
+          "config_bytes": 470227
+        }
+      ],
+      "final_rss_mib": 121.63,
+      "process_peak_rss_mib": 182.84,
+      "database_bytes": 71247640,
+      "validation_child_memory": "not measured"
+    }
+  ],
+  "environment": {
+    "cpu": "Intel Core Ultra 7 255H",
+    "cores": 16,
+    "logical_processors": 16,
+    "visible_memory_gib": 31.43,
+    "os": "Windows 11 Pro 10.0.26300",
+    "go": "1.27.3",
+    "node": "26.12.1",
+    "mihomo": "1.19.33",
+    "chromium": "156.0.8078.48"
+  },
+  "browser": {
+    "small": {
+      "ready": {
+        "n": 10,
+        "p50_ms": 89.8,
+        "p95_ms": 96.4,
+        "max_ms": 96.4
+      },
+      "long_task_count": 0,
+      "long_task_max_ms": 0,
+      "samples": [
+        {
+          "ready_ms": 96.39999997615814,
+          "long_tasks": 0,
+          "long_task_ms": 0
+        },
+        {
+          "ready_ms": 89.30000007152557,
+          "long_tasks": 0,
+          "long_task_ms": 0
+        },
+        {
+          "ready_ms": 90.20000004768372,
+          "long_tasks": 0,
+          "long_task_ms": 0
+        },
+        {
+          "ready_ms": 60.09999990463257,
+          "long_tasks": 0,
+          "long_task_ms": 0
+        },
+        {
+          "ready_ms": 89.39999997615814,
+          "long_tasks": 0,
+          "long_task_ms": 0
+        },
+        {
+          "ready_ms": 59,
+          "long_tasks": 0,
+          "long_task_ms": 0
+        },
+        {
+          "ready_ms": 91.30000007152557,
+          "long_tasks": 0,
+          "long_task_ms": 0
+        },
+        {
+          "ready_ms": 60.200000047683716,
+          "long_tasks": 0,
+          "long_task_ms": 0
+        },
+        {
+          "ready_ms": 93.40000009536743,
+          "long_tasks": 0,
+          "long_task_ms": 0
+        },
+        {
+          "ready_ms": 91.69999992847443,
+          "long_tasks": 0,
+          "long_task_ms": 0
+        }
+      ]
+    },
+    "stress": {
+      "ready": {
+        "n": 10,
+        "p50_ms": 1388.5,
+        "p95_ms": 1426.8,
+        "max_ms": 1426.8
+      },
+      "long_task_count": 10,
+      "long_task_max_ms": 79,
+      "samples": [
+        {
+          "ready_ms": 1378.3000000715256,
+          "long_tasks": 1,
+          "long_task_ms": 72
+        },
+        {
+          "ready_ms": 1426.7999999523163,
+          "long_tasks": 1,
+          "long_task_ms": 66
+        },
+        {
+          "ready_ms": 1418,
+          "long_tasks": 1,
+          "long_task_ms": 78
+        },
+        {
+          "ready_ms": 1361.2999999523163,
+          "long_tasks": 1,
+          "long_task_ms": 73
+        },
+        {
+          "ready_ms": 1425.1000000238419,
+          "long_tasks": 1,
+          "long_task_ms": 67
+        },
+        {
+          "ready_ms": 1397.6999999284744,
+          "long_tasks": 1,
+          "long_task_ms": 71
+        },
+        {
+          "ready_ms": 1409.4000000953674,
+          "long_tasks": 1,
+          "long_task_ms": 70
+        },
+        {
+          "ready_ms": 1369.1000000238419,
+          "long_tasks": 1,
+          "long_task_ms": 79
+        },
+        {
+          "ready_ms": 1374,
+          "long_tasks": 1,
+          "long_task_ms": 61
+        },
+        {
+          "ready_ms": 1379.3000000715256,
+          "long_tasks": 1,
+          "long_task_ms": 74
+        }
+      ]
+    }
+  }
+}

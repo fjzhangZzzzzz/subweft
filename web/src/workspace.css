@@ -704,3 +704,195 @@ body:has(dialog[open]) {
     flex-wrap: wrap;
   }
 }
+
+/* Purpose workspace: compact rows, with no extra dashboard or entity layer. */
+.purpose-list {
+  border-top: 1px solid var(--border);
+}
+.purpose-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(150px, 1.2fr) auto;
+  gap: 20px;
+  align-items: center;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+.purpose-row p {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+.purpose-row small {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.purpose-row .actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.pool-section,
+.purpose-rules {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+.pool-picker {
+  margin-top: 16px;
+}
+.routing-tools {
+  margin: 22px 0;
+  flex-wrap: wrap;
+}
+.quick-rule {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(160px, 2fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin: 14px 0;
+}
+.quick-rule .field {
+  margin: 0;
+}
+.purpose-rules {
+  margin-top: 8px;
+  padding-top: 16px;
+}
+.purpose-rules > .section-intro {
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.purpose-rule-table td:first-child {
+  width: auto;
+}
+.purpose-rule-table td:nth-child(2) {
+  min-width: 60px;
+}
+.purpose-rule-table td:last-child {
+  min-width: 120px;
+}
+.member-picker {
+  margin: 20px 0 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.member-picker summary span {
+  font-weight: normal;
+  color: var(--muted);
+  margin-left: 12px;
+  overflow-wrap: anywhere;
+}
+.builtin-routing {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding: 18px 0;
+}
+.builtin-routing > div {
+  display: flex;
+  gap: 10px;
+}
+@media (max-width: 760px) {
+  .app-shell {
+    display: block;
+  }
+  .sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    padding: 6px 12px;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar nav {
+    display: flex;
+    flex: 1;
+    gap: 8px;
+  }
+  .sidebar .nav-item {
+    flex-direction: row;
+    min-height: 44px;
+    padding: 0 10px;
+    gap: 6px;
+    margin: 0;
+    font-size: 14px;
+  }
+  .sidebar-bottom {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .sidebar-bottom .avatar {
+    display: none;
+  }
+  .sidebar .identity {
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+  .workspace {
+    margin: 0;
+    width: 100%;
+  }
+  .button,
+  .icon-button,
+  summary,
+  .tabs button {
+    min-height: 44px;
+  }
+  .button {
+    font-size: 14px;
+  }
+  .field input:not([type="checkbox"]),
+  .field select,
+  .field textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .check-field {
+    min-height: 44px;
+  }
+  .content {
+    padding: 12px;
+  }
+  .quick-rule {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .quick-rule .field:first-child {
+    grid-column: 1 / -1;
+  }
+  .builtin-routing {
+    gap: 14px;
+  }
+  .purpose-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .purpose-row .actions {
+    justify-content: flex-start;
+  }
+  .purpose-list .purpose-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    row-gap: 8px;
+    padding: 16px 0;
+  }
+  .purpose-list .purpose-row > div:not(.actions) {
+    grid-column: 1;
+  }
+  .purpose-list .purpose-row > .actions {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    flex-direction: column;
+  }
+  .purpose-rule-table td:first-child {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .purpose-rule-table td:first-child::before {
+    display: none;
+  }
+}

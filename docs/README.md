@@ -1,25 +1,13 @@
 # 文档导航
 
-本仓库提供 v0.1.0-rc.3 完整首版人工验收候选；未替代生产。能力状态按[支持矩阵](support-matrix.md)记录，生产替代以[验收标准](acceptance.md)为准。
+当前开发版本为 ADR-0008 单配置编辑器，已接入真实数据库、OIDC、原生检查、显式发布和设备授权；正在本机人工验收，尚未发布或替换生产。旧工作区方案及 rc.3 的验收结果不能代表本版。
 
-- [人工验收入口](human-acceptance.md)：完整表单路径、标准配置导入、Pocket ID 与 Clash Verge。
-- [Linux 容器](container.md)：双架构安装、Secret、Nginx、备份恢复与升级。
-- [本地运行](running.md)：构建、测试OIDC及独立开发状态。
-- [能力状态](status.md)：当前实现与真实验收边界。
-- [字段矩阵](fields.md)：当前支持的表单、导入及渲染字段。
-- [产品设计](design.md)：对象、表单操作、发布、设备及认证行为。
-- [架构](architecture.md)：状态权威、模块边界、存储、URL和校验。
-- [支持矩阵](support-matrix.md)：首版目标、字段覆盖及验证层次。
-- [验收标准](acceptance.md)：可重复执行的产品、故障、恢复和性能门槛。
-- [开发](development.md)：实现顺序、检查和公开贡献边界。
-- [独立服务决策](adr/0001-independent-service.md)：为何采用专用服务及职责划分。
-- [新公开仓库决策](adr/0002-new-public-project.md)：新历史、新入口及迁移边界。
+- [性能报告](performance-report.md)：三档规模、真实发布、并发下载与浏览器加载。
+- [人工验收](human-acceptance.md)：入口、操作步骤与实际验证边界。
+- [本地运行](running.md)：独立本地状态和测试身份。
+- [产品设计](design.md)、[架构](architecture.md)、[支持矩阵](support-matrix.md)：正式范围和实现边界。
+- [验收标准](acceptance.md)、[当前状态](status.md)、[实施清单](implementation-reset.md)。
+- [新方向决策](adr/0008-config-editor-reset.md)、[已通过原型](prototype-review.md)。
+- [迁移与切换](editor-cutover.md)：保持旧服务，先验证再切换。
 
-- [首个闭环存储决策](adr/0003-initial-slice-storage.md)：加密快照、手动发布及版本保留。
-
-本文档不保存个人基础设施身份、地址或逐次运维结果。部署方在自己的私有基础设施仓库保存实际入口、OIDC注册、密钥、工件锁定及恢复记录。
-
-- [字段契约决策](adr/0004-pinned-form-contract.md)：固定版本字段与结构化表单。
-- [资源发布决策](adr/0005-versioned-resources.md)：版本关联、授权与一致性恢复。
-
-- [任务工作台决策](adr/0006-task-oriented-workspace.md)：日常表单、配置归属、一键应用与公开边界。
+`fields.md`、旧 ADR、旧容器验收及旧工作区源文件保留追溯。当前正式入口是 `internal/server/editor.go` 和 `web/src/editor.js`；不得将旧业务模块的功能宣传为本版支持。

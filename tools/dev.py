@@ -54,13 +54,13 @@ def main() -> None:
     parser.add_argument("--skip-build", action="store_true", help="Use already built executables")
     parser.add_argument("--proxy", help="Optional proxy used only to fetch the pinned validator")
     args = parser.parse_args()
-    for port in (18880, 18881):
+    for port in (18884, 18885):
         check_port(port)
     suffix = ".exe" if os.name == "nt" else ""
     output = ROOT / "output/bin"
     output.mkdir(parents=True, exist_ok=True)
-    app = output / f"subweft{suffix}"
-    fixture = output / f"devfixture{suffix}"
+    app = output / f"subweft-editor{suffix}"
+    fixture = output / f"editor-idp{suffix}"
     validator = ROOT / "output/tools" / f"mihomo{suffix}"
     fetch = [sys.executable, "tools/fetch_validator.py"]
     if args.proxy:
@@ -84,24 +84,27 @@ def main() -> None:
         run([go, "build", "-o", str(fixture), "./tools/devfixture"])
     if not app.is_file() or not fixture.is_file():
         raise SystemExit("Build outputs are missing")
-    state = ROOT / "output/dev/state"
-    key = ROOT / "output/dev/master.key"
+    state = ROOT / "output/editor-acceptance/state"
+    key = ROOT / "output/editor-acceptance/master.key"
     database = state / "subweft.sqlite"
     if not database.exists() and not key.exists():
         run([str(app), "init", "--data-dir", str(state), "--key-file", str(key)])
     elif not database.exists() or not key.exists():
         raise SystemExit("State or key is missing; restore the matching pair instead of reinitializing")
-    env = {**os.environ, "SUBWEFT_LISTEN": "127.0.0.1:18880", "SUBWEFT_BASE_URL": "http://127.0.0.1:18880", "SUBWEFT_LOCAL_HTTP": "true", "SUBWEFT_OIDC_ISSUER": "http://127.0.0.1:18881", "SUBWEFT_OIDC_CLIENT_ID": "subweft-local", "SUBWEFT_OIDC_CLIENT_SECRET": "fixture-client-secret-not-for-production", "SUBWEFT_ADMIN_SUBJECTS": "fixture-admin", "SUBWEFT_MIHOMO_PATH": str(validator.resolve()), "SUBWEFT_FETCH_ALLOW_CIDRS": "127.0.0.1/32"}
+    geodb = ROOT / "output/editor-acceptance/geodb"
+    geodb.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT / "output/tools/GeoIP2-Country-Test.mmdb", geodb / "Country.mmdb")
+    env = {**os.environ, "SUBWEFT_LISTEN": "127.0.0.1:18884", "SUBWEFT_BASE_URL": "http://127.0.0.1:18884", "SUBWEFT_LOCAL_HTTP": "true", "SUBWEFT_OIDC_ISSUER": "http://127.0.0.1:18885", "SUBWEFT_OIDC_CLIENT_ID": "subweft-local", "SUBWEFT_OIDC_CLIENT_SECRET": "fixture-client-secret-not-for-production", "SUBWEFT_ADMIN_SUBJECTS": "fixture-admin", "SUBWEFT_MIHOMO_PATH": str(validator.resolve()), "SUBWEFT_GEODB_DIR": str((ROOT / "output/editor-acceptance/geodb").resolve())}
     children: list[subprocess.Popen[bytes]] = []
     creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     try:
-        idp = subprocess.Popen([str(fixture)], cwd=ROOT, env=env, creationflags=creationflags)
+        idp = subprocess.Popen([str(fixture), "--listen", "127.0.0.1:18885", "--base-url", "http://127.0.0.1:18884"], cwd=ROOT, env=env, creationflags=creationflags)
         children.append(idp)
-        wait_ready("http://127.0.0.1:18881/.well-known/openid-configuration", idp)
+        wait_ready("http://127.0.0.1:18885/.well-known/openid-configuration", idp)
         service = subprocess.Popen([str(app), "serve", "--data-dir", str(state), "--key-file", str(key)], cwd=ROOT, env=env, creationflags=creationflags)
         children.append(service)
-        wait_ready("http://127.0.0.1:18880/healthz", service)
-        print("Development preview: http://127.0.0.1:18880", flush=True)
+        wait_ready("http://127.0.0.1:18884/healthz", service)
+        print("Development preview: http://127.0.0.1:18884", flush=True)
         print("Use the test identity page. Only synthetic subscriptions should be used. Ctrl+C stops both processes.", flush=True)
         while all(child.poll() is None for child in children):
             time.sleep(0.5)

@@ -9,6 +9,7 @@
 | go.yaml.in/yaml/v3 | 严格YAML解析与渲染 | [Apache-2.0及MIT，按文件适用](https://github.com/yaml/go-yaml/blob/v3.0.5/LICENSE) |
 | golang.org/x/oauth2、x/sys | OAuth2交换及单实例OS文件锁 | [BSD-3-Clause](https://go.googlesource.com/oauth2/+/refs/tags/v0.37.0/LICENSE)、[BSD-3-Clause](https://go.googlesource.com/sys/+/refs/tags/v0.49.0/LICENSE) |
 | modernc.org/sqlite | 无CGO的本地SQLite | [BSD-3-Clause](https://gitlab.com/cznic/sqlite/-/blob/v1.61.0/LICENSE)；其生成源码和传递依赖亦需保留各自声明 |
+| diff 9.0.0 | 配置逐行差异 | BSD-3-Clause；[随源版权及许可](docs/licenses/diff.txt)，与 Apache-2.0 自有代码可并存；分发保留声明 |
 | React、React DOM | 管理界面 | [MIT](https://github.com/facebook/react/blob/v19.3.1/LICENSE) |
 | lucide-react | 内嵌界面图标 | [ISC](https://github.com/lucide-icons/lucide/blob/main/LICENSE)；具体版本固定于lock |
 | TypeScript、Vite、React Vite插件、类型定义 | 构建工具，运行时不需要Node | 各包自带LICENSE；精确分发集合以package-lock和构建产物为准 |

@@ -2,13 +2,20 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
-    <title>Subweft · 订阅与策略</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Subweft · 配置管理</title>
+    <link rel="icon" href="/favicon.svg" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <a class="skip" href="#main">跳到主要内容</a>
+    <div id="app"></div>
+    <dialog id="drawer" class="drawer" aria-labelledby="drawer-title"></dialog>
+    <dialog
+      id="confirm-dialog"
+      class="dialog-confirm"
+      aria-labelledby="confirm-title"
+    ></dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/editor.js"></script>
   </body>
 </html>

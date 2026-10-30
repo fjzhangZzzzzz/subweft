@@ -1,5 +1,7 @@
 # Linux 容器安装
 
+> 本文包含旧候选部署记录。ADR-0008 新编辑器尚未重新完成容器验收；不要将下述旧业务 API 和性能通过结论用于本版。当前本机入口见 human-acceptance.md，生产切换见 editor-cutover.md。
+
 本入口面向 Linux amd64/arm64。镜像只含 Subweft 和系统运行依赖，Mihomo 按[锁定文件](../internal/validator/lock.json)单独取得并以只读文件挂载。当前容器验证由原生 CI 执行，未向生产部署。
 
 ## 隔离边界

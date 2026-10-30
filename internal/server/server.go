@@ -128,7 +128,12 @@ type sourceView struct {
 func sourceMeta(v domain.Source) sourceView {
 	return sourceView{v.ClientProvider, v.ExtractNodes, v.Overrides, v.Meta, v.Name, v.Kind, v.Enabled, v.Tags, v.Interval, len(v.Nodes), v.LastSuccess, v.LastAttempt, v.LastError}
 }
-func releaseMeta(v domain.Release) domain.Release    { v.Config = nil; v.Definition = nil; return v }
+func releaseMeta(v domain.Release) domain.Release {
+	v.Config = nil
+	v.Definition = nil
+	v.InputDigest = ""
+	return v
+}
 func deviceMeta(v domain.Device) domain.Device       { v.Token = ""; return v }
 func nodeMeta(v domain.ManualNode) domain.ManualNode { v.Node = domain.NodeMetadata(v.Node); return v }
 func (a *API) manage(w http.ResponseWriter, r *http.Request) {
@@ -232,7 +237,7 @@ func (a *API) manage(w http.ResponseWriter, r *http.Request) {
 			fail(w, e)
 			return
 		}
-		respond(w, 200, map[string]any{"build": buildinfo.Current(), "user": session.Name, "role": session.Role, "issuer": a.Auth.Issuer(), "users": users, "publishStatus": publishStatus, "csrf": session.CSRF, "sources": sources, "nodes": nodes, "profiles": snap.Profiles, "resources": resourceMetas(snap.Resources), "devices": devices, "releases": releases, "active": snap.Active, "seen": seen, "validatorJobPeakRSSBytes": validator.JobPeakRSS(s.Validator), "validatorPeakRSSBytes": validator.PeakRSS(s.Validator), "validator": s.Validator.Identity(), "capabilities": map[string]any{"protocols": domain.Protocols(), "groups": []string{"select", "url-test", "fallback", "load-balance"}, "automaticPublish": true}})
+		respond(w, 200, map[string]any{"build": buildinfo.Current(), "user": session.Name, "role": session.Role, "issuer": a.Auth.Issuer(), "users": users, "publishStatus": publishStatus, "pendingProfiles": app.PendingProfiles(snap), "csrf": session.CSRF, "sources": sources, "nodes": nodes, "profiles": snap.Profiles, "resources": resourceMetas(snap.Resources), "devices": devices, "releases": releases, "active": snap.Active, "seen": seen, "validatorJobPeakRSSBytes": validator.JobPeakRSS(s.Validator), "validatorPeakRSSBytes": validator.PeakRSS(s.Validator), "validator": s.Validator.Identity(), "capabilities": map[string]any{"protocols": domain.Protocols(), "groups": []string{"select", "url-test", "fallback", "load-balance"}, "automaticPublish": true}})
 		return
 	}
 	switch kind {
