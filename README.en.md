@@ -1,47 +1,17 @@
 # Subweft
 
-**A subscription and policy configuration service for Mihomo.**
+A personal and household **Mihomo configuration editor**. [中文](README.md)
 
-[简体中文](README.md) · [Design](docs/design.md) · [Scope](docs/support-matrix.md) · [Acceptance criteria](docs/acceptance.md)
+Candidate: **v0.3.0-rc.1**, implementing the reviewed single-configuration model.
 
-> **v0.1.0-rc.3 acceptance candidate**: task-oriented forms, standard configuration import, one-step apply and device workflows are available. Real Pocket ID, local Clash Verge and production cutover still require human acceptance. Start with the [acceptance walkthrough](docs/human-acceptance.md).
+Maintain subscriptions, policy groups, purpose-based rule sets and ordered routing rules through structured forms. Review a redacted Git-style diff, run the pinned native validator, and explicitly publish. Devices download the active immutable release through independent authorizations.
 
-Subweft is intended for personal and household use. It brings subscriptions, manual nodes, policy groups, rules, configuration publishing, and device links into a form-based web interface.
+Subscriptions belong to one of two pools. Groups support select / url-test and DIRECT / REJECT. Local purpose-based rule sets may mix domains and CIDRs; the compiler emits readable providers by behavior. The server does not fetch upstream subscriptions. Manual nodes, nested groups and multiple profiles are not supported. Base DNS and ports are imported once and remain read-only.
 
-## Capabilities
+Run `python tools/dev.py` and open <http://127.0.0.1:18884/> for a loopback-only synthetic OIDC environment. See [local setup](docs/running.md), [supported scope](docs/support-matrix.md) and [human acceptance](docs/human-acceptance.md).
 
-- Structured forms for routine and advanced settings; YAML is reserved for import, export, and read-only previews.
-- Shared sources and independent configuration profiles with their own groups, ordered rules, DNS, and client settings.
-- Groups can combine multiple subscriptions, tags, manual nodes, and other valid groups.
-- Validated, atomic publishing with last-known-good caches, immutable revisions, and rollback.
-- Independent device credentials with profile switching, suspension, revocation, and rotation.
-- Native standard OIDC, with Pocket ID as the first integration to be accepted.
-- A single Go service with SQLite and an embedded React UI; Nginx provides HTTPS reverse proxying.
+Linux amd64/arm64 and Windows amd64 application archives exclude Mihomo. Supply the separately pinned validator and deployment-owned GeoDB. SQLite owns business state; keep its encryption key separate. Use a fresh data directory for this rewrite; see [cutover and rollback](docs/editor-cutover.md).
 
-See [implemented fields](docs/fields.md), [current status](docs/status.md), and the full target [support matrix](docs/support-matrix.md). Form coverage, parser acceptance, native Mihomo validation, and actual connectivity are separate claims.
+The [performance baseline](docs/performance-report.md) identifies large-history response sizes and serialized downloads as known bottlenecks. Real Pocket ID, upstream connectivity, client acceptance and production cutover remain separate acceptance steps.
 
-The service keeps upstream credentials server-side. Revoking a device prevents future downloads; it cannot revoke proxy credentials already downloaded. Configuration changes are applied when the client refreshes its subscription.
-
-## Deployment and status
-
-The initial production targets are Linux amd64 and arm64. Windows is intended for development and local evaluation. Initial client acceptance is limited to a local Clash Verge installation. Native Linux amd64 and arm64 containers have passed isolation, actual CLI backup/restore and large-ruleset performance checks. See the [container guide](docs/container.md) for Compose and basic Nginx proxy examples. Real client workflows remain human checks.
-
-Subweft does not run a traffic-serving proxy core. It invokes a pinned Mihomo executable for configuration validation. The deployer owns installation, TLS, host operations, and system recovery. The application database owns business state.
-
-This is a new public project with no imported legacy Git history, URL compatibility, or legacy authentication support. Existing deployments must import their data and enroll new device links before switching over.
-
-Candidate archives contain the application, deployment examples, build identity, dependency licenses and checksums. Mihomo is fetched separately by pinned digest and is not bundled. Candidates are listed in [GitHub releases](https://github.com/fjzhangZzzzzz/subweft/releases).
-
-## Acceptance and development
-
-With Go 1.27, Node.js with npm, Python 3.10+, and Git installed:
-
-```sh
-python tools/dev.py
-```
-
-Open `http://127.0.0.1:18880` and use the local test identity. Use synthetic data only. See [running locally](docs/running.md) and [development](docs/development.md).
-
-## License
-
-Original repository content is licensed under [Apache-2.0](LICENSE). Mihomo and other dependencies retain their own licenses; see [third-party notices](THIRD_PARTY.md). Distributing them requires a separate license review.
+[Releases](https://github.com/fjzhangZzzzzz/subweft/releases) · [Apache-2.0](LICENSE) · [Third-party notices](THIRD_PARTY.md)

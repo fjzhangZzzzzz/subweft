@@ -56,4 +56,4 @@ go mod verify
 
 Windows 仅用于开发功能验收，不具备 Linux 命名空间隔离。Linux 生产仍须按容器说明配置 bubblewrap 等限制，并重新执行新服务的部署验收。
 
-`tools/benchmark.py`、`windows_check.py` 和 `container_check.py` 中旧业务 API 场景尚未迁移到新模型，不作为本版验收入口，也不能沿用旧性能数字。当前可重复检查使用完整 Go 测试、前端构建、锁定 Mihomo 测试及 human-acceptance.md 的浏览器流程。
+`tools/benchmark.py` 保留旧业务模型的性能场景，不作为新版入口。新版使用 `tools/editor_benchmark.py` 测性能，`windows_check.py` / `container_check.py` 调用 `editor_smoke.py` 验证实际打包程序的 OIDC、检查发布、设备授权、并发下载与 CLI 备份恢复。完整 Go 测试和浏览器流程仍独立执行。

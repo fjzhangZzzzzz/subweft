@@ -22,5 +22,5 @@ def main():
         if hashlib.sha256(binary).hexdigest()!=manifest['files']['subweft.exe']:raise SystemExit('Candidate digest mismatch')
         (out/'subweft.exe').write_bytes(binary)
     subprocess.run(['go','build','-o',str(out/'devfixture.exe'),'./tools/devfixture'],cwd=ROOT,check=True)
-    subprocess.run([sys.executable,'tools/benchmark.py','--app',str(out/'subweft.exe'),'--fixture',str(out/'devfixture.exe'),'--output',str(out/'results/benchmark.json')],cwd=ROOT,check=True)
+    subprocess.run([sys.executable,'tools/editor_smoke.py','--app',str(out/'subweft.exe'),'--fixture',str(out/'devfixture.exe'),'--output',str(out/'results/editor-smoke.json')],cwd=ROOT,check=True)
 if __name__=='__main__':main()

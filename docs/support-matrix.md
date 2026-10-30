@@ -18,4 +18,4 @@
 
 配置检查验证渲染定义；HTTP provider 内容由客户端下载，不验证远端节点或远端规则。GEOIP 需部署提供相应 Country.mmdb / GeoIP.dat；涉及 geosite 的基础 DNS 配置需 GeoSite.dat。缺少文件阻止检查。
 
-本机 Windows 开发检查使用锁定 Mihomo；Linux 生产隔离沿用受限进程边界，但本次新服务尚未重新完成容器/真实客户端验收。
+本机 Windows 开发检查使用锁定 Mihomo；Linux 生产隔离沿用受限进程边界；候选容器验证结果以对应 CI 为准，真实客户端仍待人工验收。

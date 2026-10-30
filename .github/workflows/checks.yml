@@ -63,6 +63,12 @@ jobs:
           python tools/fetch_testdata.py
       - name: Tests, analysis and dependency integrity
         run: |
+          export SUBWEFT_TEST_GEODB="$PWD/output/tools/GeoIP2-Country-Test.mmdb"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            export SUBWEFT_TEST_MIHOMO="$PWD/output/tools/mihomo.exe"
+          else
+            export SUBWEFT_TEST_MIHOMO="$PWD/output/tools/mihomo"
+          fi
           go test -tags webui ./...
           go vet ./...
           go mod verify
@@ -89,7 +95,7 @@ jobs:
           path: |
             output/packages/*/*.tar.gz
             output/packages/*/SHA256SUMS
-            output/container/results/benchmark.json
+            output/container/results/editor-smoke.json
           retention-days: 7
           compression-level: 0
           if-no-files-found: error
