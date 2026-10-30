@@ -93,13 +93,16 @@ def main():
             children.append(idp)
             ready(issuer + '/.well-known/openid-configuration', idp)
             service = start(state)
-            stage = 'OIDC and CSRF'
+            stage = 'OIDC authorization redirect'
             with client.open(base + '/auth/login') as r:
                 query = urllib.parse.urlsplit(r.url).query
                 r.read()
+            stage = 'OIDC approval and callback'
             with client.open(urllib.request.Request(issuer + '/approve', data=query.encode())) as r:
                 r.read()
+            stage = 'authenticated state'
             initial = api('state')
+            stage = 'CSRF rejection response'
             api('draft', initial['draft'], 'PUT', expected=403)
             csrf = initial['csrf']
             stage = 'native check and publish'

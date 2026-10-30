@@ -1,11 +1,17 @@
 package server_test
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fjzhangZzzzzz/subweft/internal/auth"
 	"github.com/fjzhangZzzzzz/subweft/internal/configuration"
@@ -86,5 +92,49 @@ func TestEditorDoesNotGrantAdministrationOnLogin(t *testing.T) {
 	}
 	if code, _ := h.request(t, "GET", "/api/v1/state", nil, false); code != 401 {
 		t.Fatal("non-admin identity granted management")
+	}
+}
+
+// A Connection: close client may send headers and body in separate TCP writes.
+// Rejecting before consuming a small body must still deliver the HTTP error.
+func TestEditorCSRFRejectionWithDelayedBody(t *testing.T) {
+	h := editorHarness(t, testfixture.Subject)
+	if h.login(t) != 302 {
+		t.Fatal("login failed")
+	}
+	u, _ := url.Parse(h.server.URL)
+	cookies := h.client.Jar.Cookies(u)
+	request := &http.Request{Header: make(http.Header)}
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	for i := 0; i < 10; i++ {
+		conn, err := net.DialTimeout("tcp", u.Host, time.Second)
+		if err != nil {
+			t.Fatal("connection failed")
+		}
+		conn.SetDeadline(time.Now().Add(5 * time.Second))
+		body := `{"revision":1}`
+		_, err = fmt.Fprintf(conn, "PUT /api/v1/draft HTTP/1.1\r\nHost: %s\r\nOrigin: %s\r\nCookie: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", u.Host, h.server.URL, request.Header.Get("Cookie"), len(body))
+		if err != nil {
+			conn.Close()
+			t.Fatal("header send failed")
+		}
+		time.Sleep(20 * time.Millisecond)
+		if _, err = io.WriteString(conn, body); err != nil {
+			conn.Close()
+			t.Fatal("server closed before request body")
+		}
+		response, err := http.ReadResponse(bufio.NewReader(conn), request)
+		if err != nil {
+			conn.Close()
+			t.Fatal("HTTP rejection lost to connection reset")
+		}
+		_, err = io.ReadAll(response.Body)
+		response.Body.Close()
+		conn.Close()
+		if err != nil || response.StatusCode != 403 {
+			t.Fatal("missing complete CSRF rejection")
+		}
 	}
 }

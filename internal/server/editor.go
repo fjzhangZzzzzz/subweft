@@ -63,8 +63,20 @@ func (a *Editor) Handler() http.Handler {
 		mux.ServeHTTP(w, r)
 	})
 }
+
+const editorMaxRequestBytes = 4 << 20
+
+func editorReject(w http.ResponseWriter, r *http.Request, status int, code string) {
+	// Connection: close clients can send their body after headers. Consume only
+	// the allowed request size before rejecting, so closing cannot reset a small
+	// in-flight body and discard the HTTP response on Windows. Server read
+	// deadlines still bound slow senders; no rejected request is decoded or saved.
+	_, _ = io.Copy(io.Discard, http.MaxBytesReader(w, r.Body, editorMaxRequestBytes))
+	respond(w, status, map[string]any{"error": domain.Error{Code: code}})
+}
+
 func editorRead(w http.ResponseWriter, r *http.Request, v any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
+	r.Body = http.MaxBytesReader(w, r.Body, editorMaxRequestBytes)
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields()
 	if d.Decode(v) != nil {
@@ -81,15 +93,15 @@ func editorRead(w http.ResponseWriter, r *http.Request, v any) bool {
 func (a *Editor) manage(w http.ResponseWriter, r *http.Request) {
 	session, e := a.Auth.Session(r)
 	if e != nil {
-		respond(w, 401, map[string]any{"error": domain.Error{Code: "login_required"}})
+		editorReject(w, r, 401, "login_required")
 		return
 	}
 	if !a.Auth.IsBootstrap(session.Issuer, session.Subject) {
-		respond(w, 403, map[string]any{"error": domain.Error{Code: "access_denied"}})
+		editorReject(w, r, 403, "access_denied")
 		return
 	}
 	if r.Method != "GET" && !a.Auth.CheckMutation(r, session) {
-		respond(w, 403, map[string]any{"error": domain.Error{Code: "csrf_rejected"}})
+		editorReject(w, r, 403, "csrf_rejected")
 		return
 	}
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/")
