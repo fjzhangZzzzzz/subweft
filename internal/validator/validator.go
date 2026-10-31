@@ -248,6 +248,13 @@ func (n *Native) check(ctx context.Context, config []byte, assets map[string][]b
 		}
 
 	}
+	// Mihomo may replace corrupt geographic files by downloading its defaults.
+	// Never allow that repair path in validation, including development platforms
+	// without the Linux network namespace. An unsupported scheme fails locally.
+	configMap["geox-url"] = map[string]any{
+		"mmdb": "subweft-disabled://mmdb", "geoip": "subweft-disabled://geoip",
+		"geosite": "subweft-disabled://geosite", "asn": "subweft-disabled://asn",
+	}
 	config, e = yaml.Marshal(configMap)
 	if e != nil {
 		return domain.Invalid("validation_failed", "publish")
