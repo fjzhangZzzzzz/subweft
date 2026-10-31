@@ -6,6 +6,7 @@
 - [性能报告](performance-report.md)：三档规模、真实发布、并发下载与浏览器加载。
 - [人工验收](human-acceptance.md)：入口、操作步骤与实际验证边界。
 - [本地运行](running.md)：独立本地状态和测试身份。
+- [GeoDB 校验边界](adr/0009-geographic-validation-boundary.md)：部分原生检查、可选数据库及发布承诺。
 - [产品设计](design.md)、[架构](architecture.md)、[支持矩阵](support-matrix.md)：正式范围和实现边界。
 - [验收标准](acceptance.md)、[当前状态](status.md)、[实施清单](implementation-reset.md)。
 - [新方向决策](adr/0008-config-editor-reset.md)、[已通过原型](prototype-review.md)。

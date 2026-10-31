@@ -23,8 +23,10 @@ const errors = {
   csrf_rejected: "会话校验失败，请刷新后重试。",
   check_required: "请重新检查当前草稿后再发布。",
   check_busy: "已有检查正在执行，请稍后重试。",
-  geodb_required: "部署尚未提供 GeoDB，无法检查 GEOIP 规则。",
-  native_validation_failed: "Mihomo 配置检查未通过，请检查配置字段和引用。",
+  invalid_geographic_configuration:
+    "地理规则格式错误或超出安全校验范围，请检查地理规则及 DNS 配置。",
+  native_validation_failed:
+    "Mihomo 检查未通过，请检查配置字段、引用及已提供的 GeoDB；本次未自动降级。",
   base_readonly: "基础配置只读，请通过首次导入设置。",
   no_changes: "当前草稿与发布版本一致。",
   device_revoked: "此设备已撤销，不能恢复原链接。",
@@ -176,6 +178,8 @@ export async function loadState() {
       checked: current.check
         ? {
             rev: current.check.revision,
+            publishable: current.check.publishable,
+            validation: current.check.validation,
             errors: current.check.problems.map(problem),
           }
         : null,

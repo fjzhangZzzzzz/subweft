@@ -248,8 +248,8 @@ func TestNativeDefinitionDoesNotFetchProvider(t *testing.T) {
 	}
 	c.Rules = append(c.Rules, Rule{ID: "geo", Type: "GEOIP", Value: "CN", Target: "DIRECT"})
 	data, _ = Render(c, false)
-	if e = (validator.Definition{Native: native}).Check(context.Background(), data); e == nil {
-		t.Fatal("missing GeoDB accepted")
+	if e = (validator.Definition{Native: native}).Check(context.Background(), data); e != nil {
+		t.Fatal("partial geographic check rejected", e)
 	}
 	if geoPath := os.Getenv("SUBWEFT_TEST_GEODB"); geoPath != "" {
 		geo, err := os.ReadFile(geoPath)
@@ -294,5 +294,50 @@ func TestDeviceExpiryAndStaleMutation(t *testing.T) {
 	}
 	if _, e = s.SaveDevice(ctx, stale, "resume"); !errors.Is(e, domain.ErrConflict) {
 		t.Fatal("stale device edit accepted")
+	}
+}
+
+func TestPartialReportPublishPreservesOriginalAndDevice(t *testing.T) {
+	path := os.Getenv("SUBWEFT_TEST_MIHOMO")
+	if path == "" {
+		t.Skip("locked native artifact required")
+	}
+	sha, _ := validator.ExpectedSHA(runtime.GOOS, runtime.GOARCH)
+	native, err := validator.New(path, sha, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, _, _ := setup(t, validator.Definition{Native: native})
+	ctx := context.Background()
+	d, _, _ := s.Read(ctx)
+	device, err := s.SaveDevice(ctx, Device{Name: "Test device"}, "save")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _ := s.DeviceToken(ctx, device.ID)
+	if _, err := s.Download(ctx, token); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatal("unpublished download exposed state")
+	}
+	c := fixture()
+	c.Rules = append(c.Rules, Rule{ID: "geo", Type: "GEOIP", Value: "CN", Target: "DIRECT", NoResolve: true})
+	saved, err := s.Save(ctx, Draft{Revision: d.Draft.Revision, Config: c})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checked, err := s.Check(ctx, saved.Revision)
+	if err != nil || !checked.Publishable || len(checked.Validation.Items) == 0 {
+		t.Fatal("partial check unavailable", err)
+	}
+	release, err := s.Publish(ctx, saved.Revision, "")
+	if err != nil || release.Validation == nil {
+		t.Fatal("report not published", err)
+	}
+	data, err := s.Download(ctx, token)
+	if err != nil || !strings.Contains(string(data), "GEOIP,CN,DIRECT,no-resolve") || strings.Contains(string(data), "validation-only") {
+		t.Fatal("published projection instead of original")
+	}
+	doc, _, _ := s.Read(ctx)
+	if doc.Releases[0].Validation == nil {
+		t.Fatal("report not persisted")
 	}
 }

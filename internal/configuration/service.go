@@ -15,11 +15,12 @@ import (
 )
 
 type Release struct {
-	Number  int       `json:"number"`
-	Created time.Time `json:"created"`
-	Note    string    `json:"note"`
-	Config  Config    `json:"config"`
-	YAML    string    `json:"-"`
+	Number     int               `json:"number"`
+	Created    time.Time         `json:"created"`
+	Note       string            `json:"note"`
+	Config     Config            `json:"config"`
+	YAML       string            `json:"-"`
+	Validation *validator.Report `json:"validation,omitempty"`
 }
 
 // StoredRelease uses an explicit field for encrypted persistence, never an API response.
@@ -34,10 +35,12 @@ type Document struct {
 	Releases []StoredRelease `json:"releases"`
 }
 type Check struct {
-	Revision int       `json:"revision"`
-	Problems []Problem `json:"problems"`
-	Identity string    `json:"identity"`
-	YAML     string    `json:"-"`
+	Publishable bool             `json:"publishable"`
+	Validation  validator.Report `json:"validation"`
+	Revision    int              `json:"revision"`
+	Problems    []Problem        `json:"problems"`
+	Identity    string           `json:"identity"`
+	YAML        string           `json:"-"`
 }
 type Device struct {
 	domain.Meta
@@ -155,12 +158,19 @@ func (s *Service) Check(ctx context.Context, revision int) (Check, error) {
 			if s.Checker == nil {
 				e = domain.Invalid("validator_unavailable", "check")
 			} else {
-				e = s.Checker.Check(ctx, data)
+				if reporter, ok := s.Checker.(interface {
+					CheckReport(context.Context, []byte) (validator.Report, error)
+				}); ok {
+					result.Validation, e = reporter.CheckReport(ctx, data)
+				} else {
+					e = s.Checker.Check(ctx, data)
+				}
 				result.Identity = s.Checker.Identity()
 			}
 		}
 		if e == nil {
 			result.YAML = string(data)
+			result.Publishable = true
 		}
 	}
 	s.mu.Lock()
@@ -189,7 +199,7 @@ func (s *Service) Publish(ctx context.Context, revision int, note string) (Relea
 	if revision != d.Draft.Revision {
 		return Release{}, domain.ErrConflict
 	}
-	if s.checked == nil || s.checked.Revision != revision || len(s.checked.Problems) > 0 || s.checked.YAML == "" || s.Checker == nil || s.checked.Identity != s.Checker.Identity() {
+	if s.checked == nil || s.checked.Revision != revision || !s.checked.Publishable || len(s.checked.Problems) > 0 || s.checked.YAML == "" || s.Checker == nil || s.checked.Identity != s.Checker.Identity() {
 		return Release{}, domain.Invalid("check_required", "publish")
 	}
 	if len(note) > 480 || strings.ContainsAny(note, "\r\n") {
@@ -206,7 +216,7 @@ func (s *Service) Publish(ctx context.Context, revision int, note string) (Relea
 			number = r.Number + 1
 		}
 	}
-	r := Release{Number: number, Created: time.Now().UTC(), Note: note, Config: Clone(d.Draft.Config)}
+	r := Release{Number: number, Created: time.Now().UTC(), Note: note, Config: Clone(d.Draft.Config), Validation: &s.checked.Validation}
 	d.Releases = append([]StoredRelease{{Release: r, Content: s.checked.YAML}}, d.Releases...)
 	if len(d.Releases) > 20 {
 		d.Releases = d.Releases[:20]

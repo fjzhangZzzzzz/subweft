@@ -7,10 +7,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -98,9 +100,32 @@ type Definition struct {
 	GeoDB  map[string][]byte
 }
 
-func (d Definition) Identity() string { return d.Native.Identity() + "/definition" }
+func (d Definition) Identity() string {
+	names := make([]string, 0, len(d.GeoDB))
+	for name := range d.GeoDB {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	h := sha256.New()
+	for _, name := range names {
+		sum := sha256.Sum256(d.GeoDB[name])
+		h.Write([]byte(name))
+		h.Write(sum[:])
+	}
+	return d.Native.Identity() + "/definition-geo-v2/" + hex.EncodeToString(h.Sum(nil))
+}
 func (d Definition) Check(ctx context.Context, config []byte) error {
-	return d.Native.check(ctx, config, d.GeoDB, true)
+	_, err := d.CheckReport(ctx, config)
+	return err
+}
+func (d Definition) CheckReport(ctx context.Context, config []byte) (Report, error) {
+	projected, items, err := definitionProjection(config, d.GeoDB)
+	report := Report{Items: items, Identity: d.Identity(), Digest: fmt.Sprintf("%x", sha256.Sum256(config))}
+	if err != nil {
+		return report, err
+	}
+	err = d.Native.check(ctx, projected, d.GeoDB, true)
+	return report, err
 }
 
 func (n *Native) check(ctx context.Context, config []byte, assets map[string][]byte, definition bool) error {
@@ -137,45 +162,6 @@ func (n *Native) check(ctx context.Context, config []byte, assets map[string][]b
 			}
 			if os.WriteFile(filepath.Join(dir, name), data, 0600) != nil {
 				return domain.Invalid("validation_failed", "check")
-			}
-		}
-		geoIPFile := "Country.mmdb"
-		if configMap["geodata-mode"] == true {
-			geoIPFile = "GeoIP.dat"
-		}
-		required := map[string]bool{}
-		var inspect func(any)
-		inspect = func(value any) {
-			switch v := value.(type) {
-			case string:
-				lower := strings.ToLower(v)
-				if strings.HasPrefix(lower, "geoip,") || strings.HasPrefix(lower, "geoip:") {
-					required[geoIPFile] = true
-				}
-				if strings.HasPrefix(lower, "geosite:") || strings.HasPrefix(lower, "geosite,") {
-					required["GeoSite.dat"] = true
-				}
-			case []any:
-				for _, item := range v {
-					inspect(item)
-				}
-			case map[string]any:
-				for key, item := range v {
-					if key == "geoip" && item == true {
-						required[geoIPFile] = true
-					}
-					if key == "geosite" {
-						required["GeoSite.dat"] = true
-					}
-					inspect(key)
-					inspect(item)
-				}
-			}
-		}
-		inspect(configMap)
-		for filename := range required {
-			if len(assets[filename]) == 0 {
-				return domain.Invalid("geodb_required", "check")
 			}
 		}
 

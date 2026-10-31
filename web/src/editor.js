@@ -565,13 +565,13 @@ function pageHTML() {
         "每个设备独立授权，全部使用当前发布配置。",
         btn(icon("plus") + "新增设备", "new-device", "", "primary"),
       ) +
-      `<div class="notice" data-layout="layout-style-6">设备授权操作立即生效，不需要发布配置。${state.active ? `当前下载版本为 <strong>v${state.active}</strong>。` : "尚无发布版本，设备暂时不能下载。"}</div>` +
+      `<div class="notice" data-layout="layout-style-6">设备授权操作立即生效，不需要发布配置。${state.active ? `当前下载版本为 <strong>v${state.active}</strong>。` : "尚无活动发布，设备授权已保存，但链接暂不可下载。请先检查并发布。"}</div>` +
       rowsTable(
         ["设备名称", "授权状态", "有效期", "最近下载", "操作"],
         state.devices
           .map((d) => {
             const st = Model.deviceStatus(d);
-            return `<tr><td><strong>${esc(d.name)}</strong></td><td data-label="授权状态">${badge(st, st === "有效" ? "green" : st === "已撤销" ? "" : "amber")}</td><td data-label="有效期">${d.expires ? esc(d.expires.replace("T", " ")) : "长期有效"}</td><td data-label="最近下载">${esc(d.seen)}</td><td class="actions">${btn("查看链接", "device-link", `data-id="${d.id}" ${st !== "有效" ? "disabled" : ""}`)}${menu(d.name, [btn("编辑", "edit-device", `data-id="${d.id}" ${d.state === "revoked" ? "disabled" : ""}`), btn(d.state === "paused" ? "恢复" : "暂停", "toggle-device", `data-id="${d.id}" ${d.state === "revoked" ? "disabled" : ""}`), btn("更换链接", "rotate-device", `data-id="${d.id}" ${d.state === "revoked" ? "disabled" : ""}`), btn("撤销", "revoke-device", `data-id="${d.id}" ${d.state === "revoked" ? "disabled" : ""}`, "danger")])}</td></tr>`;
+            return `<tr><td><strong>${esc(d.name)}</strong></td><td data-label="授权状态">${badge(st, st === "有效" ? "green" : st === "已撤销" ? "" : "amber")}</td><td data-label="有效期">${d.expires ? esc(d.expires.replace("T", " ")) : "长期有效"}</td><td data-label="最近下载">${esc(d.seen)}</td><td class="actions">${btn("查看链接", "device-link", `data-id="${d.id}" ${st !== "有效" || !state.active ? "disabled" : ""}`)}${menu(d.name, [btn("编辑", "edit-device", `data-id="${d.id}" ${d.state === "revoked" ? "disabled" : ""}`), btn(d.state === "paused" ? "恢复" : "暂停", "toggle-device", `data-id="${d.id}" ${d.state === "revoked" ? "disabled" : ""}`), btn("更换链接", "rotate-device", `data-id="${d.id}" ${d.state === "revoked" ? "disabled" : ""}`), btn("撤销", "revoke-device", `data-id="${d.id}" ${d.state === "revoked" ? "disabled" : ""}`, "danger")])}</td></tr>`;
           })
           .join(""),
         "还没有设备。创建一个独立链接，供设备更新配置。",
@@ -714,7 +714,11 @@ function reviewHTML() {
     checked = state.checked && state.checked.rev === state.rev,
     errors = checked ? state.checked.errors : [],
     canPublish =
-      checked && !errors.length && (diff.length || !state.active) && !busy;
+      checked &&
+      state.checked.publishable &&
+      !errors.length &&
+      (diff.length || !state.active) &&
+      !busy;
   return (
     heading(
       "检查与发布",
@@ -725,8 +729,8 @@ function reviewHTML() {
       ? `<div role="alert" class="notice red" data-layout="layout-style-6">${esc(publishError)}</div>`
       : "") +
     `<section class="panel" data-layout="layout-style-4"><div class="panel-heading"><h2>待发布变更<span class="count">${diff.length} 项</span></h2>${btn("放弃全部修改", "discard", !state.active || !diff.length || busy ? "disabled" : "", "text-button danger")}</div><div class="padded"><div class="tabs">${btn("变更摘要", "review-tab", 'data-tab="business"', reviewTab === "business" ? "active" : "")}${btn("配置差异", "review-tab", 'data-tab="config"', reviewTab === "config" ? "active" : "")}</div>${reviewTab === "business" ? changesList(diff) : configDiffHTML(Model.active(state).config, state.draft)}</div></section>
-    <section class="panel"><div class="panel-heading"><h2>检查结果 </h2>${btn(busy ? "处理中…" : checked ? "重新检查" : "检查草稿", "check", (!diff.length && state.active) || busy ? "disabled" : "", checked ? "" : "primary")}</div><div class="padded">${!diff.length && state.active ? '<p class="muted">没有待发布变更。</p>' : !checked ? '<p class="muted">草稿尚未检查，或检查后发生了修改。请检查当前草稿版本。</p>' : errors.length ? `<div class="check-list">${errors.map(errorHTML).join("")}</div>` : `<div class="check-list">${["配置结构与名称检查通过", "规则目标、引用和兜底完整", "策略组都有启用的来源或成员", "Mihomo 原生配置检查通过"].map((x, i) => `<div class="check-line">${icon("check")}<div class="text">${x}${i === 3 ? "<small>已执行固定版本 Mihomo 配置检查，远程订阅和规则内容未验证。</small>" : ""}</div></div>`).join("")}</div>`}<div class="notice amber" data-layout="layout-style-8">远端订阅、远程规则内容和实际连接未验证。发布成功也不等于节点可连接。</div></div></section>
-    <div class="review-footer"><div class="field"><label for="publish-note">发布备注（可选）</label><input id="publish-note" placeholder="例如：调整 V2EX 来源并补充 AI 条目" value="${esc(state.note || "")}" maxlength="160"></div>${btn(busy ? "发布中…" : "发布此版本", "publish", canPublish ? "" : "disabled", "primary")}</div><p class="page-note">只发布刚检查通过的草稿版本；${state.active ? `失败仍提供 v${state.active}` : "失败时不提供下载"}，并保留草稿。发布备注不计入配置变更。</p>`
+    <section class="panel"><div class="panel-heading"><h2>检查结果 </h2>${btn(busy ? "处理中…" : checked ? "重新检查" : "检查草稿", "check", (!diff.length && state.active) || busy ? "disabled" : "", checked ? "" : "primary")}</div><div class="padded">${!diff.length && state.active ? '<p class="muted">没有待发布变更。</p>' : !checked ? '<p class="muted">草稿尚未检查，或检查后发生了修改。请检查当前草稿版本。</p>' : errors.length ? `<div class="check-list">${errors.map(errorHTML).join("")}</div>` : `<div class="check-list">${["配置结构与名称检查通过", "规则目标、引用和兜底完整", "策略组都有启用的来源或成员", "Mihomo 必需原生检查通过"].map((x, i) => `<div class="check-line">${icon("check")}<div class="text">${x}${i === 3 ? "<small>已执行固定版本 Mihomo 检查；地理数据检查范围见下方，客户端环境仍待验证。</small>" : ""}</div></div>`).join("")}</div>`}${checked && !errors.length ? `<div class="check-list">${(state.checked.validation?.items || []).map((x) => `<div class="check-line"><div class="text">${esc(x.field)} · ${esc(x.resource)}<small>${x.status === "unverified" ? "未验证：缺少服务端 GeoDB，可发布；需由客户端确认。" : "已使用指定 GeoDB 检查，客户端仍待验证。"}</small></div></div>`).join("")}</div>` : ""}<div class="notice amber" data-layout="layout-style-8">远端订阅、远程规则内容和实际连接未验证。发布成功也不等于节点可连接。</div></div></section>
+    <div class="review-footer"><div class="field"><label for="publish-note">发布备注（可选）</label><input id="publish-note" placeholder="例如：调整 V2EX 来源并补充 AI 条目" value="${esc(state.note || "")}" maxlength="160"></div>${btn(busy ? "发布中…" : state.checked?.validation?.items?.some((x) => x.status === "unverified") ? "发布（含未验证项）" : "发布此版本", "publish", canPublish ? "" : "disabled", "primary")}</div><p class="page-note">只发布刚检查通过的草稿版本；${state.active ? `失败仍提供 v${state.active}` : "失败时不提供下载"}，并保留草稿。发布备注不计入配置变更。</p>`
   );
 }
 // FORMS
@@ -1417,7 +1421,8 @@ async function saveFormContents() {
     closeDrawer(true);
     render();
     toast("设备授权已保存，立即生效。");
-    if (!v.id) await showDeviceLink(result.id);
+    if (!v.id && state.active) await showDeviceLink(result.id);
+    if (!state.active) toast("设备授权已保存；尚无活动发布，请先检查并发布。");
     return;
   }
   await commit(c);
@@ -1454,7 +1459,7 @@ async function checkDraft() {
     toast(
       state.checked?.errors.length
         ? "请修复检查问题。"
-        : "原生配置检查通过，远程内容未验证。",
+        : "必需检查通过；请查看未验证项，客户端仍待验证。",
     );
   } catch (e) {
     publishError = e.message;
@@ -1893,6 +1898,10 @@ async function handleAction(el) {
     return;
   }
   if (a === "device-link") {
+    if (!state.active) {
+      toast("尚无活动发布，请先检查并发布。");
+      return;
+    }
     await showDeviceLink(id);
     return;
   }
@@ -1924,7 +1933,7 @@ async function handleAction(el) {
       )
     ) {
       await deviceAction(d, "rotate");
-      await showDeviceLink(id);
+      if (state.active) await showDeviceLink(id);
     }
     return;
   }
