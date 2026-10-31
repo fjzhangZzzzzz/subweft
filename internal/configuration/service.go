@@ -116,7 +116,7 @@ func (s *Service) Save(ctx context.Context, in Draft) (Draft, error) {
 			}
 		}
 	}
-	if !same(in.Config.Base, d.Draft.Config.Base) {
+	if !same(baseWithoutEditableDNS(in.Config.Base), baseWithoutEditableDNS(d.Draft.Config.Base)) {
 		return Draft{}, domain.Invalid("base_readonly", "base")
 	}
 	if e = ValidateFields(in.Config); e != nil {

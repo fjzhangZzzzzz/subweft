@@ -27,7 +27,9 @@ const errors = {
     "地理规则格式错误或超出安全校验范围，请检查地理规则及 DNS 配置。",
   native_validation_failed:
     "Mihomo 检查未通过，请检查配置字段、引用及已提供的 GeoDB；本次未自动降级。",
-  base_readonly: "基础配置只读，请通过首次导入设置。",
+  base_readonly: "运行设置及未提供编辑入口的基础字段保持只读。",
+  invalid_dns:
+    "DNS 字段格式错误，请检查地址列表、布尔值、模式、IP 网段与国家代码。",
   no_changes: "当前草稿与发布版本一致。",
   device_revoked: "此设备已撤销，不能恢复原链接。",
   validator_unavailable: "原生校验器不可用。",
@@ -69,6 +71,7 @@ export async function api(path, method = "GET", body) {
 }
 function baseView(base = {}) {
   return {
+    raw: structuredClone(base),
     mixedPort: base["mixed-port"],
     allowLan: base["allow-lan"],
     dnsEnabled: base.dns?.enable,
@@ -137,7 +140,7 @@ export function toServer(c) {
     ),
     rules: c.rules,
     fallback: c.fallback,
-    base: current.draft.config.base,
+    base: c.base.raw ?? current.draft.config.base,
   };
 }
 function problem(p) {

@@ -1,3 +1,10 @@
+import { fitTextareas } from "./editor-autosize.js";
+import {
+  dnsEditor,
+  readDNS,
+  applyDNSPreset,
+  dnsRowAction,
+} from "./editor-dns.js";
 import { diffLines } from "diff";
 import "./editor.css";
 import {
@@ -116,6 +123,16 @@ const Model = (() => {
           detail: "敏感内容已隐藏",
           page: "sources",
         });
+    if (
+      JSON.stringify(before.base?.raw?.dns) !==
+      JSON.stringify(after.base?.raw?.dns)
+    )
+      out.push({
+        kind: "edit",
+        title: "修改 DNS 设置",
+        detail: "保存到草稿，发布后由客户端使用",
+        page: "overview",
+      });
     return out;
   };
   const validate = (c) => {
@@ -417,17 +434,18 @@ function pageHTML() {
       heading(
         "概览",
         "编辑保存到草稿，审阅后再发布给设备。",
-        !state.active &&
+        btn("基础配置", "base") +
+          (!state.active &&
           !c.sources.length &&
           !c.groups.length &&
           !c.sets.length &&
           !c.rules.length
-          ? btn("首次导入配置", "import-open")
-          : "",
+            ? btn("首次导入配置", "import-open")
+            : ""),
       ) +
       `<div class="overview-grid"><section class="panel padded"><div class="row between"><h3>当前发布</h3>${state.active ? badge("正在提供下载", "green") : badge("尚未发布", "amber")}</div><div class="version-number">${state.active ? `v${active.n}` : "—"}</div><p class="muted">${esc(active.date)} · ${esc(active.note)}</p><div class="row wrap" data-layout="layout-style-2">${btn("查看配置", "preview-active", state.active ? "" : "disabled")}${btn("发布记录", "navigate", 'data-page="history"', "text-button")}</div></section><section class="panel padded"><div class="row between"><h3>草稿状态</h3>${badge(diff.length ? "尚未发布" : "无变更", diff.length ? "amber" : "")}</div><div class="version-number">${diff.length}<span data-layout="layout-style-3">项变更</span></div><p class="muted">${errors.length ? `${errors.length} 项问题需要处理` : !state.active ? "首次发布前请检查配置" : diff.length ? "保存的修改不会影响当前发布版本" : "与当前发布版本一致"}</p><div class="row" data-layout="layout-style-2">${btn("查看变更并发布", "review", !diff.length && state.active ? "disabled" : "", "primary")}${diff.length ? btn("放弃草稿", "discard", "", "text-button") : ""}</div></section></div>
       ${errors.length ? `<section class="panel" data-layout="layout-style-4"><div class="panel-heading"><h2>需要处理<span class="count">${errors.length}</span></h2>${badge("发布前修复", "amber")}</div><div class="padded check-list">${errors.map((e) => errorHTML(e)).join("")}</div></section>` : ""}
-      <section class="panel"><div class="panel-heading"><h2>待发布变更</h2>${badge(`草稿 r${state.rev}`)}</div>${changesList(diff)}</section><div class="row between wrap" data-layout="layout-style-5"><p class="muted small">配置包含 ${c.sources.filter((s) => s.enabled).length} 个启用订阅、${c.groups.length} 个策略组、${c.rules.length} 条分流规则及 1 条兜底。</p>${btn("查看基础配置", "base", "", "text-button")}</div><p class="page-note">本页不展示节点健康或设备在线状态。上游内容与实际连接由客户端加载后确认。</p>`
+      <section class="panel"><div class="panel-heading"><h2>待发布变更</h2>${badge(`草稿 r${state.rev}`)}</div>${changesList(diff)}</section><div class="row between wrap" data-layout="layout-style-5"><p class="muted small">配置包含 ${c.sources.filter((s) => s.enabled).length} 个启用订阅、${c.groups.length} 个策略组、${c.rules.length} 条分流规则及 1 条兜底。</p></div><p class="page-note">本页不展示节点健康或设备在线状态。上游内容与实际连接由客户端加载后确认。</p>`
     );
   }
   if (page === "sources") {
@@ -1074,10 +1092,9 @@ function renderDrawer() {
   }
   if (form.type === "base") {
     title = "基础配置";
-    subtitle = "首次导入后保留，随草稿和发布版本保存。首版不提供编辑器。";
-    save = "";
+    subtitle = "保存到草稿，发布后生效。运行设置保持只读。";
     const b = c.base;
-    body = `<dl class="detail-list"><div><dt>混合端口</dt><dd>${esc(b.mixedPort ?? "未设置")}</dd></div><div><dt>允许局域网访问</dt><dd>${b.allowLan ? "开启" : "关闭"}</dd></div><div><dt>DNS</dt><dd>${b.dnsEnabled ? "开启" : "关闭"}</dd></div><div><dt>DNS 模式</dt><dd>${esc(b.dnsMode ?? "默认")}</dd></div></dl><div class="notice" data-layout="layout-style-9">基础配置由首次导入确定，随草稿和发布版本保存。</div>`;
+    body = `<section class="base-runtime"><h3>运行设置 <span class="badge">只读</span></h3><dl class="detail-list"><div><dt>混合端口</dt><dd>${esc(b.mixedPort ?? "未设置")}</dd></div><div><dt>允许局域网访问</dt><dd>${b.allowLan ? "开启" : "关闭"}</dd></div></dl></section>${dnsEditor(v.dns)}`;
   }
   if (form.type === "blockedSet") {
     title = "此规则集仍被引用";
@@ -1096,6 +1113,7 @@ function renderDrawer() {
   updateFormPreview();
 }
 function updateFormPreview() {
+  requestAnimationFrame(() => fitTextareas());
   if (!form) return;
   const v = { ...form.value, ...readForm() },
     c = state.draft;
@@ -1131,6 +1149,27 @@ function updateFormPreview() {
   }
 }
 function formError(name, message) {
+  if (form?.type === "base") {
+    const ctrl = document.getElementById(`f-dns-${name.replaceAll(".", "-")}`);
+    const alert = $("#form-error");
+    alert.innerHTML = `<p class="notice red dialog-error">${esc(message)}</p>`;
+    if (ctrl) {
+      for (
+        let parent = ctrl.parentElement;
+        parent;
+        parent = parent.parentElement
+      )
+        if (parent.tagName === "DETAILS") parent.open = true;
+      ctrl.setAttribute("aria-invalid", "true");
+      ctrl.setAttribute("aria-describedby", "form-error");
+      ctrl.focus();
+    } else {
+      alert.tabIndex = -1;
+      alert.focus();
+    }
+    (ctrl || alert).scrollIntoView({ block: "center" });
+    return false;
+  }
   const el = $(`#err-${name}`);
   if (el) el.textContent = message;
   const ctrl = $(`#f-${name}`);
@@ -1229,6 +1268,16 @@ async function saveFormContents() {
   const v = { ...form.value, ...readForm() },
     c = clone(state.draft);
   let error = "";
+  if (form.type === "base") {
+    try {
+      const dns = readDNS($("#drawer"), form.value.dns);
+      c.base.raw = clone(getServerState().draft.config.base);
+      if (Object.keys(dns).length) c.base.raw.dns = dns;
+      else delete c.base.raw.dns;
+    } catch (error) {
+      return formError("dns", error.message);
+    }
+  }
   if (form.type === "source") {
     if ((error = validName(v.name, c.sources, v.id)))
       return formError("name", error);
@@ -1550,6 +1599,24 @@ async function handleAction(el) {
     el.textContent = ctrl.type === "password" ? "显示" : "隐藏";
     return;
   }
+  if (a === "dns-preset") {
+    if (busy) return;
+    try {
+      form.value.dns = applyDNSPreset(readDNS($("#drawer"), form.value.dns));
+    } catch (error) {
+      formError("dns", error.message);
+      return;
+    }
+    renderDrawer();
+    $("#drawer [data-action=dns-preset]")?.focus();
+    toast("预设已填入表单，尚未保存到草稿。");
+    return;
+  }
+  if (["dns-add-server", "dns-add-policy", "dns-remove-row"].includes(a)) {
+    if (!busy) dnsRowAction(a, el, $("#drawer"));
+    fitTextareas();
+    return;
+  }
   if (a === "check-bulk") {
     checkBulk();
     return;
@@ -1820,7 +1887,9 @@ async function handleAction(el) {
     return;
   }
   if (a === "base") {
-    openForm("base", {}, { readonly: true });
+    openForm("base", {
+      dns: clone(getServerState().draft.config.base.dns || {}),
+    });
     return;
   }
   if (a === "preview-active" || a === "preview-draft") {

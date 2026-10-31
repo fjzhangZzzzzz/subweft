@@ -476,6 +476,11 @@ textarea {
   resize: vertical;
   line-height: 1.7;
 }
+.drawer textarea {
+  min-height: 44px;
+  resize: none;
+  overflow-y: hidden;
+}
 input[type="checkbox"],
 input[type="radio"] {
   width: 17px;
@@ -861,6 +866,9 @@ pre {
   background: white;
   color: var(--ink);
   box-shadow: -15px 0 60px #1519231a;
+}
+html:has(.drawer[open]) {
+  overflow: hidden;
 }
 .drawer::backdrop {
   background: #15192328;
@@ -1551,4 +1559,78 @@ pre {
 }
 [data-layout="layout-style-9"] {
   margin-top: 24px;
+}
+
+.base-runtime {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+}
+.dns-settings > .field {
+  margin-top: 20px;
+}
+.dns-list {
+  border: 0;
+  margin: 24px 0;
+  padding: 0;
+  min-width: 0;
+}
+.dns-list legend {
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.dns-server-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.dns-policy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 12px;
+  margin: 12px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  align-items: end;
+}
+.dns-policy-row label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+.dns-policy-row label:nth-child(2) {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+.dns-policy-row > button {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 44px;
+}
+.dns-policy-row input {
+  min-height: 44px;
+}
+.dns-policy-row textarea {
+  display: block;
+}
+.dns-settings .dns-list > .small {
+  margin: 0 0 12px;
+}
+.dns-settings .advanced {
+  margin-top: 16px;
+}
+.dns-settings .advanced > .field {
+  margin-top: 18px;
+}
+
+.dns-settings > .field:has(select) {
+  grid-template-columns: 110px minmax(0, 1fr);
+  align-items: center;
+  margin: 16px 0;
+}
+.dns-settings > .field:has(select) > .hint {
+  grid-column: 1 / -1;
 }

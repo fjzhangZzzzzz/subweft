@@ -58,6 +58,9 @@ func interval(n int) bool { return n >= 60 && n <= 604800 }
 
 // ValidateFields permits incomplete relationships in the draft, never malformed values.
 func ValidateFields(c Config) error {
+	if err := validateDNS(c.Base); err != nil {
+		return err
+	}
 	if len(c.Subscriptions) > 100 || len(c.Groups) > 100 || len(c.RuleSets) > 300 || len(c.Rules) > 5000 {
 		return domain.Invalid("configuration_limit", "config")
 	}
