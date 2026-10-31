@@ -13,10 +13,11 @@ import (
 )
 
 type Editor struct {
-	Service *configuration.Service
-	Auth    *auth.Auth
-	BaseURL string
-	UI      http.Handler
+	Service      *configuration.Service
+	Auth         *auth.Auth
+	BaseURL      string
+	UI           http.Handler
+	ProviderName string
 }
 
 func hideConfig(c configuration.Config) configuration.Config {
@@ -32,7 +33,17 @@ func hideConfig(c configuration.Config) configuration.Config {
 	return c
 }
 func (a *Editor) Handler() http.Handler {
+	a.Auth.ErrorPage = func(w http.ResponseWriter, r *http.Request, code string, status int) {
+		a.loginPage(w, status, code)
+	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := a.Auth.Session(r); err != nil {
+			a.loginPage(w, http.StatusOK, "")
+			return
+		}
+		a.UI.ServeHTTP(w, r)
+	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		if a.Service.Store.Ping(r.Context()) != nil {
 			http.Error(w, "unavailable", 503)

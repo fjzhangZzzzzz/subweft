@@ -25,6 +25,9 @@ type Config struct {
 	LocalHTTP     bool
 }
 type Auth struct {
+	// ErrorPage optionally presents existing authentication errors. Set before serving.
+	// It must preserve the supplied HTTP status and must not expose request parameters.
+	ErrorPage           func(http.ResponseWriter, *http.Request, string, int)
 	providerMu          sync.Mutex
 	lastProviderFailure time.Time
 	mu                  sync.Mutex
@@ -35,6 +38,15 @@ type Auth struct {
 	oauth               oauth2.Config
 	verifier            *oidc.IDTokenVerifier
 }
+
+func (a *Auth) writeError(w http.ResponseWriter, r *http.Request, code string, status int) {
+	if a.ErrorPage != nil {
+		a.ErrorPage(w, r, code, status)
+		return
+	}
+	http.Error(w, code, status)
+}
+
 type Session struct {
 	Role       string   `json:"role"`
 	ProfileIDs []string `json:"profileIds"`
@@ -99,11 +111,11 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	a.mu.Unlock()
 	if limited {
 		w.Header().Set("Retry-After", "60")
-		http.Error(w, "login_rate_limited", 429)
+		a.writeError(w, r, "login_rate_limited", 429)
 		return
 	}
 	if a.ensureProvider(r.Context()) != nil {
-		http.Error(w, "login_temporarily_unavailable", 503)
+		a.writeError(w, r, "login_temporarily_unavailable", 503)
 		return
 	}
 	if attempts, err := storage.List[attempt](r.Context(), a.store, "login"); err == nil {
@@ -116,14 +128,14 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	state := domain.RandomToken()
 	v := attempt{Meta: domain.Meta{ID: hash(state)}, Nonce: domain.RandomToken(), Verifier: oauth2.GenerateVerifier(), Expires: time.Now().Add(10 * time.Minute)}
 	if e := storage.Save(r.Context(), a.store, "login", &v.Meta, &v, ""); e != nil {
-		http.Error(w, "login_unavailable", 503)
+		a.writeError(w, r, "login_unavailable", 503)
 		return
 	}
 	a.setCookie(w, "subweft_login", state, 600)
 	http.Redirect(w, r, a.oauth.AuthCodeURL(state, oidc.Nonce(v.Nonce), oauth2.S256ChallengeOption(v.Verifier)), http.StatusFound)
 }
 func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
-	fail := func() { http.Error(w, "login_failed", http.StatusUnauthorized) }
+	fail := func() { a.writeError(w, r, "login_failed", http.StatusUnauthorized) }
 	cookie, e := r.Cookie("subweft_login")
 	state := r.URL.Query().Get("state")
 	if e != nil || len(state) != 43 || subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(state)) != 1 {
@@ -162,7 +174,7 @@ func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, e := a.Principal(ctx, idToken.Issuer, idToken.Subject); e != nil {
-		http.Error(w, "access_denied", http.StatusForbidden)
+		a.writeError(w, r, "access_denied", http.StatusForbidden)
 		return
 	}
 	var claims struct {
@@ -178,7 +190,7 @@ func (a *Auth) Callback(w http.ResponseWriter, r *http.Request) {
 	secret := domain.RandomToken()
 	session := Session{Meta: domain.Meta{ID: hash(secret)}, Issuer: idToken.Issuer, Subject: idToken.Subject, Name: claims.Name, CSRF: domain.RandomToken(), Expires: time.Now().Add(8 * time.Hour)}
 	if e = storage.Save(ctx, a.store, "session", &session.Meta, &session, ""); e != nil {
-		http.Error(w, "login_unavailable", 503)
+		a.writeError(w, r, "login_unavailable", 503)
 		return
 	}
 	a.setCookie(w, a.cookieName(), secret, 8*3600)

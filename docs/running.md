@@ -42,6 +42,7 @@ go mod verify
 | SUBWEFT_BASE_URL | 明确的应用 HTTPS 基址，无路径 |
 | SUBWEFT_LISTEN | 监听地址，默认 127.0.0.1:8080 |
 | SUBWEFT_OIDC_ISSUER | 发现文档中的精确 issuer，默认要求 HTTPS |
+| SUBWEFT_OIDC_DISPLAY_NAME | 可选身份服务显示名称；留空显示“继续登录”，仅影响登录文案 |
 | SUBWEFT_OIDC_CLIENT_ID | OIDC client ID |
 | SUBWEFT_OIDC_CLIENT_SECRET_FILE | 独立受限 secret 文件，与直接 secret 环境值互斥 |
 | SUBWEFT_ADMIN_SUBJECTS | 唯一管理员精确 sub，不接受逗号分隔的多个身份 |

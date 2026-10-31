@@ -1,12 +1,7 @@
 :root {
   color-scheme: light;
-  --bg: #f5f7fa;
-  --surface: #fff;
-  --ink: #172438;
-  --muted: #607086;
-  --line: #dce3ec;
-  --blue: #245bd9;
-  --blue-bg: #edf3ff;
+  --blue: var(--action);
+  --blue-bg: var(--selected-bg);
   --green: #176744;
   --green-bg: #ecf7f0;
   --red: #b22e38;
@@ -22,11 +17,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font:
-    14px/1.6 Inter,
-    "Segoe UI",
-    "Microsoft YaHei",
-    sans-serif;
+  font: 14px/1.6 var(--font-ui);
 }
 button,
 input,
@@ -61,8 +52,8 @@ button {
   white-space: nowrap;
 }
 button:hover:not(:disabled) {
-  background: #f1f5fa;
-  border-color: #aebed2;
+  background: var(--bg);
+  border-color: var(--control-border);
 }
 button:disabled {
   cursor: not-allowed;
@@ -74,7 +65,7 @@ button.primary {
   color: white;
 }
 button.primary:hover:not(:disabled) {
-  background: #1948b8;
+  background: var(--action-hover);
 }
 button.danger {
   color: var(--red);
@@ -108,7 +99,7 @@ a {
   color: var(--blue);
 }
 :focus-visible {
-  outline: 3px solid #90b4ff;
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 h1,
@@ -171,12 +162,12 @@ pre {
   font-size: 12px;
   border-radius: 5px;
   padding: 3px 8px;
-  background: #f0f3f7;
-  color: #516177;
+  background: var(--bg);
+  color: var(--muted);
   white-space: nowrap;
 }
 .badge.blue {
-  color: #2354b6;
+  color: var(--ink);
   background: var(--blue-bg);
 }
 .badge.green {
@@ -209,14 +200,14 @@ pre {
 }
 .prototype-strip {
   height: 35px;
-  background: #e9eef7;
-  color: #405572;
+  background: var(--selected-bg);
+  color: var(--muted);
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 23px;
   font-size: 12px;
-  border-bottom: 1px solid #d7e0ed;
+  border-bottom: 1px solid var(--line);
 }
 .prototype-strip button {
   font-size: 12px;
@@ -224,7 +215,7 @@ pre {
   padding: 2px 8px;
   background: transparent;
   border: 0;
-  color: #304f87;
+  color: var(--ink);
 }
 .layout {
   display: grid;
@@ -251,17 +242,9 @@ pre {
   letter-spacing: -0.5px;
 }
 .brand-symbol {
-  height: 31px;
-  width: 31px;
-  color: white;
-  background: var(--blue);
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-}
-.brand-symbol svg {
-  width: 21px;
-  height: 21px;
+  height: 32px;
+  width: 32px;
+  flex-shrink: 0;
 }
 .nav-label {
   color: var(--muted);
@@ -276,7 +259,7 @@ pre {
 }
 .nav a {
   text-decoration: none;
-  color: #526175;
+  color: var(--muted);
   display: flex;
   align-items: center;
   gap: 11px;
@@ -285,7 +268,7 @@ pre {
   min-height: 43px;
 }
 .nav a:hover {
-  background: #f5f7fa;
+  background: var(--bg);
 }
 .nav a.active {
   background: var(--blue-bg);
@@ -306,11 +289,11 @@ pre {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #eef2f8;
+  background: var(--bg);
   display: grid;
   place-items: center;
   font-size: 13px;
-  color: #50617b;
+  color: var(--muted);
 }
 .work {
   min-width: 0;
@@ -426,7 +409,7 @@ th {
   font-size: 12px;
   color: var(--muted);
   font-weight: 500;
-  background: #f9fafc;
+  background: var(--bg);
   padding: 12px 18px;
   border-bottom: 1px solid var(--line);
 }
@@ -438,7 +421,7 @@ th:last-child {
 }
 td {
   padding: 17px 18px;
-  border-bottom: 1px solid #e8edf3;
+  border-bottom: 1px solid var(--line);
   vertical-align: middle;
 }
 tr:last-child td {
@@ -482,7 +465,7 @@ select,
 textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--control-border);
   border-radius: 6px;
   background: white;
   color: var(--ink);
@@ -556,14 +539,14 @@ textarea:focus {
   cursor: pointer;
 }
 .choice:has(input:checked) {
-  border-color: #8baaf1;
-  background: #f5f8ff;
+  border-color: var(--control-border);
+  background: var(--bg);
 }
 .notice {
   padding: 13px 16px;
   border-radius: 7px;
   background: var(--blue-bg);
-  color: #34537e;
+  color: var(--ink);
   font-size: 13px;
   line-height: 1.7;
 }
@@ -588,8 +571,8 @@ textarea:focus {
   margin: 23px 0 11px;
 }
 .impact {
-  background: #f6f8fb;
-  border: 1px solid #e6ebf2;
+  background: var(--bg);
+  border: 1px solid var(--line);
   padding: 14px;
   border-radius: 7px;
   font-size: 13px;
@@ -613,7 +596,7 @@ textarea:focus {
   align-items: center;
   gap: 13px;
   padding: 14px 22px;
-  border-bottom: 1px solid #eef1f5;
+  border-bottom: 1px solid var(--line);
 }
 .change-list li:last-child {
   border: 0;
@@ -664,7 +647,7 @@ textarea:focus {
   min-height: 32px;
 }
 .drag-over {
-  outline: 2px solid #91b1fa;
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 .fallback {
@@ -673,7 +656,7 @@ textarea:focus {
   gap: 20px;
   padding: 18px 21px;
   border-top: 1px solid var(--line);
-  background: #f9fafc;
+  background: var(--bg);
   border-radius: 0 0 10px 10px;
 }
 .fallback > div:first-child {
@@ -698,7 +681,7 @@ textarea:focus {
   display: none;
 }
 .row-menu summary:hover {
-  background: #f1f5fa;
+  background: var(--bg);
 }
 .row-menu > div {
   position: absolute;
@@ -709,7 +692,7 @@ textarea:focus {
   background: white;
   border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: 0 8px 30px #17243820;
+  box-shadow: 0 8px 30px #15192320;
   padding: 6px;
   display: grid;
   gap: 2px;
@@ -746,8 +729,8 @@ pre {
   overflow-wrap: anywhere;
   word-break: break-word;
   padding: 19px;
-  background: #f6f8fc;
-  border: 1px solid #e5eaf2;
+  background: var(--bg);
+  border: 1px solid var(--line);
   border-radius: 7px;
   font-size: 12px;
   line-height: 1.9;
@@ -820,8 +803,8 @@ pre {
   text-align: right;
 }
 .guide {
-  background: #f0f4fb;
-  border-bottom: 1px solid #d4dfee;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
   padding: 18px 24px;
 }
 .guide-tabs {
@@ -848,7 +831,7 @@ pre {
 .guide-content p {
   flex: 1;
   min-width: 200px;
-  color: #4f6380;
+  color: var(--muted);
   font-size: 13px;
 }
 .guide-tools {
@@ -877,10 +860,10 @@ pre {
   padding: 0;
   background: white;
   color: var(--ink);
-  box-shadow: -15px 0 60px #1724381a;
+  box-shadow: -15px 0 60px #1519231a;
 }
 .drawer::backdrop {
-  background: #17243828;
+  background: #15192328;
 }
 .drawer[open] {
   display: flex;
@@ -935,7 +918,7 @@ pre {
 .advanced summary {
   font-size: 13px;
   min-height: 34px;
-  color: #4b5f7a;
+  color: var(--muted);
 }
 .advanced[open] summary {
   margin-bottom: 13px;
@@ -948,8 +931,8 @@ pre {
   flex-shrink: 0;
 }
 .nested-form {
-  border: 1px solid #b6cafa;
-  background: #f7faff;
+  border: 1px solid var(--control-border);
+  background: var(--bg);
   padding: 17px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -963,10 +946,10 @@ pre {
   border-radius: 12px;
   padding: 25px;
   color: var(--ink);
-  box-shadow: 0 20px 80px #17243830;
+  box-shadow: 0 20px 80px #15192330;
 }
 .dialog-confirm::backdrop {
-  background: #17243855;
+  background: #15192355;
 }
 .dialog-confirm p {
   margin: 13px 0 23px;
@@ -985,9 +968,9 @@ pre {
   max-width: calc(100vw - 32px);
   padding: 12px 18px;
   border-radius: 9px;
-  background: #20324e;
+  background: var(--action);
   color: white;
-  box-shadow: 0 5px 25px #17243825;
+  box-shadow: 0 5px 25px #15192325;
   font-size: 13px;
   display: none;
 }
@@ -1033,7 +1016,7 @@ pre {
 }
 .prototype-caption {
   font-size: 12px;
-  color: #627086;
+  color: var(--muted);
   margin-top: 7px;
 }
 @media (max-width: 1000px) {
@@ -1083,7 +1066,7 @@ pre {
     width: 238px;
     z-index: 15;
     height: 100dvh;
-    box-shadow: 15px 0 60px #17243840;
+    box-shadow: 15px 0 60px #15192340;
   }
   .sidebar.open {
     display: flex;
@@ -1381,7 +1364,7 @@ pre {
 }
 .diff-switch button[aria-pressed="true"] {
   background: var(--blue-bg);
-  border-color: #8baaf1;
+  border-color: var(--control-border);
   color: var(--blue);
 }
 .diff-counts {
@@ -1402,7 +1385,7 @@ pre {
 }
 .diff-head {
   display: grid;
-  background: #f1f4f8;
+  background: var(--bg);
   border-bottom: 1px solid var(--line);
   font-size: 12px;
   font-weight: 600;
@@ -1439,9 +1422,9 @@ pre {
 .diff-number {
   text-align: right;
   padding: 2px 6px 2px 0;
-  color: #66758a;
+  color: var(--muted);
   user-select: none;
-  background: #f5f7fa;
+  background: var(--bg);
 }
 .diff-sign {
   padding: 2px 0;
@@ -1469,7 +1452,7 @@ pre {
   color: #8e4343;
 }
 .diff-cell.blank {
-  background: #f1f3f6;
+  background: var(--bg);
 }
 .diff-code mark {
   color: inherit;
@@ -1484,13 +1467,13 @@ pre {
 }
 .diff-fold {
   padding: 4px 12px;
-  background: #edf3fb;
-  border-block: 1px solid #dce5f1;
+  background: var(--selected-bg);
+  border-block: 1px solid var(--line);
 }
 .diff-fold button {
   border: 0;
   background: transparent;
-  color: #365e96;
+  color: var(--ink);
   font-size: 12px;
   min-height: 32px;
 }

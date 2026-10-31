@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>登录 Subweft</title>
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/theme.css" />
+    <link rel="stylesheet" href="/login.css" />
+  </head>
+  <body class="login-page">
+    <main id="main" class="login-main">
+      <section class="login-card" aria-labelledby="login-title">
+        <div class="login-brand">
+          <img class="login-mark" src="/favicon.svg" alt="" width="56" height="56" />
+          <p class="login-wordmark">Subweft</p>
+        </div>
+        <h1 id="login-title">登录 Subweft</h1>
+        <p class="login-description">管理订阅、分流配置与设备授权</p>
+        {{if .Error}}<p class="login-error" role="alert">{{.Error}}</p>{{end}}
+        <a class="login-action{{if .Compact}} login-action-compact{{end}}" href="/auth/login">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 3a6 6 0 0 0-5.5 8.4L3 18v3h3v-3h3v-3l2.6-2.5A6 6 0 1 0 15 3Z" /><path d="M16 7h.01" /></svg>
+          <span class="login-label-full">{{.Button}}</span>{{if .Compact}}<span class="login-label-short">继续登录</span>{{end}}
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14m-5-5 5 5-5 5" /></svg>
+        </a>
+        <p class="login-hint">{{.Hint}}</p>
+      </section>
+    </main>
+    <footer class="login-footer">Subweft · 订阅与分流配置</footer>
+  </body>
+</html>

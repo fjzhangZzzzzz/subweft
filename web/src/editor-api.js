@@ -199,8 +199,7 @@ function localDate(raw) {
 }
 export function showError(e) {
   if (e.status === 401) {
-    document.querySelector("#app").innerHTML =
-      '<main class="main"><section class="panel padded"><h1>Subweft</h1><p class="description">登录后管理订阅、分流配置和设备授权。</p><p><a href="/auth/login">使用 OIDC 登录</a></p></section></main>';
+    window.location.replace("/");
     return;
   }
   if (form) {

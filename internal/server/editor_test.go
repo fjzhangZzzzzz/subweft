@@ -30,6 +30,12 @@ func editorHarness(t *testing.T, subject string) *harness {
 }
 func TestEditorAuthorizationDraftAndRemovedRoutes(t *testing.T) {
 	h := editorHarness(t, testfixture.Subject)
+	if code, body := h.request(t, "GET", "/", nil, false); code != 200 || !strings.Contains(string(body), "继续登录") {
+		t.Fatal("anonymous login page unavailable")
+	}
+	if code, body := h.request(t, "GET", "/auth/callback?error=private-provider-detail", nil, false); code != 401 || !strings.Contains(string(body), "登录未完成，请重试。") || strings.Contains(string(body), "private-provider-detail") {
+		t.Fatal("failed callback lost safe retry presentation")
+	}
 	if code, _ := h.request(t, "GET", "/api/v1/state", nil, false); code != 401 {
 		t.Fatal("anonymous management accepted")
 	}
