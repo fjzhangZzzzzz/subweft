@@ -87,7 +87,7 @@ func ImportPreview(data string) (Config, error) {
 		if p["type"] != "http" {
 			return c, domain.Invalid("http_provider_required", "proxy-providers")
 		}
-		s := Subscription{ID: domain.NewID(), Name: name, Pool: "quality", Enabled: true, Interval: 3600, Proxy: "DIRECT"}
+		s := Subscription{ID: domain.NewID(), Name: name, Pool: "quality", Enabled: true, Interval: 3600}
 		s.URL, _ = p["url"].(string)
 		if x, ok := p["interval"]; ok {
 			n, ok := x.(int)
@@ -244,6 +244,9 @@ func ImportPreview(data string) (Config, error) {
 	}
 	for i := range c.Subscriptions {
 		p := c.Subscriptions[i].Proxy
+		if p == "" {
+			continue
+		}
 		if targets[p] == "" {
 			return c, domain.Invalid("unknown_proxy", "proxy")
 		}

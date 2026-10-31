@@ -96,12 +96,13 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 		Base: map[string]any{"mode": "rule", "dns": map[string]any{"enable": false}}, Fallback: "DIRECT",
 		Subscriptions: []configuration.Subscription{
 			{ID: "direct", Name: "direct", URL: origin.URL + "/direct", Pool: "quality", Enabled: true, Interval: 3600, Proxy: "DIRECT"},
+			{ID: "follow", Name: "follow", URL: origin.URL + "/follow", Pool: "quality", Enabled: true, Interval: 3600},
 			{ID: "proxied", Name: "proxied", URL: origin.URL + "/proxied", Pool: "quality", Enabled: true, Interval: 3600, Proxy: "bootstrap-group"},
 			{ID: "bootstrap", Name: "bootstrap", URL: origin.URL + "/bootstrap", Pool: "quota", Enabled: true, Interval: 3600, Proxy: "DIRECT"},
 		},
 		Groups:   []configuration.Group{{ID: "bootstrap-group", Name: "Bootstrap", Type: "select", Pools: []string{"quota"}}, {ID: "traffic", Name: "Traffic", Type: "select", Pools: []string{"quality"}}},
 		RuleSets: []configuration.RuleSet{{ID: "rules", Name: "rules", Kind: "http", URL: origin.URL + "/rules", Behavior: "domain", Interval: 86400}},
-		Rules:    []configuration.Rule{{ID: "rule", Type: "RULE-SET", Value: "rules", Target: "DIRECT"}},
+		Rules:    []configuration.Rule{{ID: "route", Type: "IP-CIDR", Value: "127.0.0.1/32", Target: "bootstrap-group", NoResolve: true}, {ID: "rule", Type: "RULE-SET", Value: "rules", Target: "DIRECT"}},
 	}
 	dir := t.TempDir()
 	transport := &http.Transport{Proxy: nil}
@@ -155,7 +156,7 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 				}
 				decodeErr := json.NewDecoder(resp.Body).Decode(&state)
 				resp.Body.Close()
-				if resp.StatusCode == 200 && decodeErr == nil && state.Providers["direct"] != nil && state.Providers["proxied"] != nil && state.Providers["bootstrap"] != nil {
+				if resp.StatusCode == 200 && decodeErr == nil && state.Providers["direct"] != nil && state.Providers["proxied"] != nil && state.Providers["bootstrap"] != nil && state.Providers["follow"] != nil {
 					return control, stop
 				}
 			}
@@ -224,6 +225,12 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 	if proxyCalls.Load() <= before {
 		stop()
 		t.Fatal("explicit group route did not use independent proxy")
+	}
+	// An omitted proxy follows the client's routing rules, not DIRECT.
+	before = proxyCalls.Load()
+	read(control, "PUT", "/providers/proxies/follow")
+	if proxyCalls.Load() <= before {
+		t.Fatal("omitted proxy did not follow client routing")
 	}
 	before = proxyCalls.Load()
 	hits := directCalls.Load()

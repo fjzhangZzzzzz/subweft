@@ -122,9 +122,9 @@ const Model = (() => {
     const errors = [],
       targets = new Set([...c.groups.map((g) => g.id), "DIRECT", "REJECT"]);
     for (const s of c.sources.filter((x) => x.enabled))
-      if (!targets.has(s.proxy))
+      if (s.proxy && !targets.has(s.proxy))
         errors.push({
-          text: `${s.name} 的拉取代理未选择或不存在`,
+          text: `${s.name} 的拉取代理不存在`,
           hint: "在订阅的高级设置中选择拉取代理。",
           page: "sources",
           id: s.id,
@@ -739,7 +739,7 @@ const field = (name, label, control, hint = "") =>
 const check = (name, label, checked, value = "on") =>
   `<label class="check"><input name="${name}" type="checkbox" value="${esc(value)}" ${checked ? "checked" : ""}>${label}</label>`;
 const targets = (name, current, exclude = "", allowNew = false) =>
-  `<select id="f-${name}" name="${name}"><option value="">请选择目标</option><optgroup label="策略组">${state.draft.groups
+  `<select id="f-${name}" name="${name}">${option("", name === "proxy" ? "跟随客户端路由（不指定）" : "请选择目标", current)}<optgroup label="策略组">${state.draft.groups
     .filter((g) => g.id !== exclude)
     .map((g) => option(g.id, g.name, current))
     .join(
@@ -826,7 +826,7 @@ function renderDrawer() {
         "每个订阅只属于一个池。",
       ) +
       check("enabled", "启用订阅", v.enabled !== false) +
-      `<details class="advanced"><summary>高级设置</summary>${field("interval", "客户端更新间隔（秒）", input("interval", v.interval ?? 3600, "number", 'min="60" max="604800"'))}${field("prefix", "节点名前缀", input("prefix", v.prefix || "", "text", 'maxlength="80"'), "只影响客户端显示名称。")}${check("health", "启用客户端健康检查", v.health !== false)}${field("proxy", "拉取订阅使用的代理", targets("proxy", v.proxy || "DIRECT"), "这是客户端的拉取方式，不是服务器抓取设置。")}</details><div class="impact" id="source-impact"></div>`;
+      `<details class="advanced"><summary>高级设置</summary>${field("interval", "客户端更新间隔（秒）", input("interval", v.interval ?? 3600, "number", 'min="60" max="604800"'))}${field("prefix", "节点名前缀", input("prefix", v.prefix || "", "text", 'maxlength="80"'), "只影响客户端显示名称。")}${check("health", "启用客户端健康检查", v.health !== false)}${field("proxy", "拉取订阅使用的代理", targets("proxy", v.proxy ?? ""), "不指定时省略 proxy，由客户端路由决定；DIRECT 为强制直连。此设置不影响服务器。")}</details><div class="impact" id="source-impact"></div>`;
   }
   if (form.type === "group") {
     title = v.id ? "编辑策略组" : "新增策略组";
@@ -1432,7 +1432,7 @@ const newSource = () =>
     enabled: true,
     health: true,
     interval: 3600,
-    proxy: "DIRECT",
+    proxy: "",
   });
 const newGroup = () =>
   openForm("group", { name: "", mode: "select", pools: [], builtins: [] });

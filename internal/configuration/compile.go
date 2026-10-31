@@ -192,7 +192,7 @@ func Problems(c Config) []Problem {
 		}
 	}
 	for _, s := range c.Subscriptions {
-		if s.Enabled && targets[s.Proxy] == "" {
+		if s.Enabled && s.Proxy != "" && targets[s.Proxy] == "" {
 			add("subscriptions."+s.ID, s.Name+" 的拉取代理不存在")
 		}
 	}
@@ -207,7 +207,7 @@ func Problems(c Config) []Problem {
 		for _, g := range c.Groups {
 			if g.ID == id {
 				for _, s := range c.Subscriptions {
-					if s.Enabled && slices.Contains(g.Pools, s.Pool) && s.Proxy != "DIRECT" && s.Proxy != "REJECT" && visit(s.Proxy, path) {
+					if s.Enabled && slices.Contains(g.Pools, s.Pool) && s.Proxy != "" && s.Proxy != "DIRECT" && s.Proxy != "REJECT" && visit(s.Proxy, path) {
 						return true
 					}
 				}
@@ -339,7 +339,10 @@ func Render(c Config, redact bool) ([]byte, error) {
 		if redact {
 			u = "[订阅地址已隐藏]"
 		}
-		providers[s.Name] = map[string]any{"type": "http", "url": u, "path": "./proxy_providers/" + s.ID + ".yaml", "interval": s.Interval, "proxy": targets[s.Proxy], "override": map[string]any{"additional-prefix": s.Prefix}, "health-check": map[string]any{"enable": s.HealthCheck, "url": "https://www.gstatic.com/generate_204", "interval": 300}}
+		providers[s.Name] = map[string]any{"type": "http", "url": u, "path": "./proxy_providers/" + s.ID + ".yaml", "interval": s.Interval, "override": map[string]any{"additional-prefix": s.Prefix}, "health-check": map[string]any{"enable": s.HealthCheck, "url": "https://www.gstatic.com/generate_204", "interval": 300}}
+		if s.Proxy != "" {
+			providers[s.Name].(map[string]any)["proxy"] = targets[s.Proxy]
+		}
 	}
 	for _, g := range c.Groups {
 		item := map[string]any{"name": g.Name, "type": g.Type}
