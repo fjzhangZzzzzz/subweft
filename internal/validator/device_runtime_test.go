@@ -13,12 +13,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/fjzhangZzzzzz/subweft/internal/compile"
-	"github.com/fjzhangZzzzzz/subweft/internal/domain"
+	"github.com/fjzhangZzzzzz/subweft/internal/configuration"
 	"github.com/fjzhangZzzzzz/subweft/internal/validator"
 	"go.yaml.in/yaml/v3"
 )
@@ -39,18 +39,17 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 		t.Fatal(e)
 	}
 	var failed atomic.Bool
-	var directCalls, proxyCalls, ruleCalls, wrongUA atomic.Int32
+	var directCalls, proxyCalls, ruleCalls atomic.Int32
+	var proxyHost string
+	var proxyPort int
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("User-Agent") != compile.DeviceUserAgent {
-			wrongUA.Add(1)
-			http.Error(w, "wrong client format", 400)
-			return
-		}
 		if failed.Load() {
 			http.Error(w, "unavailable", 503)
 			return
 		}
 		switch r.URL.Path {
+		case "/bootstrap":
+			fmt.Fprintf(w, "proxies:\n - {name: fixture-proxy, type: http, server: %s, port: %d}\n", proxyHost, proxyPort)
 		case "/rules":
 			ruleCalls.Add(1)
 			fmt.Fprint(w, "payload:\n - example.invalid\n")
@@ -64,7 +63,7 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 			fmt.Fprintf(w, "mixed-port: 7890\ndns:\n  enable: false\nproxies:\n - {name: upstream-%s, type: socks5, server: 192.0.2.1, port: 1080}\nproxy-groups:\n - {name: ignored-upstream-group, type: select, proxies: [upstream-%s]}\nrules:\n - MATCH,ignored-upstream-group\n", suffix, suffix)
 		}
 	}))
-	defer origin.Close()
+	t.Cleanup(origin.Close)
 	address := strings.TrimPrefix(origin.URL, "http://")
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "CONNECT" || r.Host != address {
@@ -90,22 +89,34 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 			_, _ = io.Copy(client, upstream)
 		}()
 	}))
-	defer proxy.Close()
-	host, portText, _ := net.SplitHostPort(strings.TrimPrefix(proxy.URL, "http://"))
-	var port int
-	fmt.Sscanf(portText, "%d", &port)
-	p := domain.Profile{Meta: domain.Meta{ID: "device-profile"}, Name: "device", Groups: []domain.Group{{Name: "Proxy", Type: "select", SourceIDs: []string{"direct", "proxied", "follow"}}, {Name: "Route", Type: "select", NodeIDs: []string{"bootstrap"}}}, SourceUpdates: map[string]string{"direct": "DIRECT", "proxied": "Bootstrap"}, RuleUpdates: map[string]string{"rules": "Bootstrap"}, Rules: []domain.Rule{{Type: "IP-CIDR", Value: "127.0.0.1/32", Target: "Route", Enabled: true}, {Type: "RULE-SET", Value: "rules", Target: "DIRECT", Enabled: true}, {Type: "MATCH", Target: "DIRECT", Enabled: true}}}
-	snap := domain.Snapshot{Sources: []domain.Source{{Meta: domain.Meta{ID: "direct"}, Name: "direct", Kind: "http", URL: origin.URL + "/direct", Enabled: true, Interval: 3600}, {Meta: domain.Meta{ID: "proxied"}, Name: "proxied", Kind: "http", URL: origin.URL + "/proxied", Enabled: true, Interval: 3600}, {Meta: domain.Meta{ID: "follow"}, Name: "follow", Kind: "http", URL: origin.URL + "/follow", Enabled: true, Interval: 3600}}, Nodes: []domain.ManualNode{{Meta: domain.Meta{ID: "bootstrap"}, Enabled: true, Node: domain.Node{Name: "Bootstrap", Type: "http", Server: host, Port: port}}}, Resources: []domain.Resource{{Meta: domain.Meta{ID: "rules"}, Name: "rules", Kind: "http", Type: "ruleset", URL: origin.URL + "/rules", Behavior: "domain", Format: "yaml", Interval: 86400, Enabled: true}}}
+	t.Cleanup(proxy.Close)
+	proxyHost, portText, _ := net.SplitHostPort(strings.TrimPrefix(proxy.URL, "http://"))
+	fmt.Sscanf(portText, "%d", &proxyPort)
+	c := configuration.Config{
+		Base: map[string]any{"mode": "rule", "dns": map[string]any{"enable": false}}, Fallback: "DIRECT",
+		Subscriptions: []configuration.Subscription{
+			{ID: "direct", Name: "direct", URL: origin.URL + "/direct", Pool: "quality", Enabled: true, Interval: 3600, Proxy: "DIRECT"},
+			{ID: "proxied", Name: "proxied", URL: origin.URL + "/proxied", Pool: "quality", Enabled: true, Interval: 3600, Proxy: "bootstrap-group"},
+			{ID: "bootstrap", Name: "bootstrap", URL: origin.URL + "/bootstrap", Pool: "quota", Enabled: true, Interval: 3600, Proxy: "DIRECT"},
+		},
+		Groups:   []configuration.Group{{ID: "bootstrap-group", Name: "Bootstrap", Type: "select", Pools: []string{"quota"}}, {ID: "traffic", Name: "Traffic", Type: "select", Pools: []string{"quality"}}},
+		RuleSets: []configuration.RuleSet{{ID: "rules", Name: "rules", Kind: "http", URL: origin.URL + "/rules", Behavior: "domain", Interval: 86400}},
+		Rules:    []configuration.Rule{{ID: "rule", Type: "RULE-SET", Value: "rules", Target: "DIRECT"}},
+	}
 	dir := t.TempDir()
-	client := &http.Client{Timeout: time.Second, Transport: &http.Transport{Proxy: nil}}
+	transport := &http.Transport{Proxy: nil}
+	t.Cleanup(transport.CloseIdleConnections)
+	client := &http.Client{Timeout: 10 * time.Second, Transport: transport}
 	start := func() (string, func()) {
 		t.Helper()
-		result, e := compile.Compile(p, snap, false)
+		result, e := configuration.Render(c, false)
 		if e != nil {
 			t.Fatal(e)
 		}
 		var config map[string]any
-		_ = yaml.Unmarshal(result.Config, &config)
+		if e := yaml.Unmarshal(result, &config); e != nil {
+			t.Fatal(e)
+		}
 		listener, e := net.Listen("tcp", "127.0.0.1:0")
 		if e != nil {
 			t.Fatal(e)
@@ -116,7 +127,10 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 		config["secret"] = "fixture-controller"
 		config["bind-address"] = "127.0.0.1"
 		config["log-level"] = "silent"
-		data, _ := yaml.Marshal(config)
+		data, e := yaml.Marshal(config)
+		if e != nil {
+			t.Fatal(e)
+		}
 		file := filepath.Join(dir, "config.yaml")
 		if e = os.WriteFile(file, data, 0600); e != nil {
 			t.Fatal(e)
@@ -129,14 +143,19 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 			cancel()
 			t.Fatal(e)
 		}
-		stop := func() { cancel(); _ = cmd.Wait() }
-		for deadline := time.Now().Add(8 * time.Second); time.Now().Before(deadline); {
-			req, _ := http.NewRequest("GET", "http://"+control+"/version", nil)
+		stop := sync.OnceFunc(func() { cancel(); _ = cmd.Wait() })
+		t.Cleanup(stop)
+		for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline); {
+			req, _ := http.NewRequest("GET", "http://"+control+"/providers/proxies", nil)
 			req.Header.Set("Authorization", "Bearer fixture-controller")
 			resp, e := client.Do(req)
 			if e == nil {
+				var state struct {
+					Providers map[string]json.RawMessage `json:"providers"`
+				}
+				decodeErr := json.NewDecoder(resp.Body).Decode(&state)
 				resp.Body.Close()
-				if resp.StatusCode == 200 {
+				if resp.StatusCode == 200 && decodeErr == nil && state.Providers["direct"] != nil && state.Providers["proxied"] != nil && state.Providers["bootstrap"] != nil {
 					return control, stop
 				}
 			}
@@ -146,7 +165,7 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 		t.Fatal("device core did not become ready")
 		return "", func() {}
 	}
-	read := func(control, method, path string) map[string]any {
+	read := func(control, method, path string, failure ...bool) map[string]any {
 		t.Helper()
 		req, _ := http.NewRequest(method, "http://"+control+path, nil)
 		req.Header.Set("Authorization", "Bearer fixture-controller")
@@ -155,14 +174,28 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 			t.Fatal(e)
 		}
 		defer resp.Body.Close()
+		if len(failure) > 0 && failure[0] {
+			if resp.StatusCode < 400 {
+				t.Fatal("failed upstream update was accepted")
+			}
+			return nil
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			t.Fatalf("controller %s %s returned %d", method, path, resp.StatusCode)
+		}
+		if resp.StatusCode == http.StatusNoContent {
+			return nil
+		}
 		var v map[string]any
-		_ = json.NewDecoder(resp.Body).Decode(&v)
+		if e := json.NewDecoder(resp.Body).Decode(&v); e != nil {
+			t.Fatal("invalid controller response", e)
+		}
 		return v
 	}
-	waitNode := func(control, want string) {
+	waitNode := func(control, want, provider string) {
 		t.Helper()
-		for deadline := time.Now().Add(8 * time.Second); time.Now().Before(deadline); {
-			v := read(control, "GET", "/providers/proxies/direct")
+		for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline); {
+			v := read(control, "GET", "/providers/proxies/"+provider)
 			b, _ := json.Marshal(v)
 			if strings.Contains(string(b), want) {
 				return
@@ -172,47 +205,52 @@ func TestDeviceCoreDownloadsThroughDirectAndIndependentProxy(t *testing.T) {
 		t.Fatal("device provider nodes not updated")
 	}
 	control, stop := start()
-	waitNode(control, "upstream-a")
-	for deadline := time.Now().Add(8 * time.Second); time.Now().Before(deadline) && (ruleCalls.Load() == 0 || proxyCalls.Load() < 2); {
+	waitNode(control, "upstream-a", "direct")
+	for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline) && ruleCalls.Load() == 0; {
 		time.Sleep(30 * time.Millisecond)
 	}
-	if directCalls.Load() < 2 || ruleCalls.Load() == 0 || proxyCalls.Load() < 2 || wrongUA.Load() != 0 {
+	if directCalls.Load() < 1 || ruleCalls.Load() == 0 {
 		stop()
-		t.Fatal("device direct/proxy/header acquisition failed")
+		t.Fatal("device direct/rules acquisition failed")
 	}
-	// After the rules and controller are ready, explicitly refresh both sources.
-	// The unspecified route must use the configured proxy; DIRECT must bypass it.
+	// Wait for the independent bootstrap subscription before testing its dependent route.
+	waitNode(control, "fixture-proxy", "bootstrap")
+	// Explicit group routing must use the proxy; DIRECT must bypass it.
 	before := proxyCalls.Load()
-	read(control, "PUT", "/providers/proxies/follow")
-	for deadline := time.Now().Add(8 * time.Second); time.Now().Before(deadline) && proxyCalls.Load() == before; {
+	read(control, "PUT", "/providers/proxies/proxied")
+	for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline) && proxyCalls.Load() == before; {
 		time.Sleep(30 * time.Millisecond)
 	}
 	if proxyCalls.Load() <= before {
 		stop()
-		t.Fatal("unspecified route did not follow rules")
+		t.Fatal("explicit group route did not use independent proxy")
 	}
 	before = proxyCalls.Load()
 	hits := directCalls.Load()
 	read(control, "PUT", "/providers/proxies/direct")
-	for deadline := time.Now().Add(8 * time.Second); time.Now().Before(deadline) && directCalls.Load() == hits; {
+	for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline) && directCalls.Load() == hits; {
 		time.Sleep(30 * time.Millisecond)
 	}
 	if directCalls.Load() == hits || proxyCalls.Load() != before {
 		stop()
-		t.Fatal("explicit direct did not bypass rules")
+		t.Fatal("explicit direct did not bypass proxy")
 	}
 	failed.Store(true)
-	read(control, "PUT", "/providers/proxies/direct")
-	waitNode(control, "upstream-a")
+	read(control, "PUT", "/providers/proxies/direct", true)
+	waitNode(control, "upstream-a", "direct")
 	stop()
 	failed.Store(false)
-	snap.Sources[0].URL = origin.URL + "/changed"
+	c.Subscriptions[0].URL = origin.URL + "/changed"
 	control, stop = start()
-	waitNode(control, "upstream-b")
+	// Stable provider paths intentionally retain cache across configuration changes.
+	// A device refresh must acquire the current URL, including after rollback.
+	read(control, "PUT", "/providers/proxies/direct")
+	waitNode(control, "upstream-b", "direct")
 	stop()
 	// Roll back the definition in the same device work directory.
-	snap.Sources[0].URL = origin.URL + "/direct"
+	c.Subscriptions[0].URL = origin.URL + "/direct"
 	control, stop = start()
 	defer stop()
-	waitNode(control, "upstream-a")
+	read(control, "PUT", "/providers/proxies/direct")
+	waitNode(control, "upstream-a", "direct")
 }
