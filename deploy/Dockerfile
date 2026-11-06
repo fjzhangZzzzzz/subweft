@@ -18,10 +18,4 @@ EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/subweft"]
 CMD ["serve","--data-dir","/var/lib/subweft","--key-file","/run/secrets/master.key"]
 
-# Disposable CI target only; never used for the product image.
-FROM runtime-base AS acceptance
-USER root
-RUN apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*
-USER 10001:10001
-
 FROM runtime-base AS runtime

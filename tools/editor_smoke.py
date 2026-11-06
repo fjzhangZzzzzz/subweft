@@ -24,19 +24,36 @@ def main():
     parser.add_argument('--fixture', type=Path, required=True)
     parser.add_argument('--work-dir', type=Path, default=ROOT / 'output')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--container')
+    parser.add_argument('--base-url', default='')
+    parser.add_argument('--issuer', default='')
     args = parser.parse_args()
     app, fixture = args.app.resolve(), args.fixture.resolve()
-    root = Path(tempfile.mkdtemp(prefix='editor-smoke-', dir=args.work_dir))
+    managed = bool(args.container)
+    host_root = Path(tempfile.mkdtemp(prefix='editor-smoke-', dir=args.work_dir))
+    root = Path('/tmp') / host_root.name if managed else host_root
     state, key = root / 'state', root / 'master.key'
-    base, issuer = ['http://127.0.0.1:' + str(port()) for _ in range(2)]
+    base = args.base_url or 'http://127.0.0.1:' + str(port())
+    issuer = args.issuer or 'http://127.0.0.1:' + str(port())
     suffix = '.exe' if os.name == 'nt' else ''
     env = {**os.environ, 'SUBWEFT_LISTEN': urllib.parse.urlsplit(base).netloc,
            'SUBWEFT_BASE_URL': base, 'SUBWEFT_LOCAL_HTTP': 'true', 'SUBWEFT_OIDC_ISSUER': issuer,
            'SUBWEFT_OIDC_CLIENT_ID': 'subweft-local', 'SUBWEFT_OIDC_CLIENT_SECRET': 'fixture-client-secret-not-for-production',
            'SUBWEFT_ADMIN_SUBJECTS': 'fixture-admin', 'SUBWEFT_MIHOMO_PATH': str(ROOT / 'output/tools' / ('mihomo' + suffix))}
+    if managed:
+        env.update({'SUBWEFT_MIHOMO_PATH': '/workspace/output/tools/mihomo',
+                    'SUBWEFT_BASE_URL': base,
+                    'SUBWEFT_OIDC_ISSUER': 'http://127.0.0.1:18881',
+                    'SUBWEFT_LISTEN': '127.0.0.1:18880'})
     flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
     direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    client = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    class ManagedRedirects(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            if managed and newurl.startswith('http://127.0.0.1:18881'):
+                newurl = issuer + newurl[len('http://127.0.0.1:18881'):]
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+    client = urllib.request.build_opener(urllib.request.ProxyHandler({}), ManagedRedirects(),
+                                         urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
     csrf, children, stage = '', [], 'initialize'
 
     def api(path, body=None, method=None, expected=200):
@@ -64,7 +81,7 @@ def main():
 
     def ready(url, child):
         for _ in range(200):
-            if child.poll() is not None:
+            if child is not None and child.poll() is not None:
                 raise RuntimeError('owned process exited')
             try:
                 with direct.open(url, timeout=.5) as r:
@@ -75,22 +92,50 @@ def main():
             time.sleep(.05)
         raise RuntimeError('readiness timeout')
 
-    with (root / 'process.log').open('wb') as log:
+    with (host_root / 'process.log').open('wb') as log:
+        def managed_app(*argv, detach=False):
+            command = ['docker', 'exec']
+            if detach:
+                command.append('-d')
+            for key in ('SUBWEFT_LISTEN', 'SUBWEFT_BASE_URL', 'SUBWEFT_LOCAL_HTTP',
+                        'SUBWEFT_OIDC_ISSUER', 'SUBWEFT_OIDC_CLIENT_ID',
+                        'SUBWEFT_OIDC_CLIENT_SECRET', 'SUBWEFT_ADMIN_SUBJECTS',
+                        'SUBWEFT_MIHOMO_PATH'):
+                command.extend(['-e', key + '=' + env[key]])
+            return command + [args.container, '/workspace/output/container/subweft', *map(str, argv)]
+
         def command(*argv):
-            subprocess.run([str(app), *map(str, argv)], cwd=ROOT, env=env, stdout=log, stderr=log, check=True, creationflags=flags)
+            if managed:
+                subprocess.run(managed_app(*argv), cwd=ROOT, stdout=log, stderr=log, check=True, creationflags=flags)
+            else:
+                subprocess.run([str(app), *map(str, argv)], cwd=ROOT, env=env, stdout=log, stderr=log, check=True, creationflags=flags)
 
         def start(directory):
-            child = subprocess.Popen([str(app), 'serve', '--data-dir', str(directory), '--key-file', str(key)],
-                                     cwd=ROOT, env=env, stdout=log, stderr=log, creationflags=flags)
-            children.append(child)
+            if managed:
+                subprocess.run(managed_app('serve', '--data-dir', directory, '--key-file', key, detach=True),
+                               cwd=ROOT, stdout=log, stderr=log, check=True, creationflags=flags)
+                child = None
+            else:
+                child = subprocess.Popen([str(app), 'serve', '--data-dir', str(directory), '--key-file', str(key)],
+                                         cwd=ROOT, env=env, stdout=log, stderr=log, creationflags=flags)
+                children.append(child)
             ready(base + '/healthz', child)
             return child
 
         try:
+            if managed:
+                subprocess.run(['docker', 'exec', args.container, 'mkdir', '-p', str(root)],
+                               cwd=ROOT, stdout=log, stderr=log, check=True, creationflags=flags)
             command('init', '--data-dir', state, '--key-file', key)
-            idp = subprocess.Popen([str(fixture), '--listen', urllib.parse.urlsplit(issuer).netloc, '--base-url', base],
-                                   cwd=ROOT, env=env, stdout=log, stderr=log, creationflags=flags)
-            children.append(idp)
+            if managed:
+                idp = subprocess.run(['docker', 'exec', '-d', args.container, '/workspace/output/container/devfixture',
+                                      '--listen', '127.0.0.1:18881', '--base-url', base],
+                                     cwd=ROOT, stdout=log, stderr=log, check=True, creationflags=flags)
+                idp = None
+            else:
+                idp = subprocess.Popen([str(fixture), '--listen', urllib.parse.urlsplit(issuer).netloc, '--base-url', base],
+                                       cwd=ROOT, env=env, stdout=log, stderr=log, creationflags=flags)
+                children.append(idp)
             ready(issuer + '/.well-known/openid-configuration', idp)
             service = start(state)
             stage = 'OIDC authorization redirect'
