@@ -37,12 +37,7 @@ def main():
     smoke_flags=flags + ['--publish',f'127.0.0.1:{base_port}:18880','--publish',f'127.0.0.1:{issuer_port}:18881']
     container=subprocess.check_output(smoke_flags + ['--entrypoint','/usr/bin/sleep','-d','subweft-check:local','infinity'], cwd=ROOT, text=True).strip()
     try:
-        measured=subprocess.run(('python3','tools/editor_smoke.py','--app','output/container/subweft','--fixture','output/container/devfixture','--container',container,'--base-url',f'http://127.0.0.1:{base_port}','--issuer',f'http://127.0.0.1:{issuer_port}','--work-dir',str(out / 'tmp'),'--output',str(out / 'results/editor-smoke.json')), cwd=ROOT, capture_output=True, text=True)
-        print(measured.stdout,flush=True)
-        print(measured.stderr,flush=True)
-        if measured.returncode:
-            raise subprocess.CalledProcessError(measured.returncode, measured.args)
-        json.loads(next(line for line in measured.stdout.splitlines() if line.startswith('{')))
+        run('python3','tools/editor_smoke.py','--app','output/container/subweft','--fixture','output/container/devfixture','--container',container,'--base-url',f'http://127.0.0.1:{base_port}','--issuer',f'http://127.0.0.1:{issuer_port}','--work-dir',str(out / 'tmp'),'--output',str(out / 'results/editor-smoke.json'))
     finally:
         subprocess.run(['docker','stop',container], cwd=ROOT, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print(json.dumps({'native_container':'passed','architecture':os.uname().machine,'isolation':'nested user/file/network namespaces;96 process hard limit;cap_drop ALL;read-only image;tmpfs validation','tests':['validator','app','server','configuration']}))
