@@ -129,7 +129,8 @@ def main():
             command('init', '--data-dir', state, '--key-file', key)
             if managed:
                 idp = subprocess.run(['docker', 'exec', '-d', args.container, '/workspace/output/container/devfixture',
-                                      '--listen', '127.0.0.1:18881', '--base-url', base],
+                                      '--listen', '0.0.0.0:18881', '--public-url', 'http://127.0.0.1:18881',
+                                      '--container-listen', '--base-url', base],
                                      cwd=ROOT, stdout=log, stderr=log, check=True, creationflags=flags)
                 idp = None
             else:
