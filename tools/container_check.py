@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Native disposable Docker verification. No host state or real credentials are mounted."""
 from pathlib import Path
-import os, subprocess, json, platform, tarfile, hashlib, socket
+import os, subprocess, json, platform, tarfile, hashlib, socket, sys
 ROOT=Path(__file__).resolve().parents[1]
 def run(*args,**kw): return subprocess.run(args,cwd=ROOT,check=True,**kw)
 def main():
@@ -37,7 +37,13 @@ def main():
     smoke_flags=flags + ['--publish',f'127.0.0.1:{base_port}:18880','--publish',f'127.0.0.1:{issuer_port}:18881']
     container=subprocess.check_output(smoke_flags + ['--entrypoint','/usr/bin/sleep','-d','subweft-check:local','infinity'], cwd=ROOT, text=True).strip()
     try:
-        run('python3','tools/editor_smoke.py','--app','output/container/subweft','--fixture','output/container/devfixture','--container',container,'--base-url',f'http://127.0.0.1:{base_port}','--issuer',f'http://127.0.0.1:{issuer_port}','--work-dir',str(out / 'tmp'),'--output',str(out / 'results/editor-smoke.json'))
+        try:
+            run('python3','tools/editor_smoke.py','--app','output/container/subweft','--fixture','output/container/devfixture','--container',container,'--base-url',f'http://127.0.0.1:{base_port}','--issuer',f'http://127.0.0.1:{issuer_port}','--work-dir',str(out / 'tmp'),'--output',str(out / 'results/editor-smoke.json'))
+        except subprocess.CalledProcessError:
+            logs=sorted((out/'tmp').glob('editor-smoke-*/process.log'), key=lambda path: path.stat().st_mtime, reverse=True)
+            if logs:
+                print(logs[0].read_text(encoding='utf-8', errors='replace')[-4000:], file=sys.stderr, flush=True)
+            raise
     finally:
         subprocess.run(['docker','stop',container], cwd=ROOT, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print(json.dumps({'native_container':'passed','architecture':os.uname().machine,'isolation':'nested user/file/network namespaces;96 process hard limit;cap_drop ALL;read-only image;tmpfs validation','tests':['validator','app','server','configuration']}))
