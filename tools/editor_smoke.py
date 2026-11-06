@@ -128,16 +128,21 @@ def main():
                                cwd=ROOT, stdout=log, stderr=log, check=True, creationflags=flags)
             command('init', '--data-dir', state, '--key-file', key)
             if managed:
-                idp = subprocess.run(['docker', 'exec', '-d', args.container, '/workspace/output/container/devfixture',
-                                      '--listen', '0.0.0.0:18881', '--public-url', 'http://127.0.0.1:18881',
-                                      '--container-listen', '--base-url', base],
+                idp = subprocess.run(['docker', 'exec', '-d', args.container, 'sh', '-c',
+                                      'exec /workspace/output/container/devfixture --listen 0.0.0.0:18881 --public-url http://127.0.0.1:18881 --container-listen --base-url ' + base + ' >/tmp/subweft-fixture.log 2>&1'],
                                      cwd=ROOT, stdout=log, stderr=log, check=True, creationflags=flags)
                 idp = None
             else:
                 idp = subprocess.Popen([str(fixture), '--listen', urllib.parse.urlsplit(issuer).netloc, '--base-url', base],
                                        cwd=ROOT, env=env, stdout=log, stderr=log, creationflags=flags)
                 children.append(idp)
-            ready(issuer + '/.well-known/openid-configuration', idp)
+            try:
+                ready(issuer + '/.well-known/openid-configuration', idp)
+            except RuntimeError:
+                if managed:
+                    subprocess.run(['docker', 'exec', args.container, 'sh', '-c', 'cat /tmp/subweft-fixture.log'],
+                                   cwd=ROOT, stdout=log, stderr=log, check=False, creationflags=flags)
+                raise
             service = start(state)
             stage = 'OIDC authorization redirect'
             with client.open(base + '/auth/login') as r:
