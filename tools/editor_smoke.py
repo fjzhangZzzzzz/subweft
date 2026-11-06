@@ -96,7 +96,7 @@ def main():
         raise RuntimeError('readiness timeout for ' + url + ' (' + last_error + ')')
 
     with (host_root / 'process.log').open('wb') as log:
-        def managed_app(*argv, detach=False):
+        def managed_exec(*argv, detach=False):
             command = ['docker', 'exec']
             if detach:
                 command.append('-d')
@@ -105,7 +105,10 @@ def main():
                     'SUBWEFT_OIDC_CLIENT_SECRET', 'SUBWEFT_ADMIN_SUBJECTS',
                         'SUBWEFT_MIHOMO_PATH', 'SUBWEFT_CONTAINER_TEST'):
                 command.extend(['-e', key + '=' + env[key]])
-            return command + [args.container, '/workspace/output/container/subweft', *map(str, argv)]
+            return command + [args.container, *map(str, argv)]
+
+        def managed_app(*argv, detach=False):
+            return managed_exec('/workspace/output/container/subweft', *argv, detach=detach)
 
         def command(*argv):
             if managed:
@@ -115,7 +118,8 @@ def main():
 
         def start(directory):
             if managed:
-                subprocess.run(managed_app('serve', '--data-dir', directory, '--key-file', key, detach=True),
+                script = '/workspace/output/container/subweft serve --data-dir ' + str(directory) + ' --key-file ' + str(key) + ' & echo $! > /tmp/subweft-app.pid; wait'
+                subprocess.run(managed_exec('sh', '-c', script, detach=True),
                                cwd=ROOT, stdout=log, stderr=log, check=True, creationflags=flags)
                 child = None
             else:
@@ -195,8 +199,13 @@ def main():
             if download(link) != original or api('state')['check'] is not None:
                 raise RuntimeError('restore changed active release or kept check')
             stage = 'CLI backup and recovery'
-            service.terminate()
-            service.wait(timeout=10)
+            if managed:
+                subprocess.run(managed_exec('sh', '-c', 'if [ -f /tmp/subweft-app.pid ]; then kill "$(cat /tmp/subweft-app.pid)"; fi'),
+                               cwd=ROOT, stdout=log, stderr=log, check=True, creationflags=flags)
+                time.sleep(.2)
+            else:
+                service.terminate()
+                service.wait(timeout=10)
             backup, restored = root / 'backup.sqlite', root / 'restored'
             command('backup', '--data-dir', state, '--key-file', key, '--output', backup)
             command('restore', '--backup-file', backup, '--data-dir', restored, '--key-file', key)
