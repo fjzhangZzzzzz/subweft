@@ -80,6 +80,7 @@ def main():
         return data
 
     def ready(url, child):
+        last_error = 'no response'
         for _ in range(200):
             if child is not None and child.poll() is not None:
                 raise RuntimeError('owned process exited')
@@ -87,10 +88,11 @@ def main():
                 with direct.open(url, timeout=.5) as r:
                     if r.status == 200:
                         return
-            except OSError:
-                pass
+                    last_error = 'HTTP ' + str(r.status)
+            except OSError as error:
+                last_error = type(error).__name__ + ': ' + str(error)
             time.sleep(.05)
-        raise RuntimeError('readiness timeout')
+        raise RuntimeError('readiness timeout for ' + url + ' (' + last_error + ')')
 
     with (host_root / 'process.log').open('wb') as log:
         def managed_app(*argv, detach=False):
