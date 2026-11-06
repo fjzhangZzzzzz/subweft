@@ -209,7 +209,7 @@ def main():
             args.output.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
             print(json.dumps(report), flush=True)
         except Exception as e:
-            raise SystemExit('Editor smoke failed at ' + stage + ': ' + type(e).__name__) from None
+            raise SystemExit('Editor smoke failed at ' + stage + ': ' + type(e).__name__ + ': ' + str(e)) from None
         finally:
             for child in reversed(children):
                 if child.poll() is None:
