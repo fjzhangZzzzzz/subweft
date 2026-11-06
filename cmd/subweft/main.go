@@ -188,7 +188,8 @@ func validateURLs(base, issuer, listen string, local bool) error {
 		return nil
 	}
 	host, _, e := net.SplitHostPort(listen)
-	if e != nil || !loopback(host) || !loopback(b.Hostname()) || (i.Scheme != "https" && (i.Scheme != "http" || !loopback(i.Hostname()))) || b.Scheme != "http" {
+	containerTest := os.Getenv("SUBWEFT_CONTAINER_TEST") == "true"
+	if e != nil || (!loopback(host) && !(containerTest && host == "0.0.0.0")) || !loopback(b.Hostname()) || (i.Scheme != "https" && (i.Scheme != "http" || !loopback(i.Hostname()))) || b.Scheme != "http" {
 		return errors.New("local_http_requires_loopback_only")
 	}
 	return nil

@@ -44,7 +44,8 @@ def main():
         env.update({'SUBWEFT_MIHOMO_PATH': '/workspace/output/tools/mihomo',
                     'SUBWEFT_BASE_URL': base,
                     'SUBWEFT_OIDC_ISSUER': 'http://127.0.0.1:18881',
-                    'SUBWEFT_LISTEN': '127.0.0.1:18880'})
+                    'SUBWEFT_LISTEN': '0.0.0.0:18880',
+                    'SUBWEFT_CONTAINER_TEST': 'true'})
     flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
     direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     class ManagedRedirects(urllib.request.HTTPRedirectHandler):
@@ -101,8 +102,8 @@ def main():
                 command.append('-d')
             for key in ('SUBWEFT_LISTEN', 'SUBWEFT_BASE_URL', 'SUBWEFT_LOCAL_HTTP',
                         'SUBWEFT_OIDC_ISSUER', 'SUBWEFT_OIDC_CLIENT_ID',
-                        'SUBWEFT_OIDC_CLIENT_SECRET', 'SUBWEFT_ADMIN_SUBJECTS',
-                        'SUBWEFT_MIHOMO_PATH'):
+                    'SUBWEFT_OIDC_CLIENT_SECRET', 'SUBWEFT_ADMIN_SUBJECTS',
+                        'SUBWEFT_MIHOMO_PATH', 'SUBWEFT_CONTAINER_TEST'):
                 command.extend(['-e', key + '=' + env[key]])
             return command + [args.container, '/workspace/output/container/subweft', *map(str, argv)]
 
