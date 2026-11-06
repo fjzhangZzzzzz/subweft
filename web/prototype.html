@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subweft · 新版交互原型</title>
+<link rel="icon" href="data:,">
+<style>
+:root{color-scheme:light;--bg:#f5f7fa;--surface:#fff;--ink:#172438;--muted:#607086;--line:#dce3ec;--blue:#245bd9;--blue-bg:#edf3ff;--green:#176744;--green-bg:#ecf7f0;--red:#b22e38;--red-bg:#fff1f2;--amber:#8a5207;--amber-bg:#fff7e8;--radius:10px}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 Inter,"Segoe UI","Microsoft YaHei",sans-serif}button,input,select,textarea{font:inherit}button,a,input,select,textarea,summary{touch-action:manipulation}button,summary{cursor:pointer}button{min-height:38px;padding:7px 13px;border:1px solid var(--line);border-radius:7px;background:white;color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:7px;line-height:1.4;white-space:nowrap}button:hover:not(:disabled){background:#f1f5fa;border-color:#aebed2}button:disabled{cursor:not-allowed;opacity:.46}button.primary{background:var(--blue);border-color:var(--blue);color:white}button.primary:hover:not(:disabled){background:#1948b8}button.danger{color:var(--red)}button.danger.primary{background:var(--red);border-color:var(--red);color:white}.text-button{background:none;border-color:transparent;color:var(--blue);padding:4px 6px}.icon-button{width:38px;padding:7px}svg{width:18px;height:18px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}a{color:var(--blue)}:focus-visible{outline:3px solid #90b4ff;outline-offset:3px}h1,h2,h3,p{margin:0}h1{font-size:25px;font-weight:650;letter-spacing:-.6px}h2{font-size:18px;font-weight:650}h3{font-size:15px;font-weight:650}small,.small{font-size:12px}.muted{color:var(--muted)}.mono,code,pre{font-family:"Cascadia Code",Consolas,monospace}.row{display:flex;align-items:center;gap:10px}.between{justify-content:space-between}.wrap{flex-wrap:wrap}.stack{display:grid;gap:16px}.spacer{flex:1}.description{color:var(--muted);margin-top:5px}.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;border-radius:5px;padding:3px 8px;background:#f0f3f7;color:#516177;white-space:nowrap}.badge.blue{color:#2354b6;background:var(--blue-bg)}.badge.green{color:var(--green);background:var(--green-bg)}.badge.amber{color:var(--amber);background:var(--amber-bg)}.badge.red{color:var(--red);background:var(--red-bg)}.count{font-size:13px;color:var(--muted);font-weight:400;margin-left:8px}.skip{position:fixed;top:-100px;z-index:100;background:white;padding:10px}.skip:focus{top:0}.prototype-strip{height:35px;background:#e9eef7;color:#405572;display:flex;align-items:center;gap:10px;padding:0 23px;font-size:12px;border-bottom:1px solid #d7e0ed}.prototype-strip button{font-size:12px;min-height:28px;padding:2px 8px;background:transparent;border:0;color:#304f87}.layout{display:grid;grid-template-columns:212px minmax(0,1fr);min-height:calc(100dvh - 35px)}.sidebar{border-right:1px solid var(--line);background:white;padding:24px 14px 18px;display:flex;flex-direction:column;position:sticky;top:0;height:calc(100dvh - 35px)}.brand{font-size:22px;font-weight:700;display:flex;align-items:center;gap:10px;padding:0 12px 24px;letter-spacing:-.5px}.brand-symbol{height:31px;width:31px;color:white;background:var(--blue);display:grid;place-items:center;border-radius:9px}.brand-symbol svg{width:21px;height:21px}.nav-label{color:var(--muted);font-size:11px;letter-spacing:1px;padding:0 12px;margin:5px 0 10px}.nav{display:grid;gap:4px}.nav a{text-decoration:none;color:#526175;display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:7px;min-height:43px}.nav a:hover{background:#f5f7fa}.nav a.active{background:var(--blue-bg);color:var(--blue);font-weight:600}.nav a:last-child{margin-top:16px}.identity{margin-top:auto;padding:18px 12px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.avatar{width:30px;height:30px;border-radius:50%;background:#eef2f8;display:grid;place-items:center;font-size:13px;color:#50617b}.work{min-width:0}.topbar{position:sticky;top:0;z-index:5;min-height:74px;padding:14px 32px;background:#ffffffee;backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px}.draft-dot{width:8px;height:8px;border-radius:50%;background:#8899ad;display:inline-block;margin-right:7px}.draft-dot.changed{background:#d19328}.topbar .revision{margin-left:5px;color:var(--muted);font-size:12px}.mobile-nav-toggle{display:none}.main{padding:30px 32px 48px;max-width:1420px;margin:0 auto}.page-heading{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:24px}.panel{background:white;border:1px solid var(--line);border-radius:var(--radius);min-width:0}.padded{padding:24px}.panel-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:19px 22px;border-bottom:1px solid var(--line)}.overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}.version-number{font-size:32px;letter-spacing:-1px;font-weight:650;margin:12px 0 4px}.toolbar{display:flex;align-items:center;gap:12px;margin-bottom:18px}.toolbar input{max-width:290px}.toolbar select{max-width:170px}.toolbar label{display:flex;align-items:center;gap:8px;color:var(--muted);white-space:nowrap;font-size:13px}.toolbar label input,.toolbar label select{width:auto}.table-wrap{border-radius:var(--radius);background:white;border:1px solid var(--line)}table{width:100%;border-collapse:collapse;text-align:left}th{font-size:12px;color:var(--muted);font-weight:500;background:#f9fafc;padding:12px 18px;border-bottom:1px solid var(--line)}th:first-child{border-radius:10px 0 0 0}th:last-child{border-radius:0 10px 0 0}td{padding:17px 18px;border-bottom:1px solid #e8edf3;vertical-align:middle}tr:last-child td{border-bottom:0}td strong{font-weight:600}td .sub{display:block;color:var(--muted);font-size:12px;margin-top:3px;overflow-wrap:anywhere}td.actions{white-space:nowrap;text-align:right;width:170px}td .row{gap:6px}.name-button{padding:0;border:0;background:transparent;color:var(--blue);font-weight:600;min-height:30px;white-space:normal;text-align:left;justify-content:flex-start}.name-button:hover:not(:disabled){background:transparent;text-decoration:underline}input,select,textarea{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:6px;background:white;color:var(--ink);padding:9px 11px;min-height:40px}textarea{resize:vertical;line-height:1.7}input[type=checkbox],input[type=radio]{width:17px;min-height:17px;accent-color:var(--blue);margin:0;flex-shrink:0}input:focus,select:focus,textarea:focus{border-color:var(--blue)}.field{display:grid;gap:6px;margin-bottom:19px}.field>label,.field>.label{font-weight:500;font-size:13px}.field .hint{color:var(--muted);font-size:12px}.field-error{color:var(--red);font-size:12px}.field [aria-invalid=true]{border-color:var(--red)}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}.check{display:flex;align-items:center;gap:9px;min-height:38px;cursor:pointer}.choices{display:flex;gap:9px;flex-wrap:wrap}.choice{border:1px solid var(--line);border-radius:7px;padding:10px 13px;display:flex;align-items:center;gap:9px;flex:1;min-width:140px;cursor:pointer}.choice:has(input:checked){border-color:#8baaf1;background:#f5f8ff}.notice{padding:13px 16px;border-radius:7px;background:var(--blue-bg);color:#34537e;font-size:13px;line-height:1.7}.notice.amber{background:var(--amber-bg);color:var(--amber)}.notice.red{background:var(--red-bg);color:var(--red)}.notice.green{background:var(--green-bg);color:var(--green)}.notice p+p{margin-top:5px}.section-label{font-size:12px;color:var(--muted);margin:23px 0 11px}.impact{background:#f6f8fb;border:1px solid #e6ebf2;padding:14px;border-radius:7px;font-size:13px;line-height:1.8}.impact strong{font-weight:600}.empty{padding:38px;text-align:center;color:var(--muted)}.change-list{list-style:none;margin:0;padding:0}.change-list li{display:flex;align-items:center;gap:13px;padding:14px 22px;border-bottom:1px solid #eef1f5}.change-list li:last-child{border:0}.change-mark{width:26px;height:26px;border-radius:6px;background:var(--blue-bg);color:var(--blue);display:grid;place-items:center;flex-shrink:0}.change-mark.delete{color:var(--red);background:var(--red-bg)}.change-list .change-title{flex:1;min-width:0}.change-list .change-title small{display:block;color:var(--muted)}.order-cell{width:70px;white-space:nowrap;color:var(--muted)}.drag-handle{cursor:grab;border:0;background:transparent;color:#9ba9bb;min-height:32px;padding:2px;width:24px}.rule-actions{display:flex;gap:3px;justify-content:flex-end}.rule-actions .icon-button{width:32px;min-height:32px}.drag-over{outline:2px solid #91b1fa;outline-offset:-2px}.fallback{display:flex;align-items:center;gap:20px;padding:18px 21px;border-top:1px solid var(--line);background:#f9fafc;border-radius:0 0 10px 10px}.fallback>div:first-child{flex:1}.row-menu{position:relative;display:inline-block;margin-left:4px}.row-menu summary{list-style:none;min-height:36px;min-width:38px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:var(--muted)}.row-menu summary::-webkit-details-marker{display:none}.row-menu summary:hover{background:#f1f5fa}.row-menu>div{position:absolute;right:0;top:39px;z-index:6;min-width:168px;background:white;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 30px #17243820;padding:6px;display:grid;gap:2px}.row-menu>div button{justify-content:flex-start;border:0;font-size:13px}.back{margin-bottom:15px}.tabs{display:flex;gap:8px;border-bottom:1px solid var(--line);margin-bottom:20px}.tabs button{border:0;border-radius:0;background:transparent;color:var(--muted);padding:12px 16px;border-bottom:2px solid transparent}.tabs button.active{border-bottom-color:var(--blue);color:var(--blue);font-weight:600}pre{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;padding:19px;background:#f6f8fc;border:1px solid #e5eaf2;border-radius:7px;font-size:12px;line-height:1.9;margin:0;max-height:460px;overflow:auto}.diff-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.diff-grid h3{margin-bottom:9px}.check-list{display:grid;gap:13px}.check-line{display:flex;gap:10px;align-items:flex-start}.check-line svg{margin-top:3px;color:var(--green)}.check-line.bad svg{color:var(--red)}.check-line .text{flex:1}.check-line small{display:block;color:var(--muted)}.review-footer{margin-top:24px;display:flex;justify-content:space-between;align-items:center;gap:12px}.review-footer .field{margin:0;max-width:500px;flex:1}.page-note{font-size:12px;color:var(--muted);margin-top:20px}.detail-list{display:grid;gap:14px}.detail-list>div{display:flex;justify-content:space-between;gap:25px}.detail-list dt{color:var(--muted)}.detail-list dd{margin:0;text-align:right}.guide{background:#f0f4fb;border-bottom:1px solid #d4dfee;padding:18px 24px}.guide-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}.guide-tabs button{background:white;min-height:34px;font-size:12px}.guide-tabs button.active{border-color:var(--blue);color:var(--blue)}.guide-content{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.guide-content p{flex:1;min-width:200px;color:#4f6380;font-size:13px}.guide-tools{margin-top:12px}.guide-tools summary{font-size:12px;color:var(--muted)}.guide-tools .row{margin-top:10px}.guide-tools button{font-size:12px}.drawer{position:fixed;inset:0 0 0 auto;width:min(550px,100vw);max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border:0;border-left:1px solid var(--line);padding:0;background:white;color:var(--ink);box-shadow:-15px 0 60px #1724381a}.drawer::backdrop{background:#17243828}.drawer[open]{display:flex;flex-direction:column}.drawer-header{padding:22px 25px 19px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:14px;flex-shrink:0}.drawer-header>div{flex:1}.drawer-header p{font-size:12px;color:var(--muted);margin-top:5px}.drawer-form{display:flex;flex-direction:column;min-height:0;flex:1}.drawer-body{padding:25px;overflow:auto;flex:1}.drawer-footer{border-top:1px solid var(--line);padding:17px 25px;display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-shrink:0;background:white}.drawer-footer small{margin-right:auto;color:var(--muted)}.advanced{border-top:1px solid var(--line);padding-top:13px;margin:19px 0}.advanced summary{font-size:13px;min-height:34px;color:#4b5f7a}.advanced[open] summary{margin-bottom:13px}.password-wrap{display:flex;gap:7px}.password-wrap button{flex-shrink:0}.nested-form{border:1px solid #b6cafa;background:#f7faff;padding:17px;border-radius:8px;margin-bottom:20px}.nested-form h3{margin-bottom:13px}.dialog-confirm{width:min(440px,calc(100vw - 30px));border:1px solid var(--line);border-radius:12px;padding:25px;color:var(--ink);box-shadow:0 20px 80px #17243830}.dialog-confirm::backdrop{background:#17243855}.dialog-confirm p{margin:13px 0 23px;color:var(--muted);white-space:pre-line}.dialog-confirm .row{justify-content:flex-end}.toast{position:fixed;left:50%;bottom:25px;transform:translateX(-50%);z-index:30;max-width:calc(100vw - 32px);padding:12px 18px;border-radius:9px;background:#20324e;color:white;box-shadow:0 5px 25px #17243825;font-size:13px;display:none}.toast.visible{display:block}.bulk-preview{margin-top:18px}.bulk-preview ul{padding-left:20px;font-size:12px;color:var(--muted)}.rule-syntax{margin:15px 0;color:var(--muted);font-size:12px}.chips{display:flex;gap:6px;flex-wrap:wrap}.divider{border:0;border-top:1px solid var(--line);margin:23px 0}.dialog-error{margin-bottom:18px}.warning-text{color:var(--amber)}.guide-step{min-height:34px;font-size:12px}.device-link{font-size:12px;overflow-wrap:anywhere}.prototype-caption{font-size:12px;color:#627086;margin-top:7px}
+@media(max-width:1000px){.layout{grid-template-columns:184px minmax(0,1fr)}.topbar{padding:14px 22px}.main{padding:24px 22px}th,td{padding-left:13px;padding-right:13px}.topbar .revision{display:none}.rule-actions{flex-wrap:wrap}}
+@media(max-width:760px){body{font-size:14px}.prototype-strip{height:auto;min-height:35px;padding:6px 12px;flex-wrap:wrap;gap:3px 8px}.prototype-strip .strip-note{display:none}.layout{display:block;min-height:calc(100dvh - 35px)}.sidebar{display:none;position:fixed;inset:0 auto 0 0;width:238px;z-index:15;height:100dvh;box-shadow:15px 0 60px #17243840}.sidebar.open{display:flex}.sidebar .nav a{min-height:48px}.mobile-nav-toggle{display:inline-flex}.topbar{padding:12px;gap:9px;min-height:74px;flex-wrap:wrap;z-index:5}.topbar .draft-state{font-size:12px;flex:1}.topbar .primary{font-size:12px;padding:9px 11px;min-height:44px}.main{padding:22px 14px 40px}.page-heading{align-items:flex-start;gap:12px;margin-bottom:20px}.page-heading h1{font-size:23px}.page-heading .description{font-size:12px;max-width:250px}.page-heading>button{font-size:13px}.overview-grid{grid-template-columns:1fr;gap:14px;margin-bottom:18px}.padded{padding:19px}.panel-heading{padding:16px}.toolbar{flex-wrap:wrap;gap:9px}.toolbar input{max-width:none}.toolbar label{flex:1}.toolbar label select{flex:1;width:100%}.toolbar input,.toolbar select{font-size:16px}button{min-height:44px}.icon-button{width:44px}.field input,.field select,.field textarea{font-size:16px;min-height:44px}.check{min-height:44px}.table-wrap{overflow:visible}table,tbody{display:block}thead{position:absolute;clip:rect(0,0,0,0);width:1px;height:1px;overflow:hidden}tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:17px;border-bottom:1px solid var(--line)}tr:last-child{border:0}td{display:block;padding:0;border:0;min-width:0;grid-column:1/-1;overflow-wrap:anywhere}td:first-child{font-weight:600}td[data-label]::before{content:attr(data-label);font-size:12px;font-weight:400;color:var(--muted);display:inline-block;margin-right:13px}td:first-child::before,td.actions::before,td.order-cell::before{display:none}td.actions{grid-column:1/-1;width:auto;text-align:left;margin-top:7px;white-space:normal}.order-cell{display:flex;width:auto;align-items:center;font-size:12px;color:var(--muted)}.rule-actions{justify-content:flex-start}.rule-actions .icon-button{width:44px;min-height:44px}.row-menu summary{min-height:44px;min-width:44px}.row-menu>div{right:auto;left:0;top:46px}.row-menu>div button{min-height:44px}.fallback{padding:17px;gap:10px;flex-wrap:wrap}.fallback>div:first-child{min-width:150px}.change-list li{padding:15px}.diff-grid{grid-template-columns:1fr}.review-footer{flex-wrap:wrap}.review-footer .field{min-width:100%;margin-bottom:8px}.drawer{width:100%;border:0}.drawer-header{padding:18px}.drawer-body{padding:20px 18px}.drawer-footer{padding:14px 18px}.drawer-footer small{font-size:11px;max-width:110px}.form-grid{grid-template-columns:1fr}.guide{padding:15px}.guide-content{align-items:flex-start}.guide-content p{flex-basis:100%}.guide-tabs button{min-height:44px}.guide-tools .row{flex-wrap:wrap}.choice{min-height:48px}.check-line{gap:8px}.check-line button{font-size:12px}.page-note{line-height:1.8}.tabs{gap:0}.tabs button{padding:12px}.toast{bottom:14px;width:max-content}.menu-close{display:inline-flex!important}}
+@media(max-width:760px){.topbar>.spacer{display:none}.topbar .draft-state{min-width:0}.topbar .draft-state strong{font-size:12px}.topbar .draft-state .small{font-size:11px}.page-heading{flex-wrap:wrap}.page-heading>.row{flex-wrap:wrap}.identity small{max-width:155px}}
+.config-diff{border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:12px}.diff-tools{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.diff-switch{display:flex;gap:4px}.diff-switch button{font-size:12px;min-height:34px}.diff-switch button[aria-pressed=true]{background:var(--blue-bg);border-color:#8baaf1;color:var(--blue)}.diff-counts{display:flex;gap:12px;font:12px Consolas,monospace}.diff-counts .added{color:var(--green)}.diff-counts .removed{color:var(--red)}.diff-scroll{overflow:auto}.diff-head{display:grid;background:#f1f4f8;border-bottom:1px solid var(--line);font-size:12px;font-weight:600}.split .diff-head,.split .diff-row{grid-template-columns:1fr 1fr;min-width:620px}.diff-head span{padding:10px 12px}.diff-head span+span{border-left:1px solid var(--line)}.diff-row{display:grid;font:12px/1.8 Consolas,"Microsoft YaHei",monospace}.diff-cell{display:grid;grid-template-columns:38px 20px minmax(0,1fr);min-width:0}.split .diff-cell+.diff-cell{border-left:1px solid var(--line)}.diff-cell.inline-cell{grid-template-columns:34px 34px 20px minmax(0,1fr)}.diff-number{text-align:right;padding:2px 6px 2px 0;color:#66758a;user-select:none;background:#f5f7fa}.diff-sign{padding:2px 0;text-align:center;user-select:none}.diff-code{white-space:pre-wrap;overflow-wrap:anywhere;padding:2px 10px 2px 0;min-width:0}.diff-cell.add{background:#e6f6eb}.diff-cell.del{background:#ffebe9}.diff-cell.add .diff-number{background:#cfecd9;color:#306d44}.diff-cell.del .diff-number{background:#ffdcd8;color:#8e4343}.diff-cell.blank{background:#f1f3f6}.diff-code mark{color:inherit;border-radius:2px;font-weight:600}.diff-cell.add mark{background:#ace3bd}.diff-cell.del mark{background:#ffb8b0}.diff-fold{padding:4px 12px;background:#edf3fb;border-block:1px solid #dce5f1}.diff-fold button{border:0;background:transparent;color:#365e96;font-size:12px;min-height:32px}.sensitive-changes{padding:10px 14px;margin:12px 0;background:var(--amber-bg);color:var(--amber);border-radius:6px;font-size:12px;list-style-position:inside}.diff-note{margin-top:10px;font-size:12px;color:var(--muted)}
+@media(max-width:760px){.diff-tools{align-items:flex-start}.diff-switch button{min-height:44px}.diff-fold button{min-height:44px}.diff-row{font-size:11px}.diff-cell.inline-cell{grid-template-columns:27px 27px 16px minmax(0,1fr)}.diff-number{padding-right:4px}.diff-code{padding-right:6px}.diff-head span{padding:10px 8px;font-size:11px}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<div id="app"></div>
+<dialog id="drawer" class="drawer" aria-labelledby="drawer-title"></dialog>
+<dialog id="confirm-dialog" class="dialog-confirm" aria-labelledby="confirm-title"></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script>
+// THROWAWAY PROTOTYPE. No network, real credentials, storage or production APIs.
+// The pure model below demonstrates draft / checked revision / active version.
+const Model = (() => {
+  const clone = x => structuredClone(x);
+  const initialConfig = () => ({
+    sources:[
+      {id:'s1',name:'主力订阅',pool:'quality',enabled:true,url:'https://quality.example.com/subscription',interval:3600,prefix:'[主力] ',health:true,proxy:'DIRECT'},
+      {id:'s2',name:'日常订阅',pool:'quota',enabled:true,url:'https://quota.example.net/subscription',interval:3600,prefix:'[日常] ',health:true,proxy:'DIRECT'}
+    ],
+    groups:[
+      {id:'g1',name:'AI',mode:'select',pools:['quality','quota'],builtins:[],url:'https://check.example.com/generate_204',interval:300,tolerance:50},
+      {id:'g2',name:'Default',mode:'url-test',pools:['quota'],builtins:[],url:'https://check.example.com/generate_204',interval:300,tolerance:50},
+      {id:'g3',name:'V2EX',mode:'select',pools:['quota'],builtins:[],url:'https://check.example.com/generate_204',interval:300,tolerance:50}
+    ],
+    sets:[
+      {id:'c1',name:'AI',kind:'local',entries:[{id:'e1',type:'suffix',value:'ai.example.com'},{id:'e2',type:'domain',value:'api.example.net'},{id:'e3',type:'ip',value:'192.0.2.0/24'}]},
+      {id:'c2',name:'V2EX',kind:'local',entries:[{id:'e4',type:'suffix',value:'community.example.com'}]},
+      {id:'c3',name:'直连',kind:'local',entries:[{id:'e5',type:'suffix',value:'home.example.org'},{id:'e6',type:'ip',value:'198.51.100.0/24'}]},
+      {id:'c4',name:'公共代理',kind:'http',behavior:'domain',url:'https://rules.example.com/proxy.yaml',interval:86400},
+      {id:'c5',name:'国内域名',kind:'http',behavior:'domain',url:'https://rules.example.com/cn.yaml',interval:86400}
+    ],
+    rules:[
+      {id:'r1',type:'RULE-SET',value:'c1',target:'g1',noResolve:false},
+      {id:'r2',type:'RULE-SET',value:'c2',target:'g3',noResolve:false},
+      {id:'r3',type:'RULE-SET',value:'c3',target:'DIRECT',noResolve:false},
+      {id:'r4',type:'RULE-SET',value:'c4',target:'g2',noResolve:false},
+      {id:'r5',type:'RULE-SET',value:'c5',target:'DIRECT',noResolve:false},
+      {id:'r6',type:'GEOIP',value:'CN',target:'DIRECT',noResolve:true}
+    ],fallback:'g2',base:{mixedPort:7890,allowLan:false,dnsEnabled:true,dnsMode:'fake-ip',nameservers:['https://dns.example.net/dns-query']}
+  });
+  const initial = () => {
+    const config=initialConfig(), old=clone(config); old.sets[0].entries=old.sets[0].entries.slice(0,2);
+    return {draft:clone(config),rev:28,active:12,versions:[{n:12,date:'今天 10:24',note:'示例：更新 AI 分流',config:clone(config)},{n:11,date:'昨天 18:30',note:'示例：初始订阅与分流',config:old}],checked:null,devices:[{id:'d1',name:'日常电脑',state:'active',expires:'',generation:1,seen:'尚未下载'}],next:100};
+  };
+  const active = s => s.versions.find(v=>v.n===s.active);
+  const targetName = (c,id) => c.groups.find(g=>g.id===id)?.name || id;
+  const members = (c,g) => c.sources.filter(x=>x.enabled&&g.pools.includes(x.pool));
+  const poolName = x => x==='quality'?'高质量池':'高流量池';
+  const groupSources = g => [g.pools.length===2?'全部订阅':g.pools.map(poolName).join('、'),...g.builtins].filter(Boolean).join('、')||'尚未选择来源';
+  const diffs = s => {
+    const before=active(s).config, after=s.draft,out=[];
+    for(const [key,label,page] of [['sources','订阅','sources'],['groups','策略组','groups'],['sets','规则集','sets'],['rules','分流规则','rules']]){
+      for(const item of after[key]){
+        const old=before[key].find(x=>x.id===item.id);
+        if(!old||JSON.stringify(old)!==JSON.stringify(item)){
+          const name=item.name||(item.type==='RULE-SET'?after.sets.find(x=>x.id===item.value)?.name:item.value)||item.type;
+          let detail='';
+          if(key==='sources')detail=`${poolName(item.pool)} · ${item.enabled?'已启用':'已禁用'}`;
+          if(key==='groups')detail=groupSources(item);
+          if(key==='sets')detail=item.kind==='local'?`${item.entries.length} 条条目`:'远程规则集';
+          if(key==='rules')detail=`→ ${targetName(after,item.target)}`;
+          out.push({kind:old?'edit':'add',title:`${old?'修改':'新增'}${label}：${name}`,detail,page,id:item.id});
+        }
+      }
+      for(const item of before[key])if(!after[key].some(x=>x.id===item.id))out.push({kind:'delete',title:`删除${label}：${item.name||(item.type==='RULE-SET'?before.sets.find(x=>x.id===item.value)?.name:item.value)||'规则'}`,detail:'从草稿移除，当前发布仍保留',page,id:item.id});
+    }
+    const order=c=>c.rules.filter(r=>before.rules.some(x=>x.id===r.id)&&after.rules.some(x=>x.id===r.id)).map(r=>r.id).join(',');
+    if(order(before)!==order(after))out.push({kind:'edit',title:'调整分流规则顺序',detail:'按界面中的顺序匹配',page:'rules'});
+    if(before.fallback!==after.fallback)out.push({kind:'edit',title:'修改兜底去向',detail:`${targetName(before,before.fallback)} → ${targetName(after,after.fallback)}`,page:'rules'});
+    return out;
+  };
+  const validate = c => {
+    const errors=[], targets=new Set([...c.groups.map(g=>g.id),'DIRECT','REJECT']);
+    for(const s of c.sources.filter(x=>x.enabled))if(!targets.has(s.proxy))errors.push({text:`${s.name} 的拉取代理未选择或不存在`,hint:'在订阅的高级设置中选择拉取代理。',page:'sources',id:s.id});
+    for(const g of c.groups)if(!members(c,g).length&&!g.builtins.length)errors.push({text:`${g.name} 没有启用的来源或成员`,hint:`启用${g.pools.map(poolName).join('或')||'一个订阅池'}中的订阅，或调整策略组来源。`,page:'groups',id:g.id});
+    const generated=new Set();
+    for(const set of c.sets){
+      const names=set.kind==='http'?[set.name]:[set.entries.some(e=>e.type!=='ip')?set.name+'-domain':null,set.entries.some(e=>e.type==='ip')?set.name+'-ipcidr':null].filter(Boolean);
+      for(const n of names){if(generated.has(n))errors.push({text:`生成的规则集名称重复：${n}`,hint:'请调整规则集名称。',page:'sets',id:set.id});generated.add(n);}
+    }
+    for(const r of c.rules){
+      if(!targets.has(r.target))errors.push({text:'分流规则的目标不存在',hint:'请选择现有策略组或内置动作。',page:'rules',id:r.id});
+      if(r.type==='RULE-SET'){
+        const set=c.sets.find(x=>x.id===r.value);
+        if(!set||set.kind==='local'&&!set.entries.length)errors.push({text:`${set?.name||'引用的规则集'}没有可用条目`,hint:'添加条目或删除对应分流规则。',page:'sets',id:set?.id});
+      }
+    }
+    if(!targets.has(c.fallback))errors.push({text:'兜底目标不存在',hint:'设置其他流量的去向。',page:'rules'});
+    return errors;
+  };
+  const entryError = (type,value) => {
+    if(!value.trim())return '请填写匹配内容';
+    if(type==='ip'){
+      const parts=value.split('/');if(parts.length!==2||!/^\d+$/.test(parts[1]))return '请使用 CIDR 格式，例如 192.0.2.0/24';
+      if(parts[0].includes(':')){try{new URL(`http://[${parts[0]}]/`);}catch{return 'IPv6 地址格式不正确';}if(+parts[1]>128)return 'IPv6 前缀长度应为 0–128';}
+      else if(!/^(\d{1,3}\.){3}\d{1,3}$/.test(parts[0])||parts[0].split('.').some(x=>+x>255)||+parts[1]>32)return 'IPv4 地址或前缀长度不正确';
+      return '';
+    }
+    return value.length>253||!value.split('.').every(p=>/^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(p))?'请输入域名，不含协议、路径、端口或通配符':'';
+  };
+  const deviceStatus = d => d.state==='revoked'?'已撤销':d.state==='paused'?'已暂停':d.expires&&Date.parse(d.expires)<=Date.now()?'已到期':'有效';
+  const canDownload = (s,id,generation) => {const d=s.devices.find(x=>x.id===id);return !!d&&deviceStatus(d)==='有效'&&d.generation===generation;};
+  const save = (s,config) => JSON.stringify(config)===JSON.stringify(s.draft)?s:{...s,draft:clone(config),rev:s.rev+1,checked:null};
+  const publish = s => {
+    if(!s.checked||s.checked.rev!==s.rev||s.checked.errors.length||!diffs(s).length)return null;
+    const n=Math.max(...s.versions.map(v=>v.n))+1;
+    return {...s,active:n,checked:null,versions:[{n,date:new Date().toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),note:s.note||'更新配置',config:clone(s.draft)},...s.versions]};
+  };
+  const yaml = (c,redact=true) => {
+    const q=x=>JSON.stringify(x),lines=['# 交互原型生成示意；未执行真实 Mihomo 校验',`mixed-port: ${c.base.mixedPort}`,`allow-lan: ${c.base.allowLan}`,'mode: rule','dns:',`  enable: ${c.base.dnsEnabled}`,`  enhanced-mode: ${c.base.dnsMode}`,'  nameserver:',...c.base.nameservers.map(x=>'    - '+q(x)),'','proxy-providers:'];
+    for(const s of c.sources.filter(x=>x.enabled))lines.push(`  ${q(s.name)}:`,`    type: http`,`    url: ${q(redact?'[订阅地址已隐藏]':s.url)}`,`    interval: ${s.interval}`,'    override:',`      additional-prefix: ${q(s.prefix)}`,`    proxy: ${q(targetName(c,s.proxy))}`,'    health-check:',`      enable: ${s.health}`,'      url: "https://check.example.com/generate_204"','      interval: 300');
+    lines.push('','proxy-groups:');
+    for(const g of c.groups){lines.push(`  - name: ${q(g.name)}`,`    type: ${g.mode}`);const m=members(c,g);if(m.length)lines.push('    use:',...m.map(s=>'      - '+q(s.name)));if(g.builtins.length)lines.push('    proxies:',...g.builtins.map(x=>'      - '+x));if(g.mode==='url-test')lines.push(`    url: ${q(g.url)}`,`    interval: ${g.interval}`,`    tolerance: ${g.tolerance}`);}
+    lines.push('','rule-providers:');
+    for(const set of c.sets){
+      if(set.kind==='http')lines.push(`  ${q(set.name)}:`,`    type: http`,`    behavior: ${set.behavior}`,'    format: yaml',`    url: ${q(redact?'[远程规则集地址已隐藏]':set.url)}`,`    interval: ${set.interval}`);
+      else for(const [kind,filter] of [['domain',e=>e.type!=='ip'],['ipcidr',e=>e.type==='ip']]){const es=set.entries.filter(filter);if(es.length)lines.push(`  ${q(set.name+'-'+kind)}:`,'    type: inline',`    behavior: ${kind}`,'    payload:',...es.map(e=>'      - '+q(e.type==='suffix'?'+.'+e.value:e.value)));}
+    }
+    lines.push('','rules:');
+    for(const r of c.rules){const target=targetName(c,r.target);if(r.type==='RULE-SET'){const set=c.sets.find(x=>x.id===r.value);if(!set)continue;if(set.kind==='http')lines.push('  - '+q(`RULE-SET,${set.name},${target}${r.noResolve&&set.behavior==='ipcidr'?',no-resolve':''}`));else for(const [kind,filter] of [['domain',e=>e.type!=='ip'],['ipcidr',e=>e.type==='ip']])if(set.entries.some(filter))lines.push('  - '+q(`RULE-SET,${set.name}-${kind},${target}${r.noResolve&&kind==='ipcidr'?',no-resolve':''}`));}else lines.push('  - '+q(`${r.type},${r.value},${target}${r.noResolve?',no-resolve':''}`));}
+    lines.push('  - '+q(`MATCH,${targetName(c,c.fallback)}`));return lines.join('\n');
+  };
+  return {clone,initial,active,targetName,members,poolName,groupSources,diffs,validate,entryError,deviceStatus,canDownload,save,publish,yaml};
+})();
+// Pure, line-based LCS diff for this small, self-contained prototype.
+// Redact before comparing: changing an address must remain visible without exposing it.
+function configurationDiff(before,after){
+  const left=Model.clone(before),right=Model.clone(after),sensitive=[];
+  for(const [key,label] of [['sources','订阅'],['sets','远程规则集']]){
+    for(const [items,other,isBefore] of [[left[key],after[key],true],[right[key],before[key],false]]){
+      for(const item of items){
+        if(!('url' in item))continue;
+        const previous=other.find(x=>x.id===item.id),changed=previous&&previous.url!==item.url;
+        if(changed&&!isBefore)sensitive.push(`${label}「${item.name}」地址已修改`);
+        item.url=changed?`[地址已隐藏 · ${isBefore?'修改前':'修改后'}]`:'[地址已隐藏]';
+      }
+    }
+  }
+  const a=Model.yaml(left,false).split('\n'),b=Model.yaml(right,false).split('\n');
+  const dp=Array.from({length:a.length+1},()=>new Uint32Array(b.length+1));
+  for(let i=a.length-1;i>=0;i--)for(let j=b.length-1;j>=0;j--)dp[i][j]=a[i]===b[j]?1+dp[i+1][j+1]:Math.max(dp[i+1][j],dp[i][j+1]);
+  const lines=[];let i=0,j=0;
+  while(i<a.length||j<b.length){
+    if(i<a.length&&j<b.length&&a[i]===b[j]){lines.push({kind:'same',text:a[i],old:++i,new:++j});}
+    else if(i<a.length&&(j===b.length||dp[i+1][j]>=dp[i][j+1])){lines.push({kind:'del',text:a[i],old:++i});}
+    else{lines.push({kind:'add',text:b[j],new:++j});}
+  }
+  return {lines,sensitive,added:lines.filter(x=>x.kind==='add').length,removed:lines.filter(x=>x.kind==='del').length};
+}
+// UI shell follows. All data stays in this tab's memory.
+let diffMode=null,diffExpanded=new Set(),diffKey='';
+let state=Model.initial(),page='overview',selectedSet=null,query='',poolFilter='',sourceStatus='',guideOpen=false,scenario=0,reviewTab='business',busy=false,publishError='',failNext=false,form=null,formBaseline='',confirmResolve=null,lastFocus=null;
+const $=s=>document.querySelector(s),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),clone=Model.clone;
+const paths={overview:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',sources:'<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2"/>',groups:'<path d="M3 6h18M3 12h18M3 18h18"/><circle cx="8" cy="6" r="2" fill="white"/><circle cx="16" cy="12" r="2" fill="white"/><circle cx="10" cy="18" r="2" fill="white"/>',rules:'<path d="M7 3v13a4 4 0 0 0 4 4h7M7 8h11m-3-3 3 3-3 3m0 6 3 3-3 3"/>',sets:'<path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5m-18 5 9 5 9-5"/>',history:'<path d="M3 11a9 9 0 1 1 2 7M3 4v7h7m2-5v6l4 2"/>',devices:'<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/>',plus:'<path d="M12 5v14M5 12h14"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',check:'<path d="m5 12 4 4L19 6"/>',alert:'<path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/>',arrow:'<path d="M5 12h14m-5-5 5 5-5 5"/>',back:'<path d="M19 12H5m5-5-5 5 5 5"/>',menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',up:'<path d="m6 14 6-6 6 6"/>',down:'<path d="m6 10 6 6 6-6"/>',dots:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',grip:'<path d="M8 5h.01M8 12h.01M8 19h.01M15 5h.01M15 12h.01M15 19h.01"/>'};
+const icon=n=>`<svg viewBox="0 0 24 24" aria-hidden="true">${paths[n]||paths.sets}</svg>`;
+const btn=(label,action,attrs='',cls='')=>`<button type="button" class="${cls}" data-action="${action}" ${attrs}>${label}</button>`;
+const badge=(s,c='')=>`<span class="badge ${c}">${esc(s)}</span>`;
+const navs=[['overview','概览'],['sources','订阅'],['groups','策略组'],['sets','规则集'],['rules','分流规则'],['history','发布记录'],['devices','设备']];
+const ruleLabels={'RULE-SET':'规则集','DOMAIN':'完整域名','DOMAIN-SUFFIX':'域名及子域名','DOMAIN-KEYWORD':'域名关键词','IP-CIDR':'IP 网段','GEOIP':'GEOIP'};
+const entryLabels={suffix:'域名及子域名',domain:'完整域名',ip:'IP 网段'};
+const uid=prefix=>prefix+(state.next++);
+function toast(text){$('#toast').textContent=text;$('#toast').classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('visible'),4200);}
+function ask(title,text,label='确认',danger=false){return new Promise(resolve=>{confirmResolve=resolve;const d=$('#confirm-dialog');d.innerHTML=`<h2 id="confirm-title">${esc(title)}</h2><p>${esc(text)}</p><div class="row">${btn('取消','confirm-no')}${btn(esc(label),'confirm-yes','',danger?'primary danger':'primary')}</div>`;d.showModal();d.querySelector('button').focus();});}
+function go(next){page=next;query='';poolFilter='';sourceStatus='';selectedSet=null;reviewTab='business';render();window.scrollTo(0,0);}
+function commit(config,message='已保存到草稿，尚未发布'){const old=state.rev;state=Model.save(state,config);publishError='';render();toast(old===state.rev?'没有新的修改':message);}
+function rowsTable(headers,rows,empty='暂无内容'){return `<div class="table-wrap"><table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}" class="empty">${empty}</td></tr>`}</tbody></table></div>`;}
+function heading(title,desc,actions=''){return `<div class="page-heading"><div><h1>${title}</h1><p class="description">${desc}</p></div>${actions}</div>`;}
+function menu(id,items){return `<details class="row-menu"><summary aria-label="更多操作 ${esc(id)}">${icon('dots')}</summary><div>${items.join('')}</div></details>`;}
+function changesList(changes){return changes.length?`<ul class="change-list">${changes.map(x=>`<li><span class="change-mark ${x.kind}">${x.kind==='add'?'+':x.kind==='delete'?'−':'~'}</span><div class="change-title">${esc(x.title)}<small>${esc(x.detail)}</small></div>${btn('查看','change-go',`data-page="${x.page}" data-id="${x.id||''}"`,'text-button')}</li>`).join('')}</ul>`:`<div class="empty">与当前发布版本一致。可以从左侧开始编辑。</div>`;}
+// PAGES
+function render(){
+  const changes=Model.diffs(state),active=Model.active(state),current=navs.find(x=>x[0]===page)?.[1]||'检查与发布';
+  $('#app').innerHTML=`
+    <div class="prototype-strip"><strong>交互原型</strong><span>合成数据 · 刷新重置</span><span class="strip-note">验证编辑、草稿与发布流程；不执行真实校验和下载。</span><span class="spacer"></span>${btn(guideOpen?'收起试用指南':'试用指南','guide')}${btn('重置样例','reset')}</div>
+    ${guideOpen?guideHTML():''}
+    <div class="layout"><aside class="sidebar" id="sidebar"><div class="brand"><span class="brand-symbol">${icon('sets')}</span>Subweft ${btn(icon('close'),'nav-close','aria-label="收起导航" style="display:none"','icon-button menu-close')}</div><div class="nav-label">配置管理</div><nav class="nav" aria-label="主导航">${navs.map(([key,label])=>`<a href="#${key}" data-action="navigate" data-page="${key}" class="${page===key?'active':''}" ${page===key?'aria-current="page"':''}>${icon(key)}${label}</a>`).join('')}</nav><div class="identity"><div class="row"><span class="avatar">管</span><div>单管理员<small style="display:block">登录状态仅作原型示意</small></div></div></div></aside>
+    <div class="work"><header class="topbar">${btn(icon('menu'),'nav-open','aria-label="展开导航"','icon-button mobile-nav-toggle')}<div class="draft-state"><strong><span class="draft-dot ${changes.length?'changed':''}"></span>${changes.length?'正在编辑草稿':'与当前发布版本一致'}</strong><span class="revision">r${state.rev}</span><div class="small muted">${changes.length?`${changes.length} 项待发布变更 · 当前仍提供 v${active.n}`:`当前发布 v${active.n} · 设备更新订阅后获取`}</div></div><span class="spacer"></span>${btn('查看变更并发布','review',busy?'disabled':'','primary')}</header><main id="main" class="main" tabindex="-1" aria-label="${current}">${pageHTML()}</main></div></div>`;
+}
+function guideHTML(){
+  const scenarios=[['新增订阅并发布','添加“出行订阅”到高质量池，观察 AI 的来源变化。保存草稿后 v12 不变；检查并发布才生成 v13。'],['混合条目与分流','在同一个“AI”规则集中添加域名或 IP。再创建一条分流规则，按整体规则集指定目标和位置。'],['空来源与修复','禁用高流量池唯一的“日常订阅”。保存允许，但检查会指出 Default、V2EX 没有来源；恢复订阅后可重新检查。'],['设备授权','新增设备并查看示例链接。暂停、恢复、撤销立即改变模拟下载结果，不影响草稿版本。']];
+  const steps=[[['新增订阅','guide-source'],['查看变更','review']],[['打开 AI 规则集','guide-set'],['新增分流规则','guide-rule'],['查看生成结果','preview-draft']],[['禁用日常订阅','guide-disable'],['检查草稿','guide-check'],['恢复日常订阅','guide-enable']],[['新增设备','guide-device'],['打开设备列表','guide-devices']]][scenario];
+  return `<section class="guide" aria-label="原型试用指南"><strong>这套操作是否符合你的维护习惯？</strong><p class="small muted">可以自由操作七个页面，也可以选择一条路径。切换路径从初始样例重新开始。</p><div class="guide-tabs" role="tablist" aria-label="试用路径">${scenarios.map(([name],i)=>`<button role="tab" aria-selected="${scenario===i}" class="${scenario===i?'active':''}" data-action="scenario" data-index="${i}">${i+1}. ${name}</button>`).join('')}</div><div class="guide-content"><p>${scenarios[scenario][1]}</p>${steps.map(([label,action],i)=>btn(`${i+1}. ${label}`,action,'','guide-step')).join('')}</div><details class="guide-tools" ${$('.guide-tools')?.open?'open':''}><summary>额外边界场景（仅原型）</summary><div class="row wrap">${btn('模拟另一标签页修改','external-edit')}${btn(failNext?'下次发布将模拟失败':'模拟下次发布失败','fail-next')}${btn('查看当前发布配置','preview-active')}</div><p class="small muted">用来观察检查过期、发布失败和草稿与当前发布的隔离。没有真实后台请求。</p></details></section>`;
+}
+function pageHTML(){
+  const c=state.draft,active=Model.active(state),diff=Model.diffs(state);
+  if(page==='overview'){
+    const errors=Model.validate(c);
+    return heading('概览','编辑保存到草稿，审阅后再发布给设备。')+`<div class="overview-grid"><section class="panel padded"><div class="row between"><h3>当前发布</h3>${badge('正在提供下载','green')}</div><div class="version-number">v${active.n}</div><p class="muted">${esc(active.date)} · ${esc(active.note)}</p><div class="row wrap" style="margin-top:18px">${btn('查看配置','preview-active')}${btn('发布记录','navigate','data-page="history"','text-button')}</div></section><section class="panel padded"><div class="row between"><h3>草稿状态</h3>${badge(diff.length?'尚未发布':'无变更',diff.length?'amber':'')}</div><div class="version-number">${diff.length}<span style="font-size:14px;font-weight:400;letter-spacing:0;margin-left:10px">项变更</span></div><p class="muted">${errors.length?`${errors.length} 项问题需要处理`:diff.length?'保存的修改不会影响当前发布版本':'与当前发布版本一致'}</p><div class="row" style="margin-top:18px">${btn('查看变更并发布','review',!diff.length?'disabled':'','primary')}${diff.length?btn('放弃草稿','discard','','text-button'):''}</div></section></div>
+      ${errors.length?`<section class="panel" style="margin-bottom:22px"><div class="panel-heading"><h2>需要处理<span class="count">${errors.length}</span></h2>${badge('发布前修复','amber')}</div><div class="padded check-list">${errors.map(e=>errorHTML(e)).join('')}</div></section>`:''}
+      <section class="panel"><div class="panel-heading"><h2>待发布变更</h2>${badge(`草稿 r${state.rev}`)}</div>${changesList(diff)}</section><div class="row between wrap" style="margin-top:22px"><p class="muted small">配置包含 ${c.sources.filter(s=>s.enabled).length} 个启用订阅、${c.groups.length} 个策略组、${c.rules.length} 条分流规则及 1 条兜底。</p>${btn('查看基础配置','base','','text-button')}</div><p class="page-note">本页不展示节点健康或设备在线状态。上游内容与实际连接由客户端加载后确认。</p>`;
+  }
+  if(page==='sources'){
+    const visible=c.sources.filter(s=>(!query||s.name.toLowerCase().includes(query.toLowerCase()))&&(!poolFilter||s.pool===poolFilter)&&(!sourceStatus||(sourceStatus==='on')===s.enabled));
+    return heading('订阅','按订阅池组织来源。设备自行加载上游订阅内容。',btn(icon('plus')+'新增订阅','new-source','','primary'))+`<div class="toolbar"><input type="search" aria-label="搜索订阅" placeholder="搜索订阅名称…" value="${esc(query)}" data-search><label>订阅池 <select data-filter="pool" aria-label="筛选订阅池"><option value="">全部</option><option value="quality" ${poolFilter==='quality'?'selected':''}>高质量池</option><option value="quota" ${poolFilter==='quota'?'selected':''}>高流量池</option></select></label><label>状态 <select data-filter="status" aria-label="筛选订阅状态"><option value="">全部</option><option value="on" ${sourceStatus==='on'?'selected':''}>已启用</option><option value="off" ${sourceStatus==='off'?'selected':''}>已禁用</option></select></label></div>`+rowsTable(['名称','订阅池','草稿状态','关联策略组','操作'],visible.map(s=>`<tr><td><strong>${esc(s.name)}</strong><span class="sub">客户端每 ${s.interval/60} 分钟更新</span></td><td data-label="订阅池">${badge(Model.poolName(s.pool),'blue')}</td><td data-label="草稿状态">${badge(s.enabled?'已启用':'已禁用',s.enabled?'green':'')}</td><td data-label="关联策略组">${c.groups.filter(g=>g.pools.includes(s.pool)).map(g=>esc(g.name)).join('、')||'<span class="muted">暂无</span>'}</td><td class="actions">${btn('编辑','edit-source',`data-id="${s.id}"`)}${menu(s.name,[btn(s.enabled?'禁用':'启用','toggle-source',`data-id="${s.id}"`),btn('调整订阅池','edit-source',`data-id="${s.id}"`),btn('删除','delete-source',`data-id="${s.id}"`,'danger')])}</td></tr>`).join(''),'没有匹配的订阅。')+`<p class="page-note">“已启用”是草稿中的配置状态，不代表上游可用。新增、禁用、移动和删除订阅均在发布后影响设备配置。</p>`;
+  }
+  if(page==='groups')return heading('策略组','决定使用哪些订阅池，以及如何选择节点。',btn(icon('plus')+'新增策略组','new-group','','primary'))+rowsTable(['名称','选择方式','来源','被引用','操作'],c.groups.map(g=>{const refs=c.rules.filter(r=>r.target===g.id).length+(c.fallback===g.id?1:0),empty=!Model.members(c,g).length&&!g.builtins.length;return `<tr><td><strong>${esc(g.name)}</strong>${empty?'<span class="sub warning-text">没有启用的来源或成员</span>':''}</td><td data-label="选择方式">${g.mode==='select'?'手动选择':'自动测速'}</td><td data-label="来源">${esc(Model.groupSources(g))}<span class="sub">${Model.members(c,g).length} 个启用订阅${g.builtins.length?` · ${g.builtins.length} 个内置成员`:''}</span></td><td data-label="被引用">${refs} 条规则${c.fallback===g.id?'（含兜底）':''}</td><td class="actions">${btn('编辑','edit-group',`data-id="${g.id}"`)}${menu(g.name,[btn('删除','delete-group',`data-id="${g.id}"`,'danger')])}</td></tr>`;}).join(''))+`<p class="page-note">同时选择两个池表示使用全部订阅。策略组不嵌套，不需要逐一选择订阅内的节点。</p>`;
+  if(page==='rules'){
+    const visible=c.rules.map((r,i)=>({r,i})).filter(({r})=>!query||`${ruleLabels[r.type]} ${r.type==='RULE-SET'?c.sets.find(s=>s.id===r.value)?.name:r.value} ${Model.targetName(c,r.target)}`.toLowerCase().includes(query.toLowerCase()));
+    return heading('分流规则','从上到下匹配，命中后使用对应目标。',btn(icon('plus')+'新增规则','new-rule','','primary'))+`<div class="toolbar"><input data-search type="search" aria-label="搜索规则" placeholder="搜索规则内容或目标…" value="${esc(query)}"><span class="small muted">${query?'筛选时暂停排序；清空搜索可调整顺序。':'可拖动、上下移动，或在编辑时指定位置。'}</span></div>`+rowsTable(['顺序','匹配类型','匹配内容','目标策略','操作'],visible.map(({r,i})=>{const set=c.sets.find(s=>s.id===r.value);return `<tr data-drop="${r.id}"><td class="order-cell"><button class="drag-handle" ${query?'disabled':'draggable="true"'} data-drag="${r.id}" aria-label="拖动第 ${i+1} 条规则">${icon('grip')}</button>${i+1}</td><td data-label="类型">${ruleLabels[r.type]}</td><td data-label="匹配内容">${r.type==='RULE-SET'?btn(esc(set?.name||'缺失的规则集'),'open-set',`data-id="${r.value}"`,'name-button'):`<span class="mono">${esc(r.value)}</span>`}${r.type==='RULE-SET'&&set?.kind==='local'?'<span class="sub">整个集合 · 域名优先于 IP</span>':''}${r.noResolve?'<span class="sub">IP 匹配不主动解析 DNS</span>':''}</td><td data-label="目标">${badge(Model.targetName(c,r.target),['DIRECT','REJECT'].includes(r.target)?'':'blue')}</td><td class="actions"><div class="rule-actions">${btn('编辑','edit-rule',`data-id="${r.id}"`)}${btn(icon('up'),'move-rule',`data-id="${r.id}" data-offset="-1" aria-label="上移规则 ${i+1}" ${i===0||query?'disabled':''}`,'icon-button')}${btn(icon('down'),'move-rule',`data-id="${r.id}" data-offset="1" aria-label="下移规则 ${i+1}" ${i===c.rules.length-1||query?'disabled':''}`,'icon-button')}${menu(`规则 ${i+1}`,[btn('删除','delete-rule',`data-id="${r.id}"`,'danger')])}</div></td></tr>`;}).join(''),'没有匹配的规则。').replace('</tbody></table></div>',`</tbody></table><div class="fallback"><div><strong>兜底 · 其余流量</strong><p class="small muted">未命中上方任何规则时使用，固定在最后。</p></div>${badge(Model.targetName(c,c.fallback),'blue')}${btn('编辑','edit-fallback')}</div></div>`)+`<p class="page-note">自维护规则集作为整体排序，生成时在当前位置先展开域名，再展开 IP。单条例外可以放在集合之前。</p>`;
+  }
+  if(page==='sets'){
+    if(selectedSet)return setDetailHTML();
+    const visible=c.sets.filter(s=>!query||s.name.toLowerCase().includes(query.toLowerCase()));
+    return heading('规则集','按用途维护匹配内容，再由分流规则指定去向。',btn(icon('plus')+'新增规则集','new-set','','primary'))+`<div class="toolbar"><input type="search" data-search aria-label="搜索规则集" placeholder="搜索规则集名称…" value="${esc(query)}"></div>`+rowsTable(['名称','来源','内容','被引用','操作'],visible.map(s=>`<tr><td>${btn(esc(s.name),'open-set',`data-id="${s.id}"`,'name-button')}</td><td data-label="来源">${badge(s.kind==='local'?'自维护规则集':'远程规则集',s.kind==='local'?'blue':'')}</td><td data-label="内容">${s.kind==='local'?`${s.entries.filter(e=>e.type!=='ip').length} 条域名 · ${s.entries.filter(e=>e.type==='ip').length} 条 IP`:`${s.behavior==='domain'?'域名':'IP 网段'} · YAML`}</td><td data-label="被引用">${c.rules.filter(r=>r.type==='RULE-SET'&&r.value===s.id).length} 条规则</td><td class="actions">${btn(s.kind==='local'?'管理条目':'编辑来源',s.kind==='local'?'open-set':'edit-set',`data-id="${s.id}"`)}${menu(s.name,[btn('编辑名称与来源','edit-set',`data-id="${s.id}"`),btn('删除','delete-set',`data-id="${s.id}"`,'danger')])}</td></tr>`).join(''))+`<p class="page-note">同一个自维护规则集可以包含域名和 IP，无需手动拆分。远程规则由客户端加载，不能在这里直接修改远端条目。</p>`;
+  }
+  if(page==='review')return reviewHTML();
+  if(page==='history')return heading('发布记录','恢复历史版本会生成草稿，检查并发布后才更新设备配置。')+rowsTable(['版本','发布时间','备注','状态','操作'],state.versions.map(v=>`<tr><td><strong>v${v.n}</strong></td><td data-label="发布时间">${esc(v.date)}</td><td data-label="备注">${esc(v.note)}</td><td data-label="状态">${v.n===state.active?badge('当前发布','green'):badge('历史版本')}</td><td class="actions">${btn('查看','view-version',`data-version="${v.n}"`)}${menu(`版本 ${v.n}`,[btn('与当前版本比较','compare-version',`data-version="${v.n}"`),btn('恢复到草稿','restore-version',`data-version="${v.n}"`),btn('导出示例配置','export-version',`data-version="${v.n}"`)])}</td></tr>`).join(''))+`<p class="page-note">历史保留的是配置定义和自维护规则。上游订阅节点与远程规则内容由客户端重新获取，不承诺回到当时的远端内容。</p>`;
+  if(page==='devices')return heading('设备','每个设备独立授权，全部使用当前发布配置。',btn(icon('plus')+'新增设备','new-device','','primary'))+`<div class="notice" style="margin-bottom:20px">设备授权操作立即生效，不需要发布配置。当前下载版本为 <strong>v${state.active}</strong>。</div>`+rowsTable(['设备名称','授权状态','有效期','最近下载','操作'],state.devices.map(d=>{const st=Model.deviceStatus(d);return `<tr><td><strong>${esc(d.name)}</strong></td><td data-label="授权状态">${badge(st,st==='有效'?'green':st==='已撤销'?'':'amber')}</td><td data-label="有效期">${d.expires?esc(d.expires.replace('T',' ')):'长期有效'}</td><td data-label="最近下载">${esc(d.seen)}</td><td class="actions">${btn('查看链接','device-link',`data-id="${d.id}" ${st!=='有效'?'disabled':''}`)}${menu(d.name,[btn('编辑','edit-device',`data-id="${d.id}" ${d.state==='revoked'?'disabled':''}`),btn(d.state==='paused'?'恢复':'暂停','toggle-device',`data-id="${d.id}" ${d.state==='revoked'?'disabled':''}`),btn('更换链接','rotate-device',`data-id="${d.id}" ${d.state==='revoked'?'disabled':''}`),btn('撤销','revoke-device',`data-id="${d.id}" ${d.state==='revoked'?'disabled':''}`,'danger'),btn('模拟客户端更新','simulate-device',`data-id="${d.id}"`),...(d.generation>1?[btn('模拟旧链接下载','simulate-old-link',`data-id="${d.id}"`)]:[])])}</td></tr>`;}).join(''),'还没有设备。创建一个独立链接，供设备更新配置。')+`<p class="page-note">撤销阻止后续下载，不能收回已下载的上游凭据。最近下载不代表客户端已经应用，也不代表设备在线。</p>`;
+  return '';
+}
+function setDetailHTML(){
+  const s=state.draft.sets.find(x=>x.id===selectedSet);if(!s){selectedSet=null;return pageHTML();}
+  const refs=state.draft.rules.filter(r=>r.type==='RULE-SET'&&r.value===s.id);
+  return btn(icon('back')+'全部规则集','sets-back','','text-button back')+heading(esc(s.name),s.kind==='local'?'在同一处维护域名和 IP 条目。':`${s.behavior==='domain'?'域名':'IP 网段'} · YAML · 客户端加载`,s.kind==='local'?`<div class="row wrap">${btn('批量导入','bulk',`data-id="${s.id}"`)}${btn(icon('plus')+'添加条目','new-entry',`data-id="${s.id}"`,'primary')}</div>`:btn('编辑来源','edit-set',`data-id="${s.id}"`,'primary'))+
+    `<div class="row wrap" style="margin-bottom:20px">${badge(s.kind==='local'?'自维护规则集':'远程规则集','blue')}<span class="small muted">引用：${refs.length?refs.map(r=>`规则 #${state.draft.rules.indexOf(r)+1} → ${esc(Model.targetName(state.draft,r.target))}`).join('；'):'尚未被分流规则使用'}</span>${btn('新增分流规则','new-rule',`data-set="${s.id}"`,'text-button')}</div>`+
+    (s.kind==='http'?`<div class="panel padded stack"><h3>远程规则集</h3><p class="mono" style="overflow-wrap:anywhere">${esc(s.url)}</p><p class="muted">客户端每 ${s.interval/3600} 小时更新。远端内容未获取、未验证；此处不提供本地条目编辑。</p></div>`:
+    rowsTable(['匹配方式','匹配内容','操作'],s.entries.map(e=>`<tr><td>${entryLabels[e.type]}</td><td data-label="匹配内容"><span class="mono">${esc(e.value)}</span>${e.type==='suffix'?'<span class="sub">包含该域名及其子域名</span>':''}</td><td class="actions">${btn('编辑','edit-entry',`data-id="${e.id}" data-set="${s.id}"`)}${btn('删除','delete-entry',`data-id="${e.id}" data-set="${s.id}"`,'text-button danger')}</td></tr>`).join(''),'还没有条目。可以先保存空集合；被引用的空集合会阻止发布。')+`<details class="advanced"><summary>查看生成方式</summary><p class="small muted">有域名时生成 ${esc(s.name)}-domain，有 IP 时生成 ${esc(s.name)}-ipcidr。名称和引用由服务自动维护，不需要分别编辑。</p></details>`);
+}
+function errorHTML(e){return `<div class="check-line bad">${icon('alert')}<div class="text"><strong>${esc(e.text)}</strong><small>${esc(e.hint)}</small></div>${btn('前往修复','fix',`data-page="${e.page}" data-id="${e.id||''}"`,'text-button')}</div>`;}
+function changedText(text,other){
+  if(other===undefined)return esc(text);
+  let start=0,end=0;
+  while(start<Math.min(text.length,other.length)&&text[start]===other[start])start++;
+  while(end<Math.min(text.length,other.length)-start&&text[text.length-1-end]===other[other.length-1-end])end++;
+  return esc(text.slice(0,start))+(start<text.length-end?`<mark>${esc(text.slice(start,text.length-end))}</mark>`:'')+(end?esc(text.slice(-end)):'');
+}
+function configDiffHTML(before,after){
+  const diff=configurationDiff(before,after),mode=diffMode||(matchMedia('(max-width:760px)').matches?'inline':'split');
+  const key=JSON.stringify(diff);if(key!==diffKey){diffExpanded.clear();diffKey=key;}
+  const cell=(line,other,inline=false)=>{
+    if(!line)return '<div class="diff-cell blank" aria-hidden="true"></div>';
+    return `<div class="diff-cell ${line.kind} ${inline?'inline-cell':''}" aria-label="${line.kind==='add'?'新增':line.kind==='del'?'删除':'未变化'}行"><span class="diff-number">${line.old??''}</span>${inline?`<span class="diff-number">${line.new??''}</span>`:''}<span class="diff-sign">${line.kind==='add'?'+':line.kind==='del'?'−':' '}</span><code class="diff-code">${changedText(line.text,other?.text)}</code></div>`;
+  };
+  const splitCell=(line,other,right=false)=>{
+    if(!line)return cell(null);
+    return cell({...line,old:right?line.new:line.old},other);
+  };
+  const same=line=>`<div class="diff-row">${mode==='inline'?cell(line,null,true):splitCell(line)+splitCell(line,null,true)}</div>`;
+  let body='';
+  for(let i=0;i<diff.lines.length;){
+    const start=i;
+    if(diff.lines[i].kind==='same'){
+      while(i<diff.lines.length&&diff.lines[i].kind==='same')i++;
+      const run=diff.lines.slice(start,i),head=start===0?0:3,tail=i===diff.lines.length?0:3,hidden=run.length-head-tail;
+      if(hidden>1){
+        const expanded=diffExpanded.has(start);
+        body+=run.slice(0,head).map(same).join('');
+        body+=`<div class="diff-fold">${btn(`${expanded?'收起':'展开'} ${hidden} 行未变化内容`,'diff-expand',`data-start="${start}" aria-expanded="${expanded}"`)}</div>`;
+        if(expanded)body+=run.slice(head,run.length-tail).map(same).join('');
+        if(tail)body+=run.slice(-tail).map(same).join('');
+      }else body+=run.map(same).join('');
+    }else{
+      while(i<diff.lines.length&&diff.lines[i].kind!=='same')i++;
+      const group=diff.lines.slice(start,i),removed=group.filter(x=>x.kind==='del'),added=group.filter(x=>x.kind==='add');
+      if(mode==='split')for(let n=0;n<Math.max(removed.length,added.length);n++)body+=`<div class="diff-row">${splitCell(removed[n],added[n])}${splitCell(added[n],removed[n],true)}</div>`;
+      else body+=removed.map((line,n)=>`<div class="diff-row">${cell(line,added[n],true)}</div>`).join('')+added.map((line,n)=>`<div class="diff-row">${cell(line,removed[n],true)}</div>`).join('');
+    }
+  }
+  return `<div class="diff-tools"><div class="diff-counts"><span class="added">+${diff.added} 行新增</span><span class="removed">−${diff.removed} 行删除</span></div><div class="diff-switch" role="group" aria-label="差异展示方式">${btn('左右对照','diff-mode',`data-mode="split" aria-pressed="${mode==='split'}"`)}${btn('行内对比','diff-mode',`data-mode="inline" aria-pressed="${mode==='inline'}"`)}</div></div>${diff.sensitive.length?`<ul class="sensitive-changes">${diff.sensitive.map(x=>`<li>${esc(x)}（内容已隐藏）</li>`).join('')}</ul>`:''}${!diff.added&&!diff.removed?'<div class="empty">生成配置没有变化。</div>':`<div class="config-diff ${mode}"><div class="diff-scroll"><div class="diff-head">${mode==='split'?`<span>当前发布 v${state.active}</span><span>待发布草稿 r${state.rev}</span>`:`<span>当前发布 v${state.active} → 待发布草稿 r${state.rev}</span>`}</div><div aria-label="配置差异内容">${body}</div></div></div>`}<p class="diff-note">− 删除 · + 新增；深色标记为修改文字。订阅和远程规则集地址已隐藏。配置为原型生成示意。</p>`;
+}
+function reviewHTML(){
+  const diff=Model.diffs(state),checked=state.checked&&state.checked.rev===state.rev,errors=checked?state.checked.errors:[],canPublish=checked&&!errors.length&&diff.length&&!busy;
+  return heading('检查与发布',`基于当前版本 v${state.active} · 草稿版本 r${state.rev}`,btn('返回概览','navigate','data-page="overview"'))+
+    (publishError?`<div role="alert" class="notice red" style="margin-bottom:20px">${esc(publishError)}</div>`:'')+
+    `<section class="panel" style="margin-bottom:22px"><div class="panel-heading"><h2>待发布变更<span class="count">${diff.length} 项</span></h2>${btn('放弃全部修改','discard',!diff.length||busy?'disabled':'','text-button danger')}</div><div class="padded"><div class="tabs">${btn('变更摘要','review-tab','data-tab="business"',reviewTab==='business'?'active':'')}${btn('配置差异','review-tab','data-tab="config"',reviewTab==='config'?'active':'')}</div>${reviewTab==='business'?changesList(diff):configDiffHTML(Model.active(state).config,state.draft)}</div></section>
+    <section class="panel"><div class="panel-heading"><h2>检查结果 ${badge('原型模拟')}</h2>${btn(busy?'处理中…':checked?'重新检查':'检查草稿','check',!diff.length||busy?'disabled':'',checked?'':'primary')}</div><div class="padded">${!diff.length?'<p class="muted">没有待发布变更。</p>':!checked?'<p class="muted">草稿尚未检查，或检查后发生了修改。请检查当前草稿版本。</p>':errors.length?`<div class="check-list">${errors.map(errorHTML).join('')}</div>`:`<div class="check-list">${['配置结构与名称检查通过','规则目标、引用和兜底完整','策略组都有启用的来源或成员','内核配置检查：模拟通过'].map((x,i)=>`<div class="check-line">${icon('check')}<div class="text">${x}${i===3?'<small>本原型没有运行 Mihomo；正式版本必须真实校验通过。</small>':''}</div></div>`).join('')}</div>`}<div class="notice amber" style="margin-top:20px">远端订阅、远程规则内容和实际连接未验证。发布成功也不等于节点可连接。</div></div></section>
+    <div class="review-footer"><div class="field"><label for="publish-note">发布备注（可选）</label><input id="publish-note" placeholder="例如：调整 V2EX 来源并补充 AI 条目" value="${esc(state.note||'')}" maxlength="160"></div>${btn(busy?'发布中…':'发布此版本','publish',canPublish?'':'disabled','primary')}</div><p class="page-note">只发布刚检查通过的草稿版本；失败仍提供 v${state.active}，并保留草稿。发布备注不计入配置变更。</p>`;
+}
+// FORMS
+const option=(value,label,current)=>`<option value="${esc(value)}" ${String(value)===String(current)?'selected':''}>${esc(label)}</option>`;
+const input=(name,value='',type='text',extra='')=>`<input id="f-${name}" name="${name}" type="${type}" value="${esc(value)}" ${extra}>`;
+const field=(name,label,control,hint='')=>`<div class="field" data-field="${name}"><label for="f-${name}">${label}</label>${control}${hint?`<small class="hint">${hint}</small>`:''}<small class="field-error" id="err-${name}"></small></div>`;
+const check=(name,label,checked,value='on')=>`<label class="check"><input name="${name}" type="checkbox" value="${esc(value)}" ${checked?'checked':''}>${label}</label>`;
+const targets=(name,current,exclude='',allowNew=false)=>`<select id="f-${name}" name="${name}"><option value="">请选择目标</option><optgroup label="策略组">${state.draft.groups.filter(g=>g.id!==exclude).map(g=>option(g.id,g.name,current)).join('')}</optgroup><optgroup label="内置动作">${['DIRECT','REJECT'].map(x=>option(x,x,current)).join('')}</optgroup>${allowNew?option('__new','＋ 就地新增策略组',current):''}</select>`;
+const pools=(name,selected=[])=>`<div class="choices">${['quality','quota'].map(p=>`<label class="choice"><input type="checkbox" name="${name}" value="${p}" ${selected.includes(p)?'checked':''}>${Model.poolName(p)}</label>`).join('')}</div>`;
+function readForm(){
+  const node=$('#drawer form');if(!node)return {};
+  const fd=new FormData(node),out=Object.fromEntries(fd);
+  for(const name of ['pools','builtins','newPools'])out[name]=fd.getAll(name);
+  for(const name of ['enabled','health','noResolve'])out[name]=fd.has(name);
+  return out;
+}
+function formDirty(){return form&&!form.readonly&&JSON.stringify(readForm())!==formBaseline;}
+function openForm(type,value={},extra={}){
+  lastFocus=document.activeElement;form={type,value:clone(value),...extra};
+  renderDrawer();formBaseline=JSON.stringify(readForm());
+  const dialog=$('#drawer');if(!dialog.open)dialog.showModal();
+  (dialog.querySelector('input:not([type=checkbox]):not([type=radio]),select,textarea')||dialog.querySelector('button'))?.focus();
+}
+async function closeDrawer(force=false){
+  if(!force&&formDirty()&&!await ask('放弃未保存的表单修改？','这些输入尚未保存到草稿。放弃后不会改变当前草稿或发布版本。','放弃修改'))return;
+  $('#drawer').close();form=null;lastFocus?.focus();
+}
+function renderDrawer(){
+  const v=form.value,c=state.draft;
+  let title='',subtitle='保存后进入草稿，当前发布版本保持不变。',body='',save='保存到草稿';
+  if(form.type==='source'){
+    title=v.id?'编辑订阅':'新增订阅';
+    body=field('name','订阅名称 *',input('name',v.name,'text','maxlength="80" autocomplete="off"'))+
+      field('url','订阅地址 *',`<div class="password-wrap">${input('url',v.url,'password','autocomplete="off" spellcheck="false"')}${btn('显示','reveal','data-input="f-url"')}</div>`,'客户端直接加载该地址；本服务不抓取、不转换订阅。')+
+      field('pool','所属订阅池 *',`<div class="choices">${['quality','quota'].map(p=>`<label class="choice"><input type="radio" name="pool" value="${p}" ${(v.pool||'quality')===p?'checked':''}>${Model.poolName(p)}</label>`).join('')}</div>`,'每个订阅只属于一个池。')+check('enabled','启用订阅',v.enabled!==false)+
+      `<details class="advanced"><summary>高级设置</summary>${field('interval','客户端更新间隔（秒）',input('interval',v.interval??3600,'number','min="60" max="604800"'))}${field('prefix','节点名前缀',input('prefix',v.prefix||'','text','maxlength="80"'),'只影响客户端显示名称。')}${check('health','启用客户端健康检查',v.health!==false)}${field('proxy','拉取订阅使用的代理',targets('proxy',v.proxy||'DIRECT'),'这是客户端的拉取方式，不是服务器抓取设置。')}</details><div class="impact" id="source-impact"></div>`;
+  }
+  if(form.type==='group'){
+    title=v.id?'编辑策略组':'新增策略组';
+    body=field('name','策略组名称 *',input('name',v.name,'text','maxlength="80"'))+field('mode','选择方式',`<select id="f-mode" name="mode">${option('select','手动选择',v.mode||'select')}${option('url-test','自动测速',v.mode)}</select>`)+
+      field('pools','订阅池',pools('pools',v.pools),'两池都选即使用全部订阅。')+`<div class="impact" id="group-preview"></div><details class="advanced"><summary>额外成员（可选）</summary>${['DIRECT','REJECT'].map(x=>check('builtins',x,(v.builtins||[]).includes(x),x)).join('')}</details>`+
+      (v.mode==='url-test'?`<div class="section-label">自动测速参数</div>${field('url','测试地址 *',input('url',v.url||'https://check.example.com/generate_204','url'))}<div class="form-grid">${field('interval','检查间隔（秒）',input('interval',v.interval??300,'number','min="30"'))}${field('tolerance','容差（毫秒）',input('tolerance',v.tolerance??50,'number','min="0"'))}</div>`:'')+
+      `<p class="small muted">被引用：${v.id?`${c.rules.filter(r=>r.target===v.id).length} 条分流规则${c.fallback===v.id?'及兜底规则':''}`:'尚未保存'}</p>`;
+  }
+  if(form.type==='set'){
+    title=v.id?'编辑规则集':'新增规则集';
+    body=field('name','用途名称 *',input('name',v.name,'text','maxlength="80"'),'例如 AI、V2EX、直连。名称不自动绑定同名策略组。')+
+      (v.id?`<div class="field"><span class="label">来源</span><div>${badge(v.kind==='local'?'自维护规则集':'远程规则集','blue')}</div></div>`:field('kind','来源',`<select id="f-kind" name="kind">${option('local','自维护规则集',v.kind||'local')}${option('http','远程规则集',v.kind)}</select>`))+
+      (v.kind==='http'?field('behavior','内容类型',`<select id="f-behavior" name="behavior">${option('domain','域名',v.behavior||'domain')}${option('ipcidr','IP 网段',v.behavior)}</select>`)+field('url','远程规则集地址 *',input('url',v.url,'url','spellcheck="false"'))+field('interval','客户端更新间隔（秒）',input('interval',v.interval??86400,'number','min="60" max="604800"'))+'<p class="small muted">格式固定为 YAML。客户端加载远端内容，此处不编辑远端条目。</p>':`<div class="notice">同一个集合可以包含域名和 IP。先保存用途名称，再添加条目；生成时自动拆分类型。</div>`);
+  }
+  if(form.type==='entry'){
+    const parent=c.sets.find(s=>s.id===form.setId);title=v.id?'编辑条目':'添加条目';subtitle=`规则集：${parent.name} · 保存到草稿，尚未发布。`;
+    const type=v.type||'suffix';
+    body=field('type','匹配方式',`<select id="f-type" name="type">${Object.entries(entryLabels).map(([k,l])=>option(k,l,type)).join('')}</select>`)+
+      field('value',type==='ip'?'IP 网段 *':'域名 *',input('value',v.value,'text',`spellcheck="false" autocomplete="off" placeholder="${type==='ip'?'192.0.2.0/24 或 2001:db8::/32':'example.com'}"`),type==='ip'?'支持 IPv4 / IPv6 CIDR，请包含前缀长度。':type==='suffix'?'匹配该域名及所有子域名。不填写通配符。':'只匹配这个完整域名，不包含子域名。')+
+      `<div class="impact" id="entry-preview"></div><p class="page-note">条目只描述匹配内容。流量去向在“分流规则”中设置。</p>`;
+  }
+  if(form.type==='bulk'){
+    title='批量添加条目';subtitle=`规则集：${c.sets.find(s=>s.id===form.setId).name} · 先检查，再明确添加。`;save='添加有效条目到草稿';
+    body=field('entryType','本批条目的匹配方式',`<select id="f-entryType" name="entryType">${Object.entries(entryLabels).map(([k,l])=>option(k,l,v.entryType||'suffix')).join('')}</select>`)+field('text','每行一个条目',`<textarea id="f-text" name="text" rows="9" spellcheck="false" placeholder="example.com\nexample.net">${esc(v.text)}</textarea>`,'逐行检查并去重；错误不会被静默忽略。')+btn('检查条目','check-bulk')+`<div class="bulk-preview" id="bulk-preview">${bulkPreviewHTML()}</div>`;
+  }
+  if(form.type==='rule'){
+    title=v.id?'编辑分流规则':'新增分流规则';const type=v.type||'RULE-SET';
+    const valueControl=type==='RULE-SET'?`<select id="f-value" name="value"><option value="">选择规则集</option>${c.sets.map(s=>option(s.id,s.name+(s.kind==='local'?' · 自维护规则集':' · 远程规则集'),v.value)).join('')}</select>`:input('value',v.value,'text',`spellcheck="false" placeholder="${type==='IP-CIDR'?'192.0.2.0/24':type==='GEOIP'?'CN':'example.com'}"`);
+    body=field('type','匹配类型 *',`<select id="f-type" name="type">${Object.entries(ruleLabels).map(([k,l])=>option(k,l,type)).join('')}</select>`)+field('value',type==='RULE-SET'?'规则集 *':'匹配内容 *',valueControl,type==='RULE-SET'?'引用整个集合，内部按域名 → IP 展开。':type==='DOMAIN-SUFFIX'?'包含该域名及所有子域名。':'')+field('target','目标策略 *',targets('target',v.target||'', '',true))+
+      (v.target==='__new'?`<section class="nested-form"><h3>就地新增策略组</h3>${field('newName','策略组名称 *',input('newName',v.newName,'text','maxlength="80"'))}${field('newMode','选择方式',`<select id="f-newMode" name="newMode">${option('select','手动选择',v.newMode||'select')}${option('url-test','自动测速',v.newMode)}</select>`)}${field('newPools','订阅池',pools('newPools',v.newPools||[]))}<p class="small muted">与这条规则一起保存；取消此表单不会创建策略组。自动测速使用默认测试参数，可稍后在策略组中修改。</p></section>`:'')+
+      field('position',v.id?'规则位置':'插入位置',`<select id="f-position" name="position">${c.rules.filter(r=>r.id!==v.id).map((r,i)=>option(i,`第 ${i+1} 条之前：${r.type==='RULE-SET'?c.sets.find(s=>s.id===r.value)?.name:r.value}`,v.position??c.rules.length)).join('')}${option(c.rules.filter(r=>r.id!==v.id).length,'最后一条分流规则（兜底之前）',v.position??c.rules.length)}</select>`)+
+      (['RULE-SET','IP-CIDR','GEOIP'].includes(type)?`<details class="advanced"><summary>IP 匹配选项</summary>${check('noResolve','不主动触发 DNS 解析',!!v.noResolve)}<p class="small muted">仅作用于 IP 匹配部分；域名部分不受影响。</p></details>`:'')+`<div class="impact" id="rule-preview"></div>`;
+  }
+  if(form.type==='fallback'){
+    title='编辑兜底去向';body='<p class="muted" style="margin-bottom:20px">未匹配任何分流规则的流量使用此目标。兜底固定在最后，不能删除或移动。</p>'+field('target','目标策略 *',targets('target',c.fallback));
+  }
+  if(form.type==='deleteGroup'){
+    title=`删除策略组：${v.name}`;save='替换引用并删除';
+    body=`<div class="notice amber" style="margin-bottom:22px">此策略组仍被引用。选择替代目标后，引用更新和删除会作为同一次草稿修改保存。</div><ul>${c.rules.filter(r=>r.target===v.id).map(r=>`<li>分流规则 #${c.rules.indexOf(r)+1}</li>`).join('')}${c.fallback===v.id?'<li>兜底规则</li>':''}${c.sources.filter(s=>s.proxy===v.id).map(s=>`<li>订阅拉取方式：${esc(s.name)}</li>`).join('')}</ul>`+field('replacement','替代目标 *',targets('replacement','',v.id));
+  }
+  if(form.type==='device'){
+    title=v.id?'编辑设备':'新增设备';subtitle='授权保存后立即生效，不进入配置草稿。';save=v.id?'保存设备':'新增设备';
+    body=field('name','设备名称 *',input('name',v.name,'text','maxlength="80" placeholder="例如：我的手机"'))+`<div class="notice">此设备将下载当前发布 <strong>v${state.active}</strong>，后续发布会沿用同一个订阅链接。</div><details class="advanced" ${v.expires?'open':''}><summary>到期时间（可选）</summary>${field('expires','到期时间',input('expires',v.expires,'datetime-local'),'留空表示长期有效。')}</details>`;
+  }
+  if(form.type==='link'){
+    title='设备订阅链接';subtitle=`${v.name} · 仅用于演示，不是可连接的真实链接。`;save='';
+    const url=`https://device.example.invalid/s/prototype-only-${v.id}-${v.generation}/config.yaml`;
+    body=`<div class="notice amber" style="margin-bottom:22px">这是合成示例链接。原型不会创建真实 token，也不会请求这个地址。</div>${field('link',esc(v.name),input('link',url,'text','readonly class="mono device-link"'))}<div class="row wrap">${btn('复制示例链接','copy-link')}${btn('模拟客户端更新订阅','simulate-link','','primary')}</div><hr class="divider"><p class="muted small">正式产品中，把链接导入客户端后，仍需更新订阅才获取新发布版本。</p>`;
+  }
+  if(form.type==='download'){
+    title='模拟客户端更新';subtitle='只验证原型状态，没有发出网络请求。';save='';
+    body=v.allowed?`<div class="notice green">模拟下载成功 · 当前发布 <strong>v${v.version}</strong></div><dl class="detail-list"><div><dt>设备</dt><dd>${esc(v.name)}</dd></div><div><dt>收到的配置</dt><dd>v${v.version}</dd></div><div><dt>草稿</dt><dd>r${state.rev}，未发布内容不会下载</dd></div></dl><details class="advanced"><summary>查看收到的配置示意（脱敏）</summary><pre>${esc(Model.yaml(v.config))}</pre></details>`:`<div class="notice red">模拟下载被拒绝</div><p style="margin-top:20px">${esc(v.reason)}</p><p class="page-note">阻止新的下载不能收回设备已经保存的配置或上游凭据。</p>`;
+  }
+  if(form.type==='preview'){
+    title=v.title||'配置预览';subtitle='原型生成示意，敏感地址已隐藏；不能据此认为真实配置校验通过。';save='';body=`<pre>${esc(Model.yaml(v.config))}</pre>`;
+  }
+  if(form.type==='compare'){
+    title=`v${v.n} 与当前 v${state.active} 比较`;subtitle='恢复先生成草稿，不会直接切换正在提供的版本。';save='';
+    const comparison={...state,draft:v.config};body=changesList(Model.diffs(comparison))+`<details class="advanced"><summary>查看历史配置示意（脱敏）</summary><pre>${esc(Model.yaml(v.config))}</pre></details>`;
+  }
+  if(form.type==='base'){
+    title='基础配置';subtitle='首次导入后保留，随草稿和发布版本保存。首版不提供编辑器。';save='';const b=c.base;
+    body=`<dl class="detail-list"><div><dt>混合端口</dt><dd>${b.mixedPort}</dd></div><div><dt>允许局域网访问</dt><dd>${b.allowLan?'开启':'关闭'}</dd></div><div><dt>DNS</dt><dd>${b.dnsEnabled?'开启':'关闭'}</dd></div><div><dt>DNS 模式</dt><dd>${b.dnsMode}</dd></div></dl><div class="notice" style="margin-top:24px">本原型展示合成的基础配置，不读取本机 Clash 或仓库中的运行配置。</div>`;
+  }
+  if(form.type==='blockedSet'){
+    title='此规则集仍被引用';subtitle='请先在分流规则中更换或删除引用。';save='';body=`<p><strong>${esc(v.name)}</strong> 被以下规则使用：</p><ul>${c.rules.filter(r=>r.type==='RULE-SET'&&r.value===v.id).map(r=>`<li>规则 #${c.rules.indexOf(r)+1} → ${esc(Model.targetName(c,r.target))}</li>`).join('')}</ul>${btn('前往分流规则','drawer-go-rules','','primary')}`;
+  }
+  $('#drawer').innerHTML=`<header class="drawer-header"><div><h2 id="drawer-title">${esc(title)}</h2><p>${esc(subtitle)}</p></div>${btn(icon('close'),'drawer-close','aria-label="关闭编辑面板"','icon-button')}</header><form class="drawer-form" novalidate><div class="drawer-body"><div id="form-error" role="alert"></div>${body}</div><footer class="drawer-footer">${save?`<small>${form.type==='device'?'立即生效':'保存后尚未发布'}</small>`:''}${btn(save?'取消':'关闭','drawer-close')}${save?`<button type="submit" class="primary" ${form.type==='bulk'&&!form.bulkPreview?.valid.length?'disabled':''}>${save}</button>`:''}</footer></form>`;
+  updateFormPreview();
+}
+function updateFormPreview(){
+  if(!form)return;const v={...form.value,...readForm()},c=state.draft;
+  if(form.type==='source'){
+    const affected=c.groups.filter(g=>g.pools.includes(v.pool));
+    const before=form.value.id?c.sources.find(s=>s.id===form.value.id):null;
+    const leaving=before&&before.pool!==v.pool?c.groups.filter(g=>g.pools.includes(before.pool)&&!g.pools.includes(v.pool)):[];
+    $('#source-impact').innerHTML=`<strong>保存后预计影响</strong><p>${v.enabled?'来源将供以下组使用：':'来源将不再供以下组使用：'}${affected.map(g=>esc(g.name)).join('、')||'暂无关联策略组'}。</p>${leaving.length?`<p>移出原池后失去此来源：${leaving.map(g=>esc(g.name)).join('、')}。</p>`:''}<p class="muted small">影响只进入草稿，发布后才更新设备配置。</p>`;
+  }
+  if(form.type==='group'){
+    const ms=Model.members(c,v);$('#group-preview').innerHTML=`<strong>来源预览</strong><p>${ms.map(s=>esc(s.name)).join('、')||'没有启用的订阅'}${v.builtins.length?' · '+v.builtins.join('、'):''}</p><p class="small muted">实际节点由客户端加载订阅后获得。</p>${!ms.length&&!v.builtins.length?'<p class="warning-text">可以保存为空的草稿，但检查会阻止发布。</p>':''}`;
+  }
+  if(form.type==='entry')$('#entry-preview').innerHTML=`<strong>匹配预览</strong><p>${v.value?esc(v.value)+(v.type==='suffix'?' 及其子域名':v.type==='ip'?' 中的目标 IP':'（仅此域名）'):'填写内容后可查看匹配含义。'}</p>`;
+  if(form.type==='rule'){
+    const content=v.type==='RULE-SET'?c.sets.find(s=>s.id===v.value)?.name:v.value;
+    $('#rule-preview').innerHTML=`<strong>规则预览</strong><p>${esc(content||'待填写匹配内容')} → ${esc(v.target==='__new'?v.newName||'待创建策略组':Model.targetName(c,v.target)||'待选择目标')}</p>`;
+  }
+}
+function formError(name,message){
+  const el=$(`#err-${name}`);if(el)el.textContent=message;
+  const ctrl=$(`#f-${name}`);if(ctrl){const details=ctrl.closest('details');if(details)details.open=true;ctrl.setAttribute('aria-invalid','true');ctrl.setAttribute('aria-describedby',`err-${name}`);ctrl.focus();}
+  $('#form-error').innerHTML=`<p class="notice red dialog-error">${esc(message)}</p>`;return false;
+}
+function validName(name,collection,id){
+  if(!name||name!==name.trim()||/[\r\n,\0]/.test(name)||name.length>80||['DIRECT','REJECT'].includes(name))return '名称不能为空，不能使用保留名、逗号或首尾空格。';
+  if(collection.some(x=>x.id!==id&&x.name===name))return '这个名称已存在，请使用不同名称。';return '';
+}
+function validURL(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)&&!!u.hostname;}catch{return false;}}
+function bulkPreviewHTML(){
+  const p=form.bulkPreview;if(!p)return '';
+  return `<div class="notice ${p.errors.length?'amber':'green'}">识别到 ${p.total} 条：可添加 ${p.valid.length} 条 · 重复 ${p.duplicates} 条 · 格式错误 ${p.errors.length} 条</div>${p.errors.length?`<ul>${p.errors.map(x=>`<li>第 ${x.line} 行：${esc(x.message)}</li>`).join('')}</ul><p class="small muted">可以返回修改，也可以明确选择只添加有效条目。</p>`:''}`;
+}
+function checkBulk(){
+  form.value={...form.value,...readForm()};const {entryType:type,text}=form.value,set=state.draft.sets.find(x=>x.id===form.setId),seen=new Set(set.entries.map(e=>e.type+'|'+e.value.toLowerCase())),valid=[],errors=[];let duplicates=0,total=0;
+  (text||'').split(/\r?\n/).forEach((raw,i)=>{const value=raw.trim();if(!value)return;total++;const err=Model.entryError(type,value);if(err)errors.push({line:i+1,message:err});else if(seen.has(type+'|'+value.toLowerCase()))duplicates++;else{seen.add(type+'|'+value.toLowerCase());valid.push({type,value});}});
+  form.bulkPreview={valid,errors,duplicates,total};renderDrawer();$('#drawer button[type=submit]').textContent=`添加有效的 ${valid.length} 条`;
+}
+function saveForm(){
+  const v={...form.value,...readForm()},c=clone(state.draft);let error='';
+  if(form.type==='source'){
+    if(error=validName(v.name,c.sources,v.id))return formError('name',error);
+    if(!validURL(v.url))return formError('url','请输入有效的 HTTP 或 HTTPS 订阅地址。');
+    if(!Number.isInteger(+v.interval)||+v.interval<60||+v.interval>604800)return formError('interval','更新间隔应为 60–604800 秒。');
+    const item={id:v.id||uid('s'),name:v.name,url:v.url,pool:v.pool,enabled:v.enabled,interval:+v.interval,prefix:v.prefix,health:v.health,proxy:v.proxy};
+    if(v.id)c.sources=c.sources.map(x=>x.id===v.id?item:x);else c.sources.push(item);
+  }
+  if(form.type==='group'){
+    if(error=validName(v.name,c.groups,v.id))return formError('name',error);
+    if(v.mode==='url-test'&&!validURL(v.url))return formError('url','请输入有效的测试地址。');
+    if(v.mode==='url-test'&&(!Number.isInteger(+v.interval)||+v.interval<30||+v.interval>86400))return formError('interval','检查间隔应为 30–86400 秒。');
+    if(v.mode==='url-test'&&(!Number.isInteger(+v.tolerance)||+v.tolerance<0))return formError('tolerance','容差应为非负整数。');
+    const item={id:v.id||uid('g'),name:v.name,mode:v.mode,pools:v.pools,builtins:v.builtins,url:v.url||'https://check.example.com/generate_204',interval:+v.interval||300,tolerance:+v.tolerance||0};
+    if(v.id)c.groups=c.groups.map(x=>x.id===v.id?item:x);else c.groups.push(item);
+  }
+  if(form.type==='set'){
+    if(error=validName(v.name,c.sets,v.id))return formError('name',error);
+    if(v.kind==='http'&&!validURL(v.url))return formError('url','请输入有效的远程规则集地址。');
+    if(v.kind==='http'&&(!Number.isInteger(+v.interval)||+v.interval<60||+v.interval>604800))return formError('interval','更新间隔应为 60–604800 秒。');
+    const item=v.kind==='http'?{id:v.id||uid('c'),name:v.name,kind:'http',url:v.url,behavior:v.behavior,interval:+v.interval}:{id:v.id||uid('c'),name:v.name,kind:'local',entries:v.entries||[]};
+    if(v.id)c.sets=c.sets.map(x=>x.id===v.id?item:x);else{c.sets.push(item);page='sets';selectedSet=item.id;}
+  }
+  if(form.type==='entry'){
+    const value=v.value.trim(),set=c.sets.find(x=>x.id===form.setId);
+    if(error=Model.entryError(v.type,value))return formError('value',error);
+    if(set.entries.some(x=>x.id!==v.id&&x.type===v.type&&x.value.toLowerCase()===value.toLowerCase()))return formError('value','该匹配方式与内容已经存在。');
+    const item={id:v.id||uid('e'),type:v.type,value};if(v.id)set.entries=set.entries.map(x=>x.id===v.id?item:x);else set.entries.push(item);
+  }
+  if(form.type==='bulk'){
+    if(!form.bulkPreview?.valid.length)return;
+    c.sets.find(s=>s.id===form.setId).entries.push(...form.bulkPreview.valid.map(x=>({...x,id:uid('e')})));
+  }
+  if(form.type==='rule'){
+    if(v.type==='RULE-SET'&&!c.sets.some(s=>s.id===v.value))return formError('value','请选择规则集。');
+    if(['DOMAIN','DOMAIN-SUFFIX','IP-CIDR'].includes(v.type)&&(error=Model.entryError(v.type==='IP-CIDR'?'ip':'domain',v.value)))return formError('value',error);
+    if(v.type==='DOMAIN-KEYWORD'&&(!v.value.trim()||/[\s,\r\n]/.test(v.value)))return formError('value','请输入不含空格或逗号的域名关键词。');
+    if(v.type==='GEOIP'&&!/^[A-Za-z]{2}$/.test(v.value))return formError('value','请输入两位地区代码，例如 CN。');
+    if(!v.target)return formError('target','请选择目标策略。');
+    if(v.target==='__new'){
+      if(error=validName(v.newName,c.groups,''))return formError('newName',error);
+      const id=uid('g');c.groups.push({id,name:v.newName,mode:v.newMode,pools:v.newPools,builtins:[],url:'https://check.example.com/generate_204',interval:300,tolerance:50});v.target=id;
+    }
+    const item={id:v.id||uid('r'),type:v.type,value:v.type==='GEOIP'?v.value.toUpperCase():v.value.trim(),target:v.target,noResolve:['RULE-SET','IP-CIDR','GEOIP'].includes(v.type)&&v.noResolve};
+    c.rules=c.rules.filter(x=>x.id!==v.id);c.rules.splice(+v.position,0,item);
+  }
+  if(form.type==='fallback'){
+    if(!v.target)return formError('target','请选择兜底去向。');c.fallback=v.target;
+  }
+  if(form.type==='deleteGroup'){
+    if(!v.replacement)return formError('replacement','请选择替代目标。');
+    c.rules=c.rules.map(r=>r.target===v.id?{...r,target:v.replacement}:r);if(c.fallback===v.id)c.fallback=v.replacement;
+    c.groups=c.groups.filter(g=>g.id!==v.id);
+    c.sources=c.sources.map(s=>s.proxy===v.id?{...s,proxy:v.replacement}:s);
+  }
+  if(form.type==='device'){
+    if(error=validName(v.name,state.devices,v.id))return formError('name',error);
+    const device={id:v.id||uid('d'),name:v.name,state:v.state||'active',expires:v.expires||'',generation:v.generation||1,seen:v.seen||'尚未下载'};
+    if(v.id)state.devices=state.devices.map(d=>d.id===v.id?device:d);else state.devices.push(device);
+    closeDrawer(true);render();toast('设备授权已保存，立即生效。');if(!v.id)openForm('link',device,{readonly:true});return;
+  }
+  closeDrawer(true);commit(c);
+}
+// EVENTS: UI-only orchestration. There are no requests to the real service.
+const newSource=()=>openForm('source',{name:'',url:'',pool:'quality',enabled:true,health:true,interval:3600,proxy:'DIRECT'});
+const newGroup=()=>openForm('group',{name:'',mode:'select',pools:[],builtins:[]});
+const newRule=(set='')=>openForm('rule',{type:'RULE-SET',value:set,target:'',position:state.draft.rules.length});
+function simulateDownload(id,generation){
+  const d=state.devices.find(x=>x.id===id),allowed=Model.canDownload(state,id,generation);
+  if(allowed)d.seen=new Date().toLocaleString('zh-CN');
+  const reason=!d?'设备不存在。':d.generation!==generation?'这个旧链接已失效，请使用更换后的链接。':`设备授权${Model.deviceStatus(d)}，不能下载配置。`;
+  render();openForm('download',{name:d?.name,allowed,reason,version:state.active,config:clone(Model.active(state).config)},{readonly:true});
+}
+async function checkDraft(){
+  if(busy||!Model.diffs(state).length)return;
+  const rev=state.rev;busy=true;publishError='';render();
+  await new Promise(r=>setTimeout(r,450));
+  if(rev===state.rev)state.checked={rev,errors:Model.validate(state.draft)};
+  busy=false;render();toast(rev!==state.rev?'草稿已变化，请重新检查。':state.checked.errors.length?'检查发现问题，请修复后重新检查。':'原型检查通过；未运行真实 Mihomo。');
+}
+async function publishDraft(){
+  if(busy||!state.checked||state.checked.rev!==state.rev||state.checked.errors.length||!Model.diffs(state).length)return;
+  const rev=state.rev;busy=true;publishError='';render();await new Promise(r=>setTimeout(r,500));
+  if(rev!==state.rev)publishError='检查后草稿发生了变化。请重新检查，再发布。';
+  else if(failNext){failNext=false;publishError=`模拟发布失败：当前仍提供 v${state.active}，草稿已保留，可以重试。`;}
+  else{const next=Model.publish(state);if(next){state=next;state.note='';page='overview';toast(`已模拟发布 v${state.active}。设备更新订阅后获取新版本。`);}}
+  busy=false;render();
+}
+async function handleAction(el){
+  const a=el.dataset.action,id=el.dataset.id,c=clone(state.draft);
+  if(a==='confirm-no'||a==='confirm-yes'){const resolve=confirmResolve;confirmResolve=null;$('#confirm-dialog').close();resolve?.(a==='confirm-yes');return;}
+  if(a==='drawer-close'){await closeDrawer();return;}
+  if(a==='nav-open'){$('#sidebar').classList.add('open');return;}
+  if(a==='nav-close'){$('#sidebar').classList.remove('open');return;}
+  if(a==='guide'){guideOpen=!guideOpen;render();return;}
+  if(a==='reveal'){const ctrl=document.getElementById(el.dataset.input);ctrl.type=ctrl.type==='password'?'text':'password';el.textContent=ctrl.type==='password'?'显示':'隐藏';return;}
+  if(a==='check-bulk'){checkBulk();return;}
+  if(a==='copy-link'){
+    try{await navigator.clipboard.writeText($('#f-link').value);toast('已复制合成示例链接。');}catch{$('#f-link').select();toast('请使用系统复制快捷键复制选中的示例链接。');}return;
+  }
+  if(a==='simulate-link'){simulateDownload(form.value.id,form.value.generation);return;}
+  if(busy&&!['external-edit','preview-active'].includes(a))return;
+  if(a==='navigate'||a==='change-go'||a==='fix'){
+    if($('#drawer').open)await closeDrawer(true);go(el.dataset.page);
+    if(a==='fix'&&id){if(page==='sources')openForm('source',c.sources.find(x=>x.id===id));else if(page==='groups')openForm('group',c.groups.find(x=>x.id===id));else if(page==='rules'&&c.rules.some(x=>x.id===id)){const r=c.rules.find(x=>x.id===id);openForm('rule',{...r,position:c.rules.indexOf(r)});}else if(page==='sets'){selectedSet=id;render();}}
+    return;
+  }
+  if(a==='review'){go('review');return;}
+  if(a==='review-tab'){reviewTab=el.dataset.tab;render();return;}
+  if(a==='diff-mode'){diffMode=el.dataset.mode;render();return;}
+  if(a==='diff-expand'){const start=Number(el.dataset.start);if(diffExpanded.has(start))diffExpanded.delete(start);else diffExpanded.add(start);render();return;}
+  if(a==='check'||a==='guide-check'){if(page!=='review')go('review');await checkDraft();return;}
+  if(a==='publish'){await publishDraft();return;}
+  if(a==='discard'){
+    if(await ask('放弃全部草稿修改？',`草稿将恢复为当前发布 v${state.active}。设备授权不受影响。`,'放弃修改',true))commit(clone(Model.active(state).config),'草稿已恢复为当前发布配置。');return;
+  }
+  if(a==='reset'||a==='scenario'){
+    if(Model.diffs(state).length&&!await ask('重新开始试用？','这会重置原型中的草稿、发布记录和设备样例。','重置样例'))return;
+    state=Model.initial();publishError='';failNext=false;scenario=+(el.dataset.index||0);go('overview');return;
+  }
+  if(a==='external-edit'){
+    c.sets.find(s=>s.id==='c1').entries.push({id:uid('e'),type:'domain',value:`tab-${state.rev}.example.com`});
+    commit(c,'模拟其他标签页保存了条目，原检查结果已过期。');return;
+  }
+  if(a==='fail-next'){failNext=!failNext;render();toast(failNext?'下一次发布将模拟失败。':'已取消发布失败模拟。');return;}
+  if(a==='new-source'||a==='guide-source'){if(a==='guide-source')go('sources');newSource();return;}
+  if(a==='edit-source'){openForm('source',c.sources.find(x=>x.id===id));return;}
+  if(a==='toggle-source'||a==='guide-disable'||a==='guide-enable'){
+    const s=c.sources.find(x=>x.id===(id||'s2'));if(!s){toast('样例订阅已删除，请重置后重试。');return;}
+    s.enabled=a==='guide-enable'?true:a==='guide-disable'?false:!s.enabled;commit(c);return;
+  }
+  if(a==='delete-source'){
+    const s=c.sources.find(x=>x.id===id),refs=c.groups.filter(g=>g.pools.includes(s.pool)).map(g=>g.name).join('、');
+    if(await ask(`删除订阅“${s.name}”？`,`关联策略组：${refs||'无'}。删除仅保存到草稿；没有来源的策略组会阻止发布。`,'删除订阅',true)){c.sources=c.sources.filter(x=>x.id!==id);commit(c);}return;
+  }
+  if(a==='new-group'){newGroup();return;}
+  if(a==='edit-group'){openForm('group',c.groups.find(x=>x.id===id));return;}
+  if(a==='delete-group'){
+    const g=c.groups.find(x=>x.id===id);
+    if(c.rules.some(r=>r.target===id)||c.fallback===id||c.sources.some(s=>s.proxy===id))openForm('deleteGroup',g);
+    else if(await ask(`删除策略组“${g.name}”？`,'此组没有引用。删除只保存到草稿。','删除',true)){c.groups=c.groups.filter(x=>x.id!==id);commit(c);}return;
+  }
+  if(a==='new-set'){openForm('set',{name:'',kind:'local',entries:[]});return;}
+  if(a==='edit-set'){openForm('set',c.sets.find(x=>x.id===id));return;}
+  if(a==='open-set'||a==='guide-set'){
+    go('sets');selectedSet=id||'c1';render();return;
+  }
+  if(a==='sets-back'){selectedSet=null;query='';render();return;}
+  if(a==='delete-set'){
+    const s=c.sets.find(x=>x.id===id);
+    if(c.rules.some(r=>r.type==='RULE-SET'&&r.value===id))openForm('blockedSet',s,{readonly:true});
+    else if(await ask(`删除规则集“${s.name}”？`,'其自维护条目会一同从草稿删除。','删除',true)){c.sets=c.sets.filter(x=>x.id!==id);commit(c);}return;
+  }
+  if(a==='new-entry'){openForm('entry',{type:'suffix',value:''},{setId:id});return;}
+  if(a==='edit-entry'){openForm('entry',c.sets.find(x=>x.id===el.dataset.set).entries.find(x=>x.id===id),{setId:el.dataset.set});return;}
+  if(a==='delete-entry'){
+    const s=c.sets.find(x=>x.id===el.dataset.set);s.entries=s.entries.filter(x=>x.id!==id);commit(c,'条目已从草稿删除，当前发布不变。');return;
+  }
+  if(a==='bulk'){openForm('bulk',{entryType:'suffix',text:''},{setId:id});return;}
+  if(a==='new-rule'||a==='guide-rule'){if(a==='guide-rule')go('rules');newRule(el.dataset.set||(a==='guide-rule'?'c1':''));return;}
+  if(a==='edit-rule'){const r=c.rules.find(x=>x.id===id);openForm('rule',{...r,position:c.rules.indexOf(r)});return;}
+  if(a==='move-rule'){
+    const i=c.rules.findIndex(r=>r.id===id),next=i+Number(el.dataset.offset);if(next<0||next>=c.rules.length)return;
+    const [r]=c.rules.splice(i,1);c.rules.splice(next,0,r);commit(c);return;
+  }
+  if(a==='delete-rule'){
+    if(await ask('删除这条分流规则？','后续规则及兜底将接收原先匹配的流量，发布后生效。','删除规则',true)){c.rules=c.rules.filter(x=>x.id!==id);commit(c);}return;
+  }
+  if(a==='edit-fallback'){openForm('fallback',{target:c.fallback});return;}
+  if(a==='drawer-go-rules'){await closeDrawer(true);go('rules');return;}
+  if(a==='base'){openForm('base',{}, {readonly:true});return;}
+  if(a==='preview-active'||a==='preview-draft'){
+    openForm('preview',{title:a==='preview-active'?`当前发布 v${state.active}`:`草稿 r${state.rev}`,config:a==='preview-active'?Model.active(state).config:c},{readonly:true});return;
+  }
+  if(['view-version','compare-version','restore-version','export-version'].includes(a)){
+    const v=state.versions.find(x=>x.n===Number(el.dataset.version));
+    if(a==='view-version')openForm('preview',{title:`发布版本 v${v.n}`,config:v.config},{readonly:true});
+    if(a==='compare-version')openForm('compare',v,{readonly:true});
+    if(a==='restore-version'&&await ask(`将 v${v.n} 恢复到草稿？`,'会替换现有草稿。当前发布和设备授权不变，仍需检查并发布。','恢复到草稿')){page='review';commit(clone(v.config),'历史配置已恢复到草稿，尚未发布。');}
+    if(a==='export-version'){const url=URL.createObjectURL(new Blob([Model.yaml(v.config)],{type:'text/yaml'})),link=document.createElement('a');link.href=url;link.download=`prototype-redacted-v${v.n}.yaml`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('已导出脱敏原型示例，不能用于真实客户端。');}return;
+  }
+  if(a==='new-device'||a==='guide-device'){if(a==='guide-device')go('devices');openForm('device',{name:'',expires:''});return;}
+  if(a==='guide-devices'){go('devices');return;}
+  if(a==='edit-device'){openForm('device',state.devices.find(x=>x.id===id));return;}
+  if(a==='device-link'){openForm('link',state.devices.find(x=>x.id===id),{readonly:true});return;}
+  if(a==='simulate-device'){const d=state.devices.find(x=>x.id===id);simulateDownload(id,d.generation);return;}
+  if(a==='simulate-old-link'){const d=state.devices.find(x=>x.id===id);simulateDownload(id,d.generation-1);return;}
+  if(a==='toggle-device'){
+    const d=state.devices.find(x=>x.id===id);if(d.state==='revoked')return;d.state=d.state==='paused'?'active':'paused';render();toast(`设备已${d.state==='paused'?'暂停':'恢复'}，授权立即生效。`);return;
+  }
+  if(a==='revoke-device'){
+    const d=state.devices.find(x=>x.id===id);if(await ask(`撤销“${d.name}”的授权？`,'此操作立即阻止后续下载，无法恢复此链接。已经下载的配置不会被收回。','撤销授权',true)){d.state='revoked';render();toast('设备授权已撤销，草稿和发布版本未变。');}return;
+  }
+  if(a==='rotate-device'){
+    const d=state.devices.find(x=>x.id===id);if(await ask(`更换“${d.name}”的链接？`,'旧链接立即失效，需要在客户端重新导入新链接。','更换链接')){d.generation++;render();openForm('link',d,{readonly:true});toast('链接已更换，旧链接立即失效。');}return;
+  }
+}
+document.addEventListener('click',event=>{
+  const el=event.target.closest('[data-action]');if(!el||el.disabled)return;
+  event.preventDefault();handleAction(el).catch(error=>{console.error(error);toast('原型操作遇到错误，请重试或重置样例。');});
+});
+document.addEventListener('submit',event=>{if(event.target.matches('#drawer form')){event.preventDefault();saveForm();}});
+document.addEventListener('input',event=>{
+  const el=event.target;
+  if(el.matches('[data-search]')){const pos=el.selectionStart;query=el.value;render();const search=$('[data-search]');search.focus();search.setSelectionRange(pos,pos);return;}
+  if(el.id==='publish-note'){state.note=el.value;return;}
+  if(el.closest('#drawer form')&&form){
+    if(form.type==='bulk'){form.bulkPreview=null;$('#bulk-preview').innerHTML='';$('#drawer button[type=submit]').disabled=true;}
+    el.removeAttribute('aria-invalid');const error=$(`#err-${el.name}`);if(error)error.textContent='';$('#form-error').innerHTML='';updateFormPreview();
+  }
+});
+document.addEventListener('change',event=>{
+  const el=event.target;
+  if(el.dataset.filter){if(el.dataset.filter==='pool')poolFilter=el.value;else sourceStatus=el.value;render();return;}
+  if(!form||!el.closest('#drawer form'))return;
+  if((form.type==='group'&&el.name==='mode')||(form.type==='set'&&el.name==='kind')||(['entry','rule'].includes(form.type)&&el.name==='type')||(form.type==='rule'&&el.name==='target')){
+    const values=readForm();form.value={...form.value,...values};
+    if(form.type==='rule'&&el.name==='type')form.value.value='';
+    renderDrawer();$(`#f-${el.name}`)?.focus();
+  }else updateFormPreview();
+});
+$('#drawer').addEventListener('cancel',event=>{event.preventDefault();closeDrawer();});
+$('#confirm-dialog').addEventListener('cancel',event=>{event.preventDefault();const resolve=confirmResolve;confirmResolve=null;$('#confirm-dialog').close();resolve?.(false);});
+$('#drawer').addEventListener('click',event=>{if(event.target===$('#drawer')){const r=$('#drawer').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeDrawer();}});
+let draggedRule=null;
+document.addEventListener('dragstart',event=>{const handle=event.target.closest('[data-drag]');if(!handle||query)return;draggedRule=handle.dataset.drag;event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',draggedRule);});
+document.addEventListener('dragover',event=>{if(draggedRule&&event.target.closest('[data-drop]'))event.preventDefault();});
+document.addEventListener('drop',event=>{
+  const row=event.target.closest('[data-drop]');if(!draggedRule||!row||query)return;event.preventDefault();
+  const c=clone(state.draft),from=c.rules.findIndex(r=>r.id===draggedRule),to=c.rules.findIndex(r=>r.id===row.dataset.drop);draggedRule=null;
+  if(from===to||from<0||to<0)return;const [r]=c.rules.splice(from,1);c.rules.splice(to,0,r);commit(c);
+});
+document.addEventListener('dragend',()=>{draggedRule=null;});
+// START
+matchMedia('(max-width:760px)').addEventListener('change',()=>{if(page==='review'&&reviewTab==='config')render();});
+render();
+</script>
+</body>
+</html>

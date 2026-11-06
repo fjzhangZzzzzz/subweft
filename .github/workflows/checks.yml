@@ -1,0 +1,101 @@
+name: Source checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Documentation and repository admission
+        run: python3 tools/check_docs.py
+      - name: Whitespace
+        run: git show --format= --check HEAD
+
+  application:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    env:
+      CGO_ENABLED: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '26.12.1'
+      - name: Build embedded interface
+        run: |
+          npm ci --prefix web --ignore-scripts --no-audit --no-fund
+          npm run format:check --prefix web
+          npm run build --prefix web
+      - name: Install Linux validation sandbox
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap util-linux apparmor-profiles apparmor-utils
+          if [ ! -f /etc/apparmor.d/bwrap-userns-restrict ]; then
+            sudo install -m 0644 /usr/share/apparmor/extra-profiles/bwrap-userns-restrict /etc/apparmor.d/bwrap-userns-restrict
+          fi
+          sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
+      - name: Fetch and verify native validator
+        run: |
+          python tools/fetch_validator.py
+          python tools/fetch_testdata.py
+      - name: Tests, analysis and dependency integrity
+        run: |
+          export SUBWEFT_TEST_GEODB="$PWD/output/tools/GeoIP2-Country-Test.mmdb"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            export SUBWEFT_TEST_MIHOMO="$PWD/output/tools/mihomo.exe"
+          else
+            export SUBWEFT_TEST_MIHOMO="$PWD/output/tools/mihomo"
+          fi
+          go test -tags webui ./...
+          go vet ./...
+          go mod verify
+      - name: Build application
+        run: go build -tags webui -o output/subweft-ci ./cmd/subweft
+
+      - name: Package native acceptance candidate
+        run: python tools/package.py --platform native
+
+      - name: Native container isolation and business recovery
+        if: runner.os == 'Linux'
+        run: |
+          sudo apparmor_parser -r deploy/subweft.apparmor
+          python3 tools/container_check.py
+
+      - name: Packaged Windows development workflow and recovery
+        if: runner.os == 'Windows'
+        run: python tools/windows_check.py
+
+      - name: Preserve verified native candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: candidate-${{ matrix.os }}
+          path: |
+            output/packages/*/*.tar.gz
+            output/packages/*/SHA256SUMS
+            output/container/results/editor-smoke.json
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error

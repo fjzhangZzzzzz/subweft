@@ -1,0 +1,34 @@
+mixed-port: 7890
+allow-lan: false
+mode: rule
+dns:
+  enable: true
+  enhanced-mode: fake-ip
+  nameserver: [https://dns.example.com/dns-query]
+proxy-providers:
+  主力订阅:
+    type: http
+    url: https://quality.example.com/subscription
+    interval: 3600
+  日常订阅:
+    type: http
+    url: https://quota.example.com/subscription
+    interval: 3600
+proxy-groups:
+  - name: AI
+    type: select
+    use: [主力订阅, 日常订阅]
+  - name: Default
+    type: url-test
+    use: [日常订阅]
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+rule-providers:
+  AI:
+    type: inline
+    behavior: domain
+    payload: ['+.ai.example.com']
+rules:
+  - RULE-SET,AI,AI
+  - MATCH,Default
