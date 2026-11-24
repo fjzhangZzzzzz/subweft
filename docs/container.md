@@ -2,7 +2,7 @@
 
 > 本文包含旧候选部署记录。ADR-0008 新编辑器的发布 CI 对实际应用包执行新版 API、授权与 CLI 恢复检查；各候选结果以对应 workflow 为准，不要将下述旧性能通过结论用于本版。当前本机入口见 human-acceptance.md，生产切换见 editor-cutover.md。
 
-本入口面向 Linux amd64/arm64。镜像只含 Subweft 和系统运行依赖，Mihomo 按[锁定文件](../internal/validator/lock.json)单独取得并以只读文件挂载。当前容器验证由原生 CI 执行，未向生产部署。
+本入口面向 Linux amd64/arm64。镜像只含 Subweft 和系统运行依赖，Mihomo 按[锁定文件](../internal/validator/lock.json)单独取得并以只读文件挂载。正式镜像发布策略见[ADR-0012](adr/0012-public-container-publishing.md)：`Source checks` 成功后发布与正式版本一致的 Linux amd64 镜像到 GHCR；当前 v0.4.1 尚未发布容器镜像，也未向生产部署。公开镜像可由 Dagu 匿名拉取，部署声明必须锁定 registry digest，不使用可变 tag。
 
 ## 隔离边界
 
