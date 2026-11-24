@@ -1,0 +1,160 @@
+name: Publish container image
+
+on:
+  workflow_run:
+    workflows: ["Source checks"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      source_tag:
+        description: Stable source tag whose successful Source checks should be published
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  identify-release:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      source_tag: ${{ steps.release.outputs.source_tag }}
+      source_sha: ${{ steps.release.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve and verify the release source
+        id: release
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha || '' }}
+          MANUAL_TAG: ${{ inputs.source_tag || '' }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git fetch --force --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if [[ "$EVENT_NAME" = workflow_dispatch ]]; then
+            tag=$MANUAL_TAG
+            [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+            source_sha=$(git rev-parse --verify "refs/tags/$tag^{commit}")
+            runs=$(gh run list --repo "$GH_REPOSITORY" --workflow checks.yml --commit "$source_sha" \
+              --limit 100 --json conclusion,event,headSha,createdAt)
+            conclusion=$(jq -r --arg sha "$source_sha" \
+              '[.[] | select(.headSha == $sha and .event == "push")] | sort_by(.createdAt) | last | .conclusion // "missing"' \
+              <<< "$runs")
+            [[ "$conclusion" = success ]] || {
+              echo "Refusing to publish: latest Source checks for $tag are $conclusion." >&2
+              exit 1
+            }
+          else
+            source_sha=$EVENT_SHA
+            [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
+            mapfile -t tags < <(git tag --points-at "$source_sha" | grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || true)
+            if [[ ${#tags[@]} -eq 0 ]]; then
+              echo 'Successful source checks are not for a version tag; skipping image publication.'
+              echo 'source_tag=' >> "$GITHUB_OUTPUT"
+              echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            [[ ${#tags[@]} -eq 1 ]]
+            tag=${tags[0]}
+          fi
+          source_sha=$(git rev-parse --verify "refs/tags/$tag^{commit}")
+          [[ "$tag" = "v$(git show "$source_sha:internal/buildinfo/VERSION")" ]]
+          git merge-base --is-ancestor "$source_sha" refs/remotes/origin/main || {
+            echo 'Refusing to publish an unmerged source tag.' >&2
+            exit 1
+          }
+          printf 'Verified release source: %s (%s)\n' "$tag" "$source_sha"
+          echo "source_tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: identify-release
+    if: needs.identify-release.outputs.source_tag != ''
+    concurrency:
+      group: publish-subweft-${{ needs.identify-release.outputs.source_tag }}
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE_NAME: ghcr.io/fjzhangzzzzzz/subweft
+      SOURCE_TAG: ${{ needs.identify-release.outputs.source_tag }}
+      SOURCE_SHA: ${{ needs.identify-release.outputs.source_sha }}
+      CGO_ENABLED: '0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.identify-release.outputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '26.12.1'
+      - name: Build the reviewed application payload
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" = "$SOURCE_SHA" ]]
+          [[ "$(cat internal/buildinfo/VERSION)" = "${SOURCE_TAG#v}" ]]
+          npm ci --prefix web --ignore-scripts --no-audit --no-fund
+          npm run build --prefix web
+          mkdir -p output/container
+          go build -trimpath -buildvcs=true -tags webui -o output/container/subweft ./cmd/subweft
+          install -m 0644 /etc/ssl/certs/ca-certificates.crt output/container/ca-certificates.crt
+      - name: Build the pinned amd64 runtime image
+        env:
+          SOURCE_REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 --target runtime -f deploy/Dockerfile \
+            --label "org.opencontainers.image.source=$SOURCE_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" \
+            --label "org.opencontainers.image.version=$SOURCE_TAG" \
+            --tag "$IMAGE_NAME:$SOURCE_TAG" .
+      - name: Publish the versioned image to GHCR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
+          unset GH_TOKEN
+          image="$IMAGE_NAME:$SOURCE_TAG"
+          if docker manifest inspect "$image" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing release image $image." >&2
+            exit 1
+          fi
+          docker push "$image"
+          image_id=$(docker image inspect --format '{{.Id}}' "$image")
+          mapfile -t repo_digests < <(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image")
+          registry_reference=
+          for candidate in "${repo_digests[@]}"; do
+            case "$candidate" in "$IMAGE_NAME"@sha256:*) registry_reference=$candidate ;; esac
+          done
+          [[ "$registry_reference" =~ ^ghcr\.io/fjzhangzzzzzz/subweft@sha256:[0-9a-f]{64}$ ]]
+          {
+            printf '### Subweft runtime image published\n\n'
+            printf -- '- Source: `%s` (`%s`)\n' "$SOURCE_TAG" "$SOURCE_SHA"
+            printf -- '- Image: `%s`\n' "$image"
+            printf -- '- Registry reference: `%s`\n' "$registry_reference"
+            printf -- '- Image ID: `%s`\n' "$image_id"
+            printf -- '- Mihomo bundled: no\n'
+          } >> "$GITHUB_STEP_SUMMARY"

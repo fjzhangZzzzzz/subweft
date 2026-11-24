@@ -9,6 +9,7 @@
 - [本地运行](running.md)：独立本地状态和测试身份。
 - [GeoDB 校验边界](adr/0009-geographic-validation-boundary.md)：部分原生检查、可选数据库及发布承诺。
 - [DNS 结构化编辑](adr/0010-dns-structured-editor.md)：基础配置入口、字段范围与编辑边界。
+- [公开容器镜像发布](adr/0012-public-container-publishing.md)：GHCR 权限、版本标签和发布边界。
 - [产品设计](design.md)、[架构](architecture.md)、[支持矩阵](support-matrix.md)：正式范围和实现边界。
 - [验收标准](acceptance.md)、[当前状态](status.md)、[实施清单](implementation-reset.md)。
 - [新方向决策](adr/0008-config-editor-reset.md)、[已通过原型](prototype-review.md)。
